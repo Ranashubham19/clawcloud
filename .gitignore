@@ -1,0 +1,5 @@
+.env
+data/*.log
+tmp/
+nvidia_model_inventory.csv
+nvidia_model_report.md

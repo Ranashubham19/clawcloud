@@ -1,0 +1,16 @@
+{
+  "name": "claw-cloud-whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp-first Claw Cloud powered by a single NVIDIA-hosted model.",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node test/run-tests.js",
+    "doctor": "node scripts/doctor.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

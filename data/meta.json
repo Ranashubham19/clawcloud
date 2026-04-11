@@ -1,0 +1,9 @@
+{
+  "inbound": {
+    "wamid-1": {
+      "status": "processing",
+      "startedAt": "2026-04-11T21:16:12.452Z"
+    }
+  },
+  "outbound": {}
+}
