@@ -11,12 +11,12 @@ import {
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
 
-// Most capable models pushed to front for complex technical and analytical questions
+// Most advanced models preferred — prioritised for all routes including tools
 const ADVANCED_MODELS = [
-  "mistralai/mistral-large-3-675b-instruct-2512",
-  "qwen/qwen3.5-397b-a17b",
+  "meta/llama-3.1-405b-instruct",
   "deepseek-ai/deepseek-v3.2",
-  "meta/llama-3.1-405b-instruct"
+  "mistralai/mistral-large-3-675b-instruct-2512",
+  "qwen/qwen3.5-397b-a17b"
 ];
 
 const toolIntentPattern =
@@ -51,9 +51,9 @@ function pickMaxTokens(text, useTools) {
   const value = String(text || "");
   const long = longAnswerPattern.test(value) || value.length > 100;
   if (useTools) {
-    return long ? 1100 : 650;
+    return long ? 1200 : 700;
   }
-  return long ? 1100 : 650;
+  return long ? 1500 : 800;
 }
 
 function resolvePreferredModels(route) {
