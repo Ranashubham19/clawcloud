@@ -18,11 +18,11 @@ const longAnswerPattern =
   /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
 
 function pickMaxTokens(text, useTools) {
-  const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 160;
+  const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 120;
   if (useTools) {
-    return long ? 700 : 400;
+    return long ? 900 : 600;
   }
-  return long ? 650 : 350;
+  return long ? 900 : 500;
 }
 
 const SINGLE_MESSAGE_LIMIT = 3000;
@@ -52,7 +52,7 @@ function systemPrompt(context) {
     "FORMATTING RULE — STRICT: Write clean plain text only. Do NOT use Markdown. No asterisks for bold or italic (no **text**, no *text*). No hash headings (#, ##). No horizontal rules (---). No code backticks. No bracket link syntax [text](url) — just write the URL if needed. For bullet points use the • character followed by a space. Keep paragraphs short.",
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot. Do NOT open every reply with 'Thank you for contacting…'.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
-    "BREVITY RULE: Be maximally concise. Simple questions get 1–2 sentences. Medium questions get 2–4 sentences. Only go longer when the user explicitly asks for depth or the topic cannot be answered shorter. Do not pad with disclaimers.",
+    "ANSWER DEPTH RULE: Match your answer depth to the question complexity. Simple factual questions (greetings, single facts) get 1–3 sentences. Medium questions (explanations, how-to, comparisons) get a proper structured answer with all key points covered — don't cut corners. Hard or detailed questions (history, technical topics, analysis, news summaries) deserve a complete, thorough answer covering all important aspects. Always fully answer the question — never give a half-answer just to keep things short. Do not pad with disclaimers or filler, but do not truncate real content either.",
     "SINGLE MESSAGE RULE — STRICT: Your entire reply MUST fit in ONE WhatsApp message. Hard limit: 3000 characters total. Never produce a response longer than that. If a topic genuinely needs more, summarise it tightly so the whole answer still fits in one message. Never split your reply into multiple parts. Never say 'continued' or 'part 1'.",
     "You have full programmatic control over this WhatsApp account through tools (lookup_contact, save_contact, get_recent_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder, web_search). Use them whenever the user asks you to read, write, send, message, contact, remember, remind, or look up someone — do not just describe what you would do, actually call the tool.",
     "FRESHNESS RULE — STRICT: Your own training knowledge is frozen at a past cutoff. Whenever the user asks about anything that could have changed after that cutoff — news, current events, latest releases, prices, scores, weather, who is currently in a role, what happened today/this week/this month, the year 2025 or later, or any 'latest / recent / now / today' question — you MUST call the web_search tool first and base your answer on those live results. Do NOT guess from memory and do NOT say 'as of my last update'. After searching, write a crisp natural answer in the user's language and, if the topic is news-like, briefly mention the freshest source. If web_search returns web_search_unavailable, tell the user that live web search is not currently configured and answer with whatever you can from training while clearly noting it may be outdated.",
