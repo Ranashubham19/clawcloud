@@ -11,12 +11,12 @@ import {
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
 
-// Most advanced models preferred — prioritised for all routes including tools
+// Advanced + responsive models — preferred across all routes
 const ADVANCED_MODELS = [
-  "meta/llama-3.1-405b-instruct",
   "deepseek-ai/deepseek-v3.2",
-  "mistralai/mistral-large-3-675b-instruct-2512",
-  "qwen/qwen3.5-397b-a17b"
+  "meta/llama-3.3-70b-instruct",
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "qwen/qwen3-next-80b-a3b-instruct"
 ];
 
 const toolIntentPattern =

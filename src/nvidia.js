@@ -3,16 +3,16 @@ import { config, requireConfig } from "./config.js";
 import { toModelText } from "./lib/text.js";
 
 export const DEFAULT_NVIDIA_MODELS = [
-  "meta/llama-3.1-405b-instruct",                  // 405B — most capable available, all-round expert
-  "deepseek-ai/deepseek-v3.2",                     // DeepSeek V3.2 — top reasoning, coding, multilingual
-  "mistralai/mistral-large-3-675b-instruct-2512",  // 675B — largest Mistral, best for complex & multilingual
-  "qwen/qwen3.5-397b-a17b",                        // 397B MoE — powerful multilingual, analysis
-  "qwen/qwen3-next-80b-a3b-instruct",              // 80B — strong multilingual fallback
-  "mistralai/mistral-medium-3-instruct",            // Medium Mistral — reliable multilingual
-  "meta/llama-3.3-70b-instruct",                   // 70B — fast & reliable when above are busy
-  "meta/llama-4-maverick-17b-128e-instruct",       // MoE — speed fallback
-  "qwen/qwen2.5-coder-32b-instruct",               // Coder specialist
-  "google/gemma-3-27b-it"                          // 27B — emergency last resort
+  "deepseek-ai/deepseek-v3.2",                     // DeepSeek V3.2 — super advanced, multilingual, fast
+  "meta/llama-3.3-70b-instruct",                   // Llama 3.3 70B — highly capable, reliable speed
+  "meta/llama-4-maverick-17b-128e-instruct",       // Llama 4 Maverick — MoE, advanced, fast
+  "qwen/qwen3-next-80b-a3b-instruct",              // Qwen3 80B — advanced multilingual
+  "mistralai/mistral-medium-3-instruct",            // Mistral Medium 3 — strong multilingual
+  "qwen/qwen2.5-coder-32b-instruct",               // Qwen 2.5 Coder — advanced coding + reasoning
+  "google/gemma-3-27b-it",                         // Gemma 3 27B — capable fallback
+  "meta/llama-3.1-405b-instruct",                  // 405B — very deep, no timeout so it will finish
+  "mistralai/mistral-large-3-675b-instruct-2512",  // 675B — largest, no timeout so it will finish
+  "qwen/qwen3.5-397b-a17b"                         // 397B MoE — last resort
 ];
 
 const SELECTED_MODEL_LIMIT = DEFAULT_NVIDIA_MODELS.length;
