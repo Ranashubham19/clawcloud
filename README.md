@@ -12,6 +12,7 @@ A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The
 - Runs scheduled reminders in the background
 - Can sync Google Contacts into the bot's contact store
 - Splits long answers into clean WhatsApp-sized chunks instead of cutting replies mid-sentence
+- Can use Gemini with Google Search grounding for faster live answers while preserving the user's language
 
 ## Project shape
 
@@ -30,6 +31,7 @@ A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The
 1. Copy `.env.example` to `.env`
 2. Fill in:
    - `NVIDIA_API_KEY`
+   - `GEMINI_API_KEY` if you want faster live answers for recent updates and current events
    - `WHATSAPP_VERIFY_TOKEN`
    - `WHATSAPP_ACCESS_TOKEN`
    - `WHATSAPP_PHONE_NUMBER_ID`

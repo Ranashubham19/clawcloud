@@ -8,6 +8,7 @@ export function getReadinessReport() {
   const checks = {
     nvidia_api_key: present(config.nvidiaApiKey),
     nvidia_model: present(config.nvidiaModel),
+    gemini_api_key_optional: present(config.geminiApiKey),
     whatsapp_verify_token: present(config.whatsappVerifyToken),
     whatsapp_access_token: present(config.whatsappAccessToken),
     whatsapp_phone_number_id: present(config.whatsappPhoneNumberId),

@@ -2,6 +2,12 @@ import { config } from "./config.js";
 import { appendConversationMessage, getConversation, upsertContact } from "./store.js";
 import { createChatCompletion, unpackAssistantMessage, getRankedNvidiaModels } from "./nvidia.js";
 import { executeTool, toolDefinitions } from "./tools.js";
+import {
+  detectLanguageStyle,
+  isLanguageCompatible,
+  languageInstruction,
+  languageLabel
+} from "./lib/language.js";
 import { safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { webSearch, hasSearchProvider } from "./search.js";
 import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
@@ -16,34 +22,44 @@ const WEB_SYNTHESIS_MODELS = [
   "mistralai/mistral-large-3-675b-instruct-2512"
 ];
 
-async function getLiveAnswer(query) {
-  // 1. Try Gemini with Google Search grounding (best for live data)
+async function getLiveAnswer(query, languageStyle) {
   if (hasGeminiProvider()) {
-    const answer = await geminiSearchAnswer({ query });
+    const answer = await geminiSearchAnswer({ query, languageStyle });
     if (answer) {
       return { source: "gemini", answer, inject: false };
     }
   }
 
-  // 2. Fall back to Tavily → inject results for NVIDIA to synthesise
   if (hasSearchProvider()) {
     try {
       const result = await webSearch({ query, maxResults: 4, freshness: "month" });
       if (result.ok && (result.answer || result.results?.length)) {
         const lines = [];
-        if (result.answer) lines.push(`Summary: ${result.answer}`);
-        for (const r of result.results.slice(0, 4)) {
+        if (result.answer) {
+          lines.push(`Summary: ${result.answer}`);
+        }
+        for (const item of (result.results || []).slice(0, 4)) {
           const parts = [];
-          if (r.published) parts.push(`[${r.published.slice(0, 10)}]`);
-          if (r.title) parts.push(r.title);
-          if (r.snippet) parts.push(`— ${r.snippet}`);
-          if (r.url) parts.push(`(${r.url})`);
-          if (parts.length) lines.push(parts.join(" "));
+          if (item.published) {
+            parts.push(`[${item.published.slice(0, 10)}]`);
+          }
+          if (item.title) {
+            parts.push(item.title);
+          }
+          if (item.snippet) {
+            parts.push(`- ${item.snippet}`);
+          }
+          if (item.url) {
+            parts.push(`(${item.url})`);
+          }
+          if (parts.length) {
+            lines.push(parts.join(" "));
+          }
         }
         return { source: "tavily", answer: lines.join("\n"), inject: true };
       }
     } catch {
-      // fall through
+      // Fall through to model answer without live results.
     }
   }
 
@@ -63,9 +79,9 @@ function pickMaxTokens(text, useTools) {
   const value = String(text || "");
   const long = longAnswerPattern.test(value) || value.length > 100;
   if (useTools) {
-    return long ? 1500 : 900;
+    return long ? 1300 : 750;
   }
-  return long ? 1900 : 950;
+  return long ? 1600 : 850;
 }
 
 export function isToolLeakText(value) {
@@ -110,7 +126,8 @@ async function continueIfTruncated({
   text,
   finishReason,
   preferredModel,
-  excludeModels
+  excludeModels,
+  languageStyle
 }) {
   let combined = String(text || "").trim();
   let nextFinishReason = finishReason;
@@ -123,22 +140,25 @@ async function continueIfTruncated({
       { role: "assistant", content: combined },
       {
         role: "user",
-        content:
-          "Continue exactly from where you stopped. Do not repeat earlier lines. Keep the same language, tone, and formatting."
+        content: `Continue exactly from where you stopped. Do not repeat earlier lines. ${languageInstruction(languageStyle)}`
       }
     ];
 
     const continuationCompletion = await createChatCompletion({
       messages: workingMessages,
       tools: [],
-      maxTokens: 900,
+      maxTokens: 750,
       preferredModels: preferredModel ? [preferredModel] : [],
       excludeModels
     });
     const continuation = unpackAssistantMessage(continuationCompletion);
     const nextText = sanitizeForWhatsApp(continuation.text);
 
-    if (!nextText || isToolLeakText(nextText)) {
+    if (
+      !nextText ||
+      isToolLeakText(nextText) ||
+      !isLanguageCompatible(nextText, languageStyle)
+    ) {
       break;
     }
 
@@ -154,12 +174,15 @@ function systemPrompt(context) {
   return [
     `You are ${config.botName}, an advanced AI assistant operating directly inside WhatsApp, similar in capability and tone to Meta AI.`,
     "You can answer any question on any topic: general knowledge, current affairs, math, code, writing, translation, analysis, advice, and casual conversation.",
-    "LANGUAGE RULE - STRICT: Always reply in the exact same language and script as the user's most recent message. Detect the language of the latest user turn only. If the latest message is in English, reply in English. If it is in Hindi, reply in Hindi. If it is in Hinglish or Roman Urdu, reply in the same style. Do not mix languages unless the user asks.",
+    "LANGUAGE RULE - STRICT: Always reply in the exact same language and script as the user's most recent message. Detect the language of the latest user turn only. Do not switch languages unless the user explicitly asks.",
+    context.languageInstruction,
+    `Required language style: ${context.languageLabel}.`,
     "FORMATTING RULE - STRICT: Write clean plain text only. No Markdown, no backticks, no headings, no bracket links, and no raw JSON. Keep paragraphs readable. For bullets use '- '.",
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
-    "ANSWER DEPTH RULE: Always give a complete, thorough answer. Simple questions get 2 to 4 sentences. Medium questions get a structured explanation. Hard or technical questions deserve a detailed answer with steps, reasoning, and examples where useful. Never give a one-line answer to a non-trivial question.",
-    "LENGTH RULE: Do not artificially shorten good answers. Write the full answer. The system can split long replies into multiple WhatsApp messages when needed.",
+    "ANSWER DEPTH RULE: Always give a complete and accurate answer. Simple questions should be short. Medium and hard questions should be clear and complete without filler.",
+    "SPEED RULE: Prefer fast, direct answers. Do not over-explain when the question is simple.",
+    "LENGTH RULE: Do not artificially shorten good answers. The system can split long replies into multiple WhatsApp messages when needed.",
     "FORMAT REMINDER: Write in plain natural language. Never output raw JSON, code objects, tool-call syntax, or function-call arguments to the user. If explaining an algorithm or data structure, explain it in words and normal pseudocode.",
     "You have full programmatic control over this WhatsApp account through tools (list_contacts, list_chat_threads, lookup_contact, save_contact, get_recent_history, search_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder, web_search). Use them whenever the user asks you to read, write, send, message, contact, remember, remind, analyze a chat, or look up someone. Do not just describe what you would do. Actually call the tool.",
     "FRESHNESS RULE - STRICT: Your own training knowledge is frozen at a past cutoff. Whenever the user asks about anything that could have changed after that cutoff - news, current events, latest releases, prices, scores, weather, who is currently in a role, what happened today or recently, or the year 2025 or later - you must call the web_search tool first and base your answer on live results. Do not guess from memory.",
@@ -186,6 +209,8 @@ function historyToModelMessages(history) {
 }
 
 export async function handleIncomingText({ messageId, from, profileName, text }) {
+  const languageStyle = detectLanguageStyle(text);
+
   await upsertContact({
     name: profileName || from,
     phone: from,
@@ -213,16 +238,14 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   const isRecency = recencyIntentPattern.test(String(text || ""));
   const useTools = mayNeedTools(text);
 
-  // Fire live search + history fetch in parallel — zero extra wall time
   const [history, liveResult] = await Promise.all([
-    getConversation(from, 6),
-    isRecency ? getLiveAnswer(text) : Promise.resolve(null)
+    getConversation(from, isRecency ? 4 : 6),
+    isRecency ? getLiveAnswer(text, languageStyle) : Promise.resolve(null)
   ]);
 
-  // Gemini answered with Google Search — return immediately, skip NVIDIA entirely
   if (liveResult?.source === "gemini" && liveResult.answer) {
     const geminiText = sanitizeForWhatsApp(liveResult.answer);
-    if (geminiText) {
+    if (geminiText && isLanguageCompatible(geminiText, languageStyle)) {
       await appendConversationMessage(from, {
         role: "assistant",
         text: geminiText,
@@ -237,15 +260,22 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     : [];
 
   const messages = [
-    { role: "system", content: systemPrompt({ currentUserPhone: from, profileName }) },
+    {
+      role: "system",
+      content: systemPrompt({
+        currentUserPhone: from,
+        profileName,
+        languageInstruction: languageInstruction(languageStyle),
+        languageLabel: languageLabel(languageStyle)
+      })
+    },
     ...historyToModelMessages(history)
   ];
 
-  // Tavily fallback — inject results for NVIDIA to synthesise
   if (liveResult?.source === "tavily" && liveResult.answer) {
     messages.push({
       role: "user",
-      content: `[Live web search results for: "${text}"]\n\n${liveResult.answer}\n\n---\nUsing the live results above, answer my question accurately in my language.`
+      content: `[Live web search results for: "${text}"]\n\n${liveResult.answer}\n\n---\nUsing the live results above, answer my question accurately. ${languageInstruction(languageStyle)}`
     });
   }
 
@@ -282,12 +312,20 @@ export async function handleIncomingText({ messageId, from, profileName, text })
           }
         }
 
+        if (!isLanguageCompatible(cleanedAssistantText, languageStyle) && assistant.model) {
+          rejectedModels.add(assistant.model);
+          if (rejectedModels.size < 5) {
+            continue;
+          }
+        }
+
         assistantText = await continueIfTruncated({
           baseMessages: messages,
           text: cleanedAssistantText,
           finishReason: assistant.finishReason,
           preferredModel: assistant.model,
-          excludeModels: [...rejectedModels]
+          excludeModels: [...rejectedModels],
+          languageStyle
         });
 
         if (assistantText) {

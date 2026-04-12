@@ -1,29 +1,44 @@
 import { config } from "./config.js";
+import {
+  isLanguageCompatible,
+  languageInstruction,
+  languageLabel
+} from "./lib/language.js";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_LIVE_MODEL = "gemini-2.0-flash";
+const GEMINI_LIVE_MODEL = "gemini-2.5-flash";
 
 export function hasGeminiProvider() {
   return Boolean(config.geminiApiKey);
 }
 
-export async function geminiSearchAnswer({ query, languageHint = "" }) {
+async function requestGeminiSearchAnswer({
+  query,
+  languageStyle,
+  strict = false
+}) {
   if (!config.geminiApiKey) {
     return null;
   }
 
   const systemInstruction = [
     "You are an advanced AI assistant embedded in WhatsApp.",
-    "LANGUAGE RULE: Reply in the exact same language as the user's question. If the question is in Hindi, reply in Hindi. If in English, reply in English. If in Hinglish, reply in Hinglish.",
+    "LANGUAGE RULE: Match only the latest user's language and script.",
+    languageInstruction(languageStyle),
+    strict
+      ? `STRICT MODE: Your entire reply must be in ${languageLabel(languageStyle)}. If you would answer in any other language, regenerate it in ${languageLabel(languageStyle)} before returning it.`
+      : "",
     "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks. Use '-' for bullets if needed. Keep paragraphs short.",
-    "ANSWER DEPTH RULE: Give a complete, thorough answer. Cover all important aspects. Never give a one-liner for a non-trivial question.",
-    "FRESHNESS RULE: You have access to live Google Search. Always use it to get the latest information before answering. Do not rely on training data for anything time-sensitive.",
-    "LENGTH RULE: Keep the answer under 2500 characters so it fits in one WhatsApp message.",
-    languageHint ? `The user's language is: ${languageHint}.` : ""
-  ].filter(Boolean).join("\n");
+    "ANSWER DEPTH RULE: Give a complete, accurate answer. Cover the key point first, then short useful context.",
+    "FRESHNESS RULE: You have access to live Google Search. Always use it for time-sensitive questions.",
+    "SPEED RULE: Prefer a concise and direct answer when the question is simple.",
+    `The required reply language is ${languageLabel(languageStyle)}.`
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const payload = {
-    system_instruction: {
+    systemInstruction: {
       parts: [{ text: systemInstruction }]
     },
     contents: [
@@ -32,13 +47,14 @@ export async function geminiSearchAnswer({ query, languageHint = "" }) {
         parts: [{ text: query }]
       }
     ],
-    tools: [
-      { google_search: {} }
-    ],
-    generation_config: {
+    tools: [{ google_search: {} }],
+    generationConfig: {
       temperature: 0.0,
-      max_output_tokens: 900,
-      candidate_count: 1
+      maxOutputTokens: 700,
+      candidateCount: 1,
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
     }
   };
 
@@ -47,7 +63,10 @@ export async function geminiSearchAnswer({ query, languageHint = "" }) {
       `${GEMINI_API_BASE}/models/${GEMINI_LIVE_MODEL}:generateContent?key=${config.geminiApiKey}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": config.geminiApiKey
+        },
         body: JSON.stringify(payload)
       }
     );
@@ -72,4 +91,29 @@ export async function geminiSearchAnswer({ query, languageHint = "" }) {
     console.warn(`Gemini search error: ${error.message}`);
     return null;
   }
+}
+
+export async function geminiSearchAnswer({
+  query,
+  languageStyle = "english"
+}) {
+  const first = await requestGeminiSearchAnswer({
+    query,
+    languageStyle,
+    strict: false
+  });
+  if (first && isLanguageCompatible(first, languageStyle)) {
+    return first;
+  }
+
+  const second = await requestGeminiSearchAnswer({
+    query,
+    languageStyle,
+    strict: true
+  });
+  if (second && isLanguageCompatible(second, languageStyle)) {
+    return second;
+  }
+
+  return null;
 }

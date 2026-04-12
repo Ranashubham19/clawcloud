@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import {
+  detectLanguageStyle,
+  isLanguageCompatible
+} from "../src/lib/language.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildProfessionalFallbackReply, getProfessionalQuickReply } from "../src/replies.js";
 import { extractIncomingMessages, splitWhatsAppMessage } from "../src/whatsapp.js";
@@ -28,6 +32,42 @@ await run("normalizePhone upgrades 00 prefix", async () => {
 
 await run("comparablePhone strips plus", async () => {
   assert.equal(comparablePhone("+919876543210"), "919876543210");
+});
+
+await run("detectLanguageStyle keeps English in English", async () => {
+  assert.equal(
+    detectLanguageStyle("When was Claude Opus 4.6 released"),
+    "english"
+  );
+});
+
+await run("detectLanguageStyle catches Hinglish in Roman script", async () => {
+  assert.equal(
+    detectLanguageStyle("claude opus 4.6 kab release hua tha"),
+    "hinglish"
+  );
+});
+
+await run("isLanguageCompatible rejects Devanagari for English answers", async () => {
+  assert.equal(
+    isLanguageCompatible("Claude Opus 4.6 was released on February 5, 2026.", "english"),
+    true
+  );
+  assert.equal(
+    isLanguageCompatible("Claude Opus 4.6 को 5 फरवरी 2026 को रिलीज किया गया था।", "english"),
+    false
+  );
+});
+
+await run("isLanguageCompatible requires Roman script for Hinglish", async () => {
+  assert.equal(
+    isLanguageCompatible("Claude Opus 4.6 ko 5 February 2026 ko release kiya gaya tha.", "hinglish"),
+    true
+  );
+  assert.equal(
+    isLanguageCompatible("Claude Opus 4.6 को 5 फरवरी 2026 को रिलीज किया गया था।", "hinglish"),
+    false
+  );
 });
 
 await run("extractIncomingMessages reads text payloads", async () => {
