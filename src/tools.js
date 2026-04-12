@@ -2,18 +2,65 @@ import {
   cancelReminder,
   createReminder,
   getConversation,
+  listConversationThreads,
   listContacts,
   listReminders,
   rememberOutboundDedup,
+  searchConversationHistory,
   resolveContact,
   hasRecentOutboundDedup,
-  upsertContact
+  upsertContact,
+  appendConversationMessage
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
 import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
 import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
+  {
+    type: "function",
+    function: {
+      name: "list_contacts",
+      description:
+        "List saved contacts, optionally filtered by name, alias, email, or phone number.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Optional search text."
+          },
+          limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100
+          }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_chat_threads",
+      description:
+        "List chat threads with saved history so the assistant can analyze known WhatsApp conversations.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Optional search text to filter threads by contact or recent message."
+          },
+          limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100
+          }
+        }
+      }
+    }
+  },
   {
     type: "function",
     function: {
@@ -69,6 +116,33 @@ export const toolDefinitions = [
             maximum: 30
           }
         }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_history",
+      description:
+        "Search saved WhatsApp conversation history across all known chats or within one contact thread.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The text to search for inside saved conversation history."
+          },
+          target: {
+            type: "string",
+            description: "Optional contact name, phone number, or current_chat to limit the search."
+          },
+          limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 50
+          }
+        },
+        required: ["query"]
       }
     }
   },
@@ -176,6 +250,26 @@ async function resolveTarget(target, context) {
 
 export async function executeTool(name, args, context) {
   switch (name) {
+    case "list_contacts": {
+      const contacts = await listContacts(args.query || "");
+      const limit = Math.min(Math.max(Number(args.limit) || 25, 1), 100);
+      return result({
+        count: contacts.length,
+        contacts: contacts.slice(0, limit)
+      });
+    }
+
+    case "list_chat_threads": {
+      const threads = await listConversationThreads({
+        query: args.query || "",
+        limit: args.limit
+      });
+      return result({
+        count: threads.length,
+        threads
+      });
+    }
+
     case "lookup_contact": {
       const matches = await listContacts(args.query || "");
       return result({
@@ -209,6 +303,18 @@ export async function executeTool(name, args, context) {
       return result({
         target: resolved.contact,
         messages
+      });
+    }
+
+    case "search_history": {
+      const matches = await searchConversationHistory({
+        query: args.query,
+        target: args.target || "",
+        limit: args.limit
+      });
+      return result({
+        count: matches.length,
+        matches
       });
     }
 
@@ -281,6 +387,15 @@ export async function executeTool(name, args, context) {
       const delivery = await sendWhatsAppTextChunked({
         to: resolved.contact.phone.replace(/^\+/, ""),
         body: args.message
+      });
+
+      await appendConversationMessage(resolved.contact.phone, {
+        role: "assistant",
+        text: args.message,
+        meta: {
+          source: "tool-send",
+          requestedBy: context.currentUserPhone
+        }
       });
 
       await rememberOutboundDedup(dedupeKey, {

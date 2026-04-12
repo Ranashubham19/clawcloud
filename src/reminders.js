@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import {
+  appendConversationMessage,
   getDueReminders,
   hasRecentOutboundDedup,
   markReminderFailed,
@@ -28,6 +29,14 @@ export function startReminderLoop() {
         const delivery = await sendWhatsAppTextChunked({
           to: reminder.targetPhone.replace(/^\+/, ""),
           body: reminder.text
+        });
+        await appendConversationMessage(reminder.targetPhone, {
+          role: "assistant",
+          text: reminder.text,
+          meta: {
+            source: "reminder",
+            reminderId: reminder.id
+          }
         });
         await rememberOutboundDedup(dedupeKey, {
           reminderId: reminder.id,

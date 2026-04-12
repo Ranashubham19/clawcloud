@@ -189,6 +189,61 @@ await run("listContacts can find imported contact by email alias", async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
+await run("listConversationThreads summarizes stored chats", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  await store.upsertContact({
+    name: "Dii Sharma",
+    phone: "+919876543210",
+    aliases: ["Dii"]
+  });
+  await store.appendConversationMessage("+919876543210", {
+    role: "user",
+    text: "ab theek hai na",
+    at: "2026-04-12T12:00:00.000Z"
+  });
+
+  const threads = await store.listConversationThreads({ query: "dii", limit: 10 });
+
+  assert.equal(threads.length, 1);
+  assert.equal(threads[0].contact.name, "Dii Sharma");
+  assert.equal(threads[0].messageCount, 1);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("searchConversationHistory finds text across chats", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  await store.upsertContact({
+    name: "Dii Sharma",
+    phone: "+919876543210",
+    aliases: ["Dii"]
+  });
+  await store.appendConversationMessage("+919876543210", {
+    role: "user",
+    text: "ab theek hai na",
+    at: "2026-04-12T12:00:00.000Z"
+  });
+
+  const matches = await store.searchConversationHistory({
+    query: "theek",
+    limit: 10
+  });
+
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].contact.name, "Dii Sharma");
+  assert.match(matches[0].message.text, /theek/i);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
 if (process.exitCode) {
   process.exit(process.exitCode);
 }

@@ -124,6 +124,14 @@ export async function listContacts(query = "") {
   return contacts.filter((contact) => contactMatches(contact, query));
 }
 
+function normalizeLimit(value, fallback, max) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
+}
+
 export async function resolveContact(query, fallbackPhone = "") {
   if (!query || query === "current_chat" || query === "me" || query === "self") {
     if (!fallbackPhone) {
@@ -263,6 +271,118 @@ export async function appendConversationMessage(chatId, message) {
 export async function getConversation(chatId, limit = config.maxConversationMessages) {
   const conversations = await readJson("conversations");
   return (conversations[chatId] || []).slice(-limit);
+}
+
+export async function listConversationThreads({ query = "", limit = 30 } = {}) {
+  const contacts = await readJson("contacts");
+  const conversations = await readJson("conversations");
+  const contactByComparablePhone = new Map(
+    contacts.map((contact) => [comparablePhone(contact.phone), contact])
+  );
+  const lowerQuery = String(query || "").trim().toLowerCase();
+  const threads = Object.entries(conversations).map(([chatId, history]) => {
+    const contact =
+      contactByComparablePhone.get(comparablePhone(chatId)) || null;
+    const lastMessage = history[history.length - 1] || null;
+    return {
+      chatId,
+      contact: contact || {
+        name: chatId,
+        phone: normalizePhone(chatId),
+        aliases: []
+      },
+      messageCount: history.length,
+      lastMessage,
+      lastAt: lastMessage?.at || null
+    };
+  });
+
+  const filtered = !lowerQuery
+    ? threads
+    : threads.filter((thread) => {
+        const contact = thread.contact || {};
+        const aliasPool = [contact.name, ...(contact.aliases || []), contact.phone]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase());
+        const lastText = String(thread.lastMessage?.text || "").toLowerCase();
+        return (
+          aliasPool.some((value) => value.includes(lowerQuery)) ||
+          lastText.includes(lowerQuery)
+        );
+      });
+
+  return filtered
+    .sort((left, right) => {
+      const leftTime = new Date(left.lastAt || 0).getTime();
+      const rightTime = new Date(right.lastAt || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .slice(0, normalizeLimit(limit, 30, 100));
+}
+
+export async function searchConversationHistory({
+  query,
+  target = "",
+  limit = 12
+} = {}) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) {
+    return [];
+  }
+
+  const contacts = await readJson("contacts");
+  const conversations = await readJson("conversations");
+  const contactByComparablePhone = new Map(
+    contacts.map((contact) => [comparablePhone(contact.phone), contact])
+  );
+
+  let allowedChatIds = Object.keys(conversations);
+  if (target) {
+    const resolved = await resolveContact(target);
+    if (resolved.status === "resolved") {
+      allowedChatIds = [resolved.contact.phone];
+    } else {
+      return [];
+    }
+  }
+
+  const matches = [];
+  for (const chatId of allowedChatIds) {
+    const history = conversations[chatId] || [];
+    const contact =
+      contactByComparablePhone.get(comparablePhone(chatId)) || {
+        name: chatId,
+        phone: normalizePhone(chatId),
+        aliases: []
+      };
+
+    for (const message of history) {
+      const text = String(message.text || "");
+      if (!text.toLowerCase().includes(needle)) {
+        continue;
+      }
+
+      matches.push({
+        chatId,
+        contact,
+        message: {
+          id: message.id,
+          role: message.role,
+          text: message.text,
+          at: message.at,
+          meta: message.meta || {}
+        }
+      });
+    }
+  }
+
+  return matches
+    .sort(
+      (left, right) =>
+        new Date(right.message.at || 0).getTime() -
+        new Date(left.message.at || 0).getTime()
+    )
+    .slice(0, normalizeLimit(limit, 12, 50));
 }
 
 export async function beginInboundProcessing(messageId) {
