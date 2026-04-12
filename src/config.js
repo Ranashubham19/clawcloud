@@ -58,7 +58,7 @@ export const config = {
   nvidiaApiBase:
     process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com/v1",
   nvidiaTimeoutMs: toInt(process.env.NVIDIA_TIMEOUT_MS, 4200),
-  nvidiaMaxAttempts: toInt(process.env.NVIDIA_MAX_ATTEMPTS, 3),
+  nvidiaMaxAttempts: toInt(process.env.NVIDIA_MAX_ATTEMPTS, 10),
   tavilyApiKey: process.env.TAVILY_API_KEY || "",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",

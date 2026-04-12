@@ -1,19 +1,19 @@
 # Claw Cloud WhatsApp
 
-A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The bot answers normal questions directly, falls back across multiple strong models when one fails, and uses thin tools only when it needs real actions or live data.
+A professional WhatsApp-only backend powered by Gemini for live/general answers and a strict selected 10-model NVIDIA stack for technical, academic, tool, and retry paths.
 
 ## What this build does
 
 - Handles inbound WhatsApp webhook events
-- Uses a ranked NVIDIA model fallback chain instead of relying on a single model
+- Uses only the selected 10 NVIDIA API models for model-stack answers
 - Stores contacts, conversations, reminders, and dedupe state locally in JSON
 - Auto-sends WhatsApp messages when the user asks
 - Prevents duplicate processing and duplicate outbound sends
 - Runs scheduled reminders in the background
 - Can sync Google Contacts into the bot's contact store
 - Splits long answers into clean WhatsApp-sized chunks instead of cutting replies mid-sentence
-- Can use Gemini with Google Search grounding for faster live answers while preserving the user's language
-- Applies provider timeouts and a shared latency budget so replies prefer fast paths
+- Uses Gemini with Google Search grounding first for live, latest, and general answers while preserving the user's language
+- Does not send canned fallback replies when providers fail; failed model routing is logged instead
 
 ## Project shape
 
@@ -101,7 +101,7 @@ Notes:
 
 ## Default NVIDIA model stack
 
-The backend now keeps a ranked fallback list of strong NVIDIA-hosted models and automatically moves to the next model if one fails or behaves badly. The default stack is:
+The backend keeps a strict selected 10-model NVIDIA-hosted stack and automatically tries the next selected model if one fails or behaves badly. The default stack is:
 
 1. `qwen/qwen3.5-397b-a17b`
 2. `meta/llama-3.1-405b-instruct`
@@ -114,7 +114,7 @@ The backend now keeps a ranked fallback list of strong NVIDIA-hosted models and 
 9. `deepseek-ai/deepseek-v3.2`
 10. `qwen/qwen2.5-coder-32b-instruct`
 
-You can override the whole list with `NVIDIA_MODELS` or set a preferred first model with `NVIDIA_MODEL`.
+You can override the selected stack with `NVIDIA_MODELS`. Only the first 10 unique configured models are used for answer routing.
 
 ## Notes
 

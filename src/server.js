@@ -274,35 +274,9 @@ async function processInboundMessage(message) {
       `Failed to process inbound message ${message.messageId} from ${message.from}: ${error.message}`
     );
 
-    const fallback =
-      "Thank you for your message. I am temporarily unable to complete the full request, but I am still here to help. Please try again in a moment.";
-
-    const dedupeKey = outboundDedupKey(
-      "assistant-error",
-      message.from,
-      fallback,
-      message.messageId
-    );
-
-    if (!(await hasRecentOutboundDedup(dedupeKey, 24 * 60 * 60 * 1000))) {
-      try {
-        const delivery = await sendWhatsAppTextChunked({
-          to: message.from,
-          body: fallback,
-          replyToMessageId: message.messageId
-        });
-        await rememberOutboundDedup(dedupeKey, {
-          delivery,
-          inboundMessageId: message.messageId
-        });
-      } catch {
-        // Ignore nested send failures.
-      }
-    }
-
     await completeInboundProcessing(message.messageId, {
       error: error.message,
-      outcome: "error"
+      outcome: "model_error_no_reply"
     });
   }
 }

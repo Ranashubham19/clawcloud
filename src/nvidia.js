@@ -15,6 +15,7 @@ export const DEFAULT_NVIDIA_MODELS = [
   "qwen/qwen2.5-coder-32b-instruct"
 ];
 
+const SELECTED_MODEL_LIMIT = DEFAULT_NVIDIA_MODELS.length;
 const modelStats = new Map();
 
 function uniqueModels(values) {
@@ -34,10 +35,11 @@ function uniqueModels(values) {
 }
 
 export function getConfiguredNvidiaModels() {
-  if (config.nvidiaModels.length) {
-    return uniqueModels(config.nvidiaModels);
-  }
-  return uniqueModels([config.nvidiaModel, ...DEFAULT_NVIDIA_MODELS]);
+  const configuredModels = config.nvidiaModels.length
+    ? config.nvidiaModels
+    : DEFAULT_NVIDIA_MODELS;
+
+  return uniqueModels(configuredModels).slice(0, SELECTED_MODEL_LIMIT);
 }
 
 function getModelStat(model) {
@@ -198,9 +200,13 @@ export async function createChatCompletion({
 
   const errors = [];
   let attempts = 0;
+  const attemptLimit = Math.min(
+    candidates.length,
+    Math.max(1, Number.isFinite(maxAttempts) ? maxAttempts : candidates.length)
+  );
 
   for (const model of candidates) {
-    if (attempts >= Math.max(1, maxAttempts)) {
+    if (attempts >= attemptLimit) {
       break;
     }
 

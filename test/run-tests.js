@@ -8,7 +8,6 @@ import {
 } from "../src/lib/language.js";
 import { cleanUserFacingText } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
-import { buildProfessionalFallbackReply, getProfessionalQuickReply } from "../src/replies.js";
 import { extractIncomingMessages, splitWhatsAppMessage } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 
@@ -65,6 +64,21 @@ await run("chooseAnswerRoute sends current affairs to Gemini first", async () =>
   );
 });
 
+await run("chooseAnswerRoute sends greetings through the model path", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.chooseAnswerRoute("Hello"), "gemini-first");
+});
+
+await run("chooseAnswerRoute keeps live lookup questions on Gemini first", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.chooseAnswerRoute("look up the latest AI news"), "gemini-first");
+});
+
+await run("chooseAnswerRoute keeps WhatsApp history commands on NVIDIA tools", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.chooseAnswerRoute("show recent WhatsApp history"), "nvidia-tools");
+});
+
 await run("isLanguageCompatible rejects Devanagari for English answers", async () => {
   assert.equal(
     isLanguageCompatible("Claude Opus 4.6 was released on February 5, 2026.", "english"),
@@ -116,26 +130,6 @@ await run("extractIncomingMessages reads text payloads", async () => {
   assert.equal(messages[0].text, "Hello");
 });
 
-await run("quick reply returns a professional greeting", async () => {
-  const reply = getProfessionalQuickReply({
-    text: "HELLO",
-    profileName: "Shubham"
-  });
-
-  assert.match(reply, /Hello Shubham/i);
-  assert.match(reply, /how may I help you today/i);
-});
-
-await run("fallback reply stays professional for general messages", async () => {
-  const reply = buildProfessionalFallbackReply({
-    text: "I need details",
-    profileName: "Shubham"
-  });
-
-  assert.match(reply, /Thank you for your message Shubham/i);
-  assert.match(reply, /precise answer/i);
-});
-
 await run("cleanUserFacingText removes tool and search meta lines", async () => {
   const cleaned = cleanUserFacingText(
     `[TOOL_CALLS]web_search{"query":"latest price"}\nI'll check the latest price for you.\n(Using web search to find the current price)\nThe latest price is $1,199.`
@@ -168,35 +162,12 @@ await run("beginInboundProcessing dedupes repeated message ids", async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-await run("handleIncomingText answers greetings without the model", async () => {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
-  process.env.CLAW_DATA_DIR = tempDir;
-
-  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
-  const store = await import(`../src/store.js?ts=${Date.now()}`);
-  await store.initStore();
-
-  const reply = await agent.handleIncomingText({
-    messageId: "wamid-greeting",
-    from: "919999999999",
-    profileName: "Shubham",
-    text: "Hello"
-  });
-
-  const history = await store.getConversation("919999999999");
-
-  assert.match(reply, /Hello Shubham/i);
-  assert.equal(history.length, 2);
-  assert.equal(history[0].role, "user");
-  assert.equal(history[1].role, "assistant");
-
-  await rm(tempDir, { recursive: true, force: true });
-});
-
-await run("createChatCompletion accepts custom maxTokens", async () => {
+await run("createChatCompletion uses exactly the selected 10-model NVIDIA stack", async () => {
   const nvidia = await import(`../src/nvidia.js?ts=${Date.now()}`);
   assert.equal(typeof nvidia.createChatCompletion, "function");
-  assert.ok(nvidia.DEFAULT_NVIDIA_MODELS.length >= 10);
+  assert.equal(nvidia.DEFAULT_NVIDIA_MODELS.length, 10);
+  assert.equal(new Set(nvidia.DEFAULT_NVIDIA_MODELS).size, 10);
+  assert.equal(nvidia.getConfiguredNvidiaModels().length, 10);
 });
 
 await run("isToolLeakText catches raw function-call JSON", async () => {

@@ -10,10 +10,6 @@ import {
 } from "./lib/language.js";
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
-import {
-  buildProfessionalFallbackReply,
-  getProfessionalQuickReply
-} from "./replies.js";
 
 const FAST_TECH_MODELS = [
   "qwen/qwen2.5-coder-32b-instruct",
@@ -23,7 +19,7 @@ const FAST_TECH_MODELS = [
 ];
 
 const toolIntentPattern =
-  /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|recent|contact|save\s+contact|lookup|look\s*up|find\s+contact|call\s+log|whatsapp|wa)\b/i;
+  /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|contact|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+contact|call\s+log|whatsapp|wa)\b/i;
 
 const technicalAcademicPattern =
   /\b(code|coding|program|programming|developer|develop|debug|bug|function|algorithm|array|string|graph|tree|dp|dynamic programming|java|javascript|typescript|python|c\+\+|cpp|c language|leetcode|sql|api|backend|frontend|regex|complexity|binary search|math|maths|algebra|geometry|trigonometry|calculus|equation|integral|derivative|statistics|probability|physics|chemistry|biology|bio|science|scientific|cell|genetics|organism|homework|theorem|prove|formula)\b/i;
@@ -57,7 +53,7 @@ function pickMaxTokens(text, useTools) {
 
 function resolvePreferredModels(route) {
   if (route === "nvidia") {
-    return getRankedNvidiaModels({ preferredModels: FAST_TECH_MODELS }).slice(0, 5);
+    return FAST_TECH_MODELS;
   }
   return [];
 }
@@ -233,7 +229,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   const answerRoute = chooseAnswerRoute(text);
   const useTools = mayNeedTools(text);
   const useGeminiFirst = answerRoute === "gemini-first";
-  const deadlineAt = Date.now() + config.replyLatencyBudgetMs;
+  let nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
 
   await upsertContact({
     name: profileName || from,
@@ -249,20 +245,14 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     meta: { profileName }
   });
 
-  const quickReply = getProfessionalQuickReply({ text, profileName });
-  if (quickReply) {
-    await appendConversationMessage(from, {
-      role: "assistant",
-      text: quickReply,
-      meta: { source: "quick-reply" }
-    });
-    return quickReply;
-  }
-
   let history = [];
 
   if (useGeminiFirst) {
-    const geminiAnswer = await getGeminiAnswer(text, languageStyle, deadlineAt);
+    const geminiAnswer = await getGeminiAnswer(
+      text,
+      languageStyle,
+      Date.now() + config.geminiTimeoutMs
+    );
     if (geminiAnswer) {
       const geminiText = cleanUserFacingText(geminiAnswer);
       if (
@@ -278,6 +268,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         return geminiText;
       }
     }
+    nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
     history = await getConversation(from, 3);
   } else {
     history = await getConversation(from, 4);
@@ -303,6 +294,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   let toolRounds = 0;
   let modelError = null;
   const rejectedModels = new Set();
+  const maxRejectedModels = getRankedNvidiaModels({ preferredModels }).length;
 
   try {
     while (toolRounds < 6) {
@@ -312,8 +304,8 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         maxTokens: pickMaxTokens(text, useTools),
         preferredModels,
         excludeModels: [...rejectedModels],
-        deadlineAt,
-        maxAttempts: useTools ? 2 : 3
+        deadlineAt: nvidiaDeadlineAt,
+        maxAttempts: 10
       });
       const assistant = unpackAssistantMessage(completion);
 
@@ -323,21 +315,21 @@ export async function handleIncomingText({ messageId, from, profileName, text })
 
         if (!cleanedAssistantText && assistant.model) {
           rejectedModels.add(assistant.model);
-          if (rejectedModels.size < 5) {
+          if (rejectedModels.size < maxRejectedModels) {
             rejectAndRetry = true;
           }
         }
 
         if (isToolLeakText(cleanedAssistantText) && assistant.model) {
           rejectedModels.add(assistant.model);
-          if (rejectedModels.size < 5) {
+          if (rejectedModels.size < maxRejectedModels) {
             rejectAndRetry = true;
           }
         }
 
         if (!isLanguageCompatible(cleanedAssistantText, languageStyle) && assistant.model) {
           rejectedModels.add(assistant.model);
-          if (rejectedModels.size < 5) {
+          if (rejectedModels.size < maxRejectedModels) {
             rejectAndRetry = true;
           }
         }
@@ -353,7 +345,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
           preferredModel: assistant.model,
           excludeModels: [...rejectedModels],
           languageStyle,
-          deadlineAt
+          deadlineAt: nvidiaDeadlineAt
         });
 
         if (assistantText) {
@@ -390,7 +382,11 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   }
 
   if (!String(assistantText || "").trim()) {
-    assistantText = buildProfessionalFallbackReply({ text, profileName });
+    throw new Error(
+      modelError
+        ? `Model routing failed: ${modelError.message}`
+        : "Model routing failed: no usable model answer was produced."
+    );
   }
 
   assistantText = sanitizeForWhatsApp(assistantText);
@@ -398,12 +394,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   await appendConversationMessage(from, {
     role: "assistant",
     text: assistantText,
-    meta: modelError
-      ? {
-          source: "fallback",
-          modelError: modelError.message
-        }
-      : {}
+    meta: {}
   });
 
   return assistantText;
