@@ -45,6 +45,8 @@ export function cleanUserFacingText(value) {
     return "";
   }
 
+  text = text.replace(/\s*\[cite:[\s\S]*$/i, "").trim();
+
   const cleanedLines = text
     .split(/\r?\n/)
     .map((line) => line.trim())

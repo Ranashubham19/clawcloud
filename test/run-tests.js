@@ -144,6 +144,14 @@ await run("cleanUserFacingText removes tool and search meta lines", async () => 
   assert.equal(cleaned, "The latest price is $1,199.");
 });
 
+await run("cleanUserFacingText strips Gemini cite blobs", async () => {
+  const cleaned = cleanUserFacingText(
+    "The top person is Elon Musk. [cite: 1, 2, 3]"
+  );
+
+  assert.equal(cleaned, "The top person is Elon Musk.");
+});
+
 await run("beginInboundProcessing dedupes repeated message ids", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
   process.env.CLAW_DATA_DIR = tempDir;
