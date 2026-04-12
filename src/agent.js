@@ -4,6 +4,7 @@ import { createChatCompletion, unpackAssistantMessage, getRankedNvidiaModels } f
 import { executeTool, toolDefinitions } from "./tools.js";
 import { safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { webSearch, hasSearchProvider } from "./search.js";
+import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
 import {
   buildProfessionalFallbackReply,
   getProfessionalQuickReply
@@ -15,31 +16,38 @@ const WEB_SYNTHESIS_MODELS = [
   "mistralai/mistral-large-3-675b-instruct-2512"
 ];
 
-async function eagerSearch(query) {
-  if (!hasSearchProvider()) {
-    return null;
+async function getLiveAnswer(query) {
+  // 1. Try Gemini with Google Search grounding (best for live data)
+  if (hasGeminiProvider()) {
+    const answer = await geminiSearchAnswer({ query });
+    if (answer) {
+      return { source: "gemini", answer, inject: false };
+    }
   }
-  try {
-    const result = await webSearch({ query, maxResults: 4, freshness: "month" });
-    if (!result.ok || (!result.answer && !result.results?.length)) {
-      return null;
+
+  // 2. Fall back to Tavily → inject results for NVIDIA to synthesise
+  if (hasSearchProvider()) {
+    try {
+      const result = await webSearch({ query, maxResults: 4, freshness: "month" });
+      if (result.ok && (result.answer || result.results?.length)) {
+        const lines = [];
+        if (result.answer) lines.push(`Summary: ${result.answer}`);
+        for (const r of result.results.slice(0, 4)) {
+          const parts = [];
+          if (r.published) parts.push(`[${r.published.slice(0, 10)}]`);
+          if (r.title) parts.push(r.title);
+          if (r.snippet) parts.push(`— ${r.snippet}`);
+          if (r.url) parts.push(`(${r.url})`);
+          if (parts.length) lines.push(parts.join(" "));
+        }
+        return { source: "tavily", answer: lines.join("\n"), inject: true };
+      }
+    } catch {
+      // fall through
     }
-    const lines = [];
-    if (result.answer) {
-      lines.push(`Summary: ${result.answer}`);
-    }
-    for (const r of result.results.slice(0, 4)) {
-      const parts = [];
-      if (r.published) parts.push(`[${r.published.slice(0, 10)}]`);
-      if (r.title) parts.push(r.title);
-      if (r.snippet) parts.push(`— ${r.snippet}`);
-      if (r.url) parts.push(`(${r.url})`);
-      if (parts.length) lines.push(parts.join(" "));
-    }
-    return lines.join("\n");
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 const toolIntentPattern =
@@ -205,11 +213,24 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   const isRecency = recencyIntentPattern.test(String(text || ""));
   const useTools = mayNeedTools(text);
 
-  // Fire Tavily and history fetch in parallel — zero extra wall time
-  const [history, eagerSearchContext] = await Promise.all([
+  // Fire live search + history fetch in parallel — zero extra wall time
+  const [history, liveResult] = await Promise.all([
     getConversation(from, 6),
-    isRecency ? eagerSearch(text) : Promise.resolve(null)
+    isRecency ? getLiveAnswer(text) : Promise.resolve(null)
   ]);
+
+  // Gemini answered with Google Search — return immediately, skip NVIDIA entirely
+  if (liveResult?.source === "gemini" && liveResult.answer) {
+    const geminiText = sanitizeForWhatsApp(liveResult.answer);
+    if (geminiText) {
+      await appendConversationMessage(from, {
+        role: "assistant",
+        text: geminiText,
+        meta: { source: "gemini-live-search" }
+      });
+      return geminiText;
+    }
+  }
 
   const preferredModels = isRecency
     ? getRankedNvidiaModels({ preferredModels: WEB_SYNTHESIS_MODELS }).slice(0, 3)
@@ -220,11 +241,11 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     ...historyToModelMessages(history)
   ];
 
-  // Inject live search results directly into the conversation context
-  if (eagerSearchContext) {
+  // Tavily fallback — inject results for NVIDIA to synthesise
+  if (liveResult?.source === "tavily" && liveResult.answer) {
     messages.push({
       role: "user",
-      content: `[Live web search results for: "${text}"]\n\n${eagerSearchContext}\n\n---\nUsing the live results above, answer my question accurately in my language.`
+      content: `[Live web search results for: "${text}"]\n\n${liveResult.answer}\n\n---\nUsing the live results above, answer my question accurately in my language.`
     });
   }
 
@@ -237,7 +258,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     while (toolRounds < 6) {
       const completion = await createChatCompletion({
         messages,
-        tools: eagerSearchContext ? [] : (useTools ? toolDefinitions : []),
+        tools: liveResult?.source === "tavily" ? [] : (useTools ? toolDefinitions : []),
         maxTokens: pickMaxTokens(text, useTools),
         preferredModels,
         excludeModels: [...rejectedModels]

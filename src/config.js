@@ -58,6 +58,7 @@ export const config = {
   nvidiaApiBase:
     process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com/v1",
   tavilyApiKey: process.env.TAVILY_API_KEY || "",
+  geminiApiKey: process.env.GEMINI_API_KEY || "",
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || "",
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
