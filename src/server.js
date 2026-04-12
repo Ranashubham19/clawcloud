@@ -493,14 +493,26 @@ async function requestListener(request, response) {
   sendText(response, 404, "Not found");
 }
 
+// Prevent unhandled promise rejections from crashing the container
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection (kept alive):", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception (kept alive):", error);
+});
+
 await initStore();
 const stopReminderLoop = startReminderLoop();
 
 const server = http.createServer((request, response) => {
   requestListener(request, response).catch((error) => {
-    sendJson(response, 500, {
-      error: error.message
-    });
+    console.error("Request error:", error.message);
+    try {
+      sendJson(response, 500, { error: error.message });
+    } catch {
+      // response already sent — ignore
+    }
   });
 });
 

@@ -260,7 +260,7 @@ async function resolveTarget(target, context) {
   return resolveContact(target || "current_chat", context.currentUserPhone);
 }
 
-export async function executeTool(name, args, context) {
+async function runTool(name, args, context) {
   switch (name) {
     case "get_whatsapp_overview": {
       const [allContacts, allThreads] = await Promise.all([
@@ -418,8 +418,14 @@ export async function executeTool(name, args, context) {
         });
       }
 
+      // WhatsApp API needs digits only, no + or spaces
+      const toNumber = resolved.contact.phone.replace(/[^\d]/g, "");
+      if (!toNumber || toNumber.length < 7) {
+        return result({ error: "Contact phone number is invalid or too short.", contact: resolved.contact });
+      }
+
       const delivery = await sendWhatsAppTextChunked({
-        to: resolved.contact.phone.replace(/^\+/, ""),
+        to: toNumber,
         body: args.message
       });
 
@@ -456,5 +462,14 @@ export async function executeTool(name, args, context) {
 
     default:
       throw new Error(`Unsupported tool: ${name}`);
+  }
+}
+
+export async function executeTool(name, args, context) {
+  try {
+    return await runTool(name, args, context);
+  } catch (error) {
+    console.error(`Tool ${name} error:`, error.message);
+    return JSON.stringify({ error: error.message, tool: name });
   }
 }

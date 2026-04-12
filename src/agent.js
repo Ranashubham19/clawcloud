@@ -304,9 +304,10 @@ export async function handleIncomingText({ messageId, from, profileName, text })
       }
     }
     nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
-    history = await getConversation(from, 3);
+    history = await getConversation(from, 6);
   } else {
-    history = await getConversation(from, 4);
+    // Load more history for tool routes so "this contact" / "them" resolves correctly
+    history = await getConversation(from, useTools ? 10 : 6);
   }
 
   const preferredModels = resolvePreferredModels(answerRoute);
