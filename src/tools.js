@@ -10,7 +10,8 @@ import {
   upsertContact
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
-import { sendWhatsAppText, outboundDedupKey } from "./whatsapp.js";
+import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
+import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
   {
@@ -133,6 +134,35 @@ export const toolDefinitions = [
         required: ["message"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description:
+        "Search the live web for up-to-date information. Call this whenever the user asks about news, current events, recent updates, prices, scores, weather, anything time-sensitive, or anything that may have changed after your training cutoff. Returns ranked web results with titles, URLs, published dates, and snippets.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Natural-language search query."
+          },
+          freshness: {
+            type: "string",
+            enum: ["day", "week", "month", "any"],
+            description:
+              "Optional time window: day = last 24h, week = last 7 days, month = last 30 days, any = no filter."
+          },
+          max_results: {
+            type: "integer",
+            minimum: 1,
+            maximum: 10
+          }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
 
@@ -248,7 +278,7 @@ export async function executeTool(name, args, context) {
         });
       }
 
-      const delivery = await sendWhatsAppText({
+      const delivery = await sendWhatsAppTextChunked({
         to: resolved.contact.phone.replace(/^\+/, ""),
         body: args.message
       });
@@ -264,6 +294,15 @@ export async function executeTool(name, args, context) {
         target: resolved.contact,
         delivery
       });
+    }
+
+    case "web_search": {
+      const searchResult = await webSearch({
+        query: args.query,
+        maxResults: args.max_results,
+        freshness: args.freshness === "any" ? "" : args.freshness || ""
+      });
+      return result(searchResult);
     }
 
     default:

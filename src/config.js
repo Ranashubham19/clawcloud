@@ -53,6 +53,7 @@ export const config = {
     process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
   nvidiaApiBase:
     process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com/v1",
+  tavilyApiKey: process.env.TAVILY_API_KEY || "",
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || "",
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
