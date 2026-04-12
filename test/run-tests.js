@@ -48,6 +48,22 @@ await run("detectLanguageStyle catches Hinglish in Roman script", async () => {
   );
 });
 
+await run("chooseAnswerRoute sends technical questions to NVIDIA stack", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.chooseAnswerRoute("Write a Python function for binary search"),
+    "nvidia"
+  );
+});
+
+await run("chooseAnswerRoute sends current affairs to Gemini first", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.chooseAnswerRoute("Top 10 richest people in the world 2026"),
+    "gemini-first"
+  );
+});
+
 await run("isLanguageCompatible rejects Devanagari for English answers", async () => {
   assert.equal(
     isLanguageCompatible("Claude Opus 4.6 was released on February 5, 2026.", "english"),
@@ -172,6 +188,7 @@ await run("isToolLeakText catches raw function-call JSON", async () => {
     agent.isToolLeakText('{"name":"min_cost","parameters":{"n":3}}'),
     true
   );
+  assert.equal(agent.isToolLeakText('web_search(query="top 10 richest people")'), true);
   assert.equal(agent.isToolLeakText("Use DP over subsets and return the minimum cost."), false);
 });
 
