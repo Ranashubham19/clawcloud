@@ -30,6 +30,7 @@ A clean WhatsApp-only backend powered by one NVIDIA-hosted model. The model answ
    - `WHATSAPP_VERIFY_TOKEN`
    - `WHATSAPP_ACCESS_TOKEN`
    - `WHATSAPP_PHONE_NUMBER_ID`
+   - `WHATSAPP_BUSINESS_ACCOUNT_ID`
 3. Start the server:
 
 ```bash
@@ -58,6 +59,7 @@ You can change it with `NVIDIA_MODEL` if you want to switch to `deepseek-ai/deep
 - The app can start without WhatsApp credentials, but sending messages will fail until those env vars are configured.
 - The app can start without `NVIDIA_API_KEY`, but model calls will fail until it is configured.
 - Signature validation is enabled automatically when `WHATSAPP_APP_SECRET` is set.
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` is kept for diagnostics and future WABA management calls.
 
 ## Readiness
 

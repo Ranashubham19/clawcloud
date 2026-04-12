@@ -11,6 +11,7 @@ export function getReadinessReport() {
     whatsapp_verify_token: present(config.whatsappVerifyToken),
     whatsapp_access_token: present(config.whatsappAccessToken),
     whatsapp_phone_number_id: present(config.whatsappPhoneNumberId),
+    whatsapp_business_account_id_optional: present(config.whatsappBusinessAccountId),
     whatsapp_app_secret_optional: present(config.whatsappAppSecret)
   };
 
