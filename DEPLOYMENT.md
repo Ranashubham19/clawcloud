@@ -68,6 +68,7 @@ After the bot is live, users can reach it through:
 - Confirm `npm test` passes
 - Confirm `/health` returns `200`
 - Confirm `/ready` returns `200`
+- Confirm `npm run doctor:meta` can see the configured WhatsApp phone number ID
 - Confirm Meta webhook verification succeeds
 - Confirm one inbound test message receives one reply
 - Confirm no duplicate send occurs for repeated webhook delivery

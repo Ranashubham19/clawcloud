@@ -71,6 +71,14 @@ npm run doctor
 
 This prints which required env vars are still missing.
 
+Run:
+
+```bash
+npm run doctor:meta
+```
+
+This verifies that the Meta access token can see the configured WhatsApp phone number ID without printing the token.
+
 `GET /ready` returns:
 
 - `200` when the required NVIDIA and WhatsApp settings are present
