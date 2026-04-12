@@ -9,7 +9,8 @@ import {
   languageLabel
 } from "./lib/language.js";
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
-import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
+import { geminiSearchAnswer, geminiMediaAnswer, hasGeminiProvider } from "./gemini.js";
+import { downloadWhatsAppMedia } from "./whatsapp.js";
 
 // Advanced + responsive models — preferred across all routes
 const ADVANCED_MODELS = [
@@ -404,6 +405,74 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     role: "assistant",
     text: assistantText,
     meta: {}
+  });
+
+  return assistantText;
+}
+
+export async function handleIncomingMedia({
+  messageId,
+  from,
+  profileName,
+  mediaId,
+  mediaType,
+  mimeType,
+  caption,
+  filename
+}) {
+  const languageStyle = detectLanguageStyle(caption || "");
+
+  await upsertContact({
+    name: profileName || from,
+    phone: from,
+    aliases: profileName ? [profileName] : [],
+    overwriteName: false
+  });
+
+  await appendConversationMessage(from, {
+    id: messageId,
+    role: "user",
+    text: caption
+      ? `[${mediaType} — ${filename || mimeType}] ${caption}`
+      : `[${mediaType} — ${filename || mimeType}]`,
+    meta: { profileName, mediaType, mimeType, filename }
+  });
+
+  if (!hasGeminiProvider()) {
+    throw new Error("Media processing requires GEMINI_API_KEY to be configured.");
+  }
+
+  // Download the media file from WhatsApp
+  const { data: mediaData, mimeType: resolvedMime } = await downloadWhatsAppMedia(mediaId);
+
+  const TWENTY_MB = 20 * 1024 * 1024;
+  if (mediaData.length > TWENTY_MB) {
+    throw new Error(
+      `File too large for processing (${Math.round(mediaData.length / 1024 / 1024)}MB). Max is 20MB.`
+    );
+  }
+
+  const deadlineAt = Date.now() + config.geminiTimeoutMs;
+  const answer = await geminiMediaAnswer({
+    mediaData,
+    mimeType: resolvedMime || mimeType,
+    mediaType,
+    caption,
+    filename,
+    languageStyle,
+    deadlineAt
+  });
+
+  if (!answer) {
+    throw new Error("Could not process this media file. Please try again.");
+  }
+
+  const assistantText = sanitizeForWhatsApp(cleanUserFacingText(answer));
+
+  await appendConversationMessage(from, {
+    role: "assistant",
+    text: assistantText,
+    meta: { source: "gemini-media" }
   });
 
   return assistantText;

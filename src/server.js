@@ -7,7 +7,7 @@ import {
   initStore,
   rememberOutboundDedup
 } from "./store.js";
-import { handleIncomingText } from "./agent.js";
+import { handleIncomingText, handleIncomingMedia } from "./agent.js";
 import {
   extractIncomingMessages,
   outboundDedupKey,
@@ -236,7 +236,11 @@ async function processInboundMessage(message) {
 
   let assistantReply = "";
   try {
-    assistantReply = await handleIncomingText(message);
+    if (message.mediaId) {
+      assistantReply = await handleIncomingMedia(message);
+    } else {
+      assistantReply = await handleIncomingText(message);
+    }
 
     const dedupeKey = outboundDedupKey(
       "assistant-reply",
@@ -313,8 +317,8 @@ async function handleWebhookPost(request, response) {
   }
 
   const extracted = extractIncomingMessages(payload);
-  const incoming = extracted.filter((message) => message.text);
-  const ignored = extracted.filter((message) => !message.text);
+  const incoming = extracted.filter((message) => message.text || message.mediaId);
+  const ignored = extracted.filter((message) => !message.text && !message.mediaId);
 
   sendJson(response, 200, { received: true, messages: incoming.length });
 

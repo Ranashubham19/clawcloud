@@ -115,6 +115,121 @@ async function requestGeminiSearchAnswer({
   }
 }
 
+function mediaPrompt(mediaType, mimeType, caption) {
+  if (caption) return caption;
+  if (mediaType === "audio" || mediaType === "voice" || mimeType.startsWith("audio/")) {
+    return "Transcribe this audio message fully and accurately. Then respond to anything the person said or asked.";
+  }
+  if (mediaType === "video" || mimeType.startsWith("video/")) {
+    return "Describe what is happening in this video. Then respond to anything being asked or shown.";
+  }
+  if (mediaType === "document" || mimeType === "application/pdf") {
+    return "Read this document/PDF fully. Summarize the key points and answer any questions the user might have about it.";
+  }
+  if (mediaType === "image" || mimeType.startsWith("image/")) {
+    return "Describe this image in detail. Identify any text, objects, people, or data visible. Answer any implied questions.";
+  }
+  return "Process this file and describe its contents clearly.";
+}
+
+export async function geminiMediaAnswer({
+  mediaData,
+  mimeType,
+  mediaType,
+  caption = "",
+  filename = "",
+  languageStyle = "english",
+  deadlineAt = 0
+}) {
+  if (!config.geminiApiKey) return null;
+
+  const remainingMs = deadlineAt ? deadlineAt - Date.now() : config.geminiTimeoutMs;
+  if (remainingMs < 1000) return null;
+
+  const langLabel = languageLabel(languageStyle);
+  const langInstruct = languageInstruction(languageStyle);
+
+  const systemInstruction = [
+    `You are an advanced AI assistant in WhatsApp.`,
+    `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}`,
+    "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks.",
+    "Give a complete, accurate, and helpful response.",
+    "Never mention tools, internal workflow, or that you are processing a file."
+  ].join("\n");
+
+  const userText = mediaPrompt(mediaType, mimeType, caption);
+  const filePart = {
+    inlineData: {
+      mimeType,
+      data: mediaData.toString("base64")
+    }
+  };
+
+  const textParts = [];
+  if (filename) textParts.push({ text: `File: ${filename}\n` });
+  textParts.push({ text: userText });
+
+  const payload = {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents: [
+      {
+        role: "user",
+        parts: [filePart, ...textParts]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.0,
+      maxOutputTokens: 1200,
+      candidateCount: 1,
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  };
+
+  const { signal, cancel } = createTimeoutSignal(
+    Math.min(config.geminiTimeoutMs, remainingMs)
+  );
+
+  try {
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": config.geminiApiKey
+        },
+        body: JSON.stringify(payload),
+        signal
+      }
+    );
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.warn(`Gemini media error ${response.status}: ${details.slice(0, 300)}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const text = parts
+      .filter((p) => typeof p.text === "string")
+      .map((p) => p.text)
+      .join("")
+      .trim();
+
+    return text || null;
+  } catch (error) {
+    const message =
+      error?.name === "AbortError"
+        ? `Gemini media timed out after ${config.geminiTimeoutMs}ms`
+        : error.message;
+    console.warn(`Gemini media error: ${message}`);
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
 export async function geminiSearchAnswer({
   query,
   languageStyle = "english",

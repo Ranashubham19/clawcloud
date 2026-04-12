@@ -22,6 +22,24 @@ export function verifyWhatsAppSignature(rawBody, signatureHeader) {
   );
 }
 
+const MEDIA_TYPES = ["image", "audio", "video", "document", "sticker", "voice"];
+
+function extractMedia(message) {
+  for (const kind of MEDIA_TYPES) {
+    if (message.type === kind && message[kind]) {
+      const m = message[kind];
+      return {
+        mediaId: m.id || "",
+        mediaType: kind,
+        mimeType: m.mime_type || "",
+        caption: m.caption || "",
+        filename: m.filename || ""
+      };
+    }
+  }
+  return null;
+}
+
 export function extractIncomingMessages(payload) {
   const found = [];
   const entries = payload?.entry || [];
@@ -41,19 +59,58 @@ export function extractIncomingMessages(payload) {
           message?.interactive?.list_reply?.title ||
           "";
 
+        const media = extractMedia(message);
+
         found.push({
           messageId: message.id,
           from: message.from,
           profileName,
           timestamp: message.timestamp,
           text,
-          type: message.type
+          type: message.type,
+          mediaId: media?.mediaId || "",
+          mediaType: media?.mediaType || "",
+          mimeType: media?.mimeType || "",
+          caption: media?.caption || "",
+          filename: media?.filename || ""
         });
       }
     }
   }
 
   return found;
+}
+
+export async function downloadWhatsAppMedia(mediaId) {
+  requireConfig("WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken);
+
+  const infoRes = await fetch(
+    `https://graph.facebook.com/${config.whatsappGraphVersion}/${mediaId}`,
+    {
+      headers: { Authorization: `Bearer ${config.whatsappAccessToken}` }
+    }
+  );
+
+  if (!infoRes.ok) {
+    const details = await infoRes.text();
+    throw new Error(`Media info error ${infoRes.status}: ${details.slice(0, 200)}`);
+  }
+
+  const info = await infoRes.json();
+
+  const dataRes = await fetch(info.url, {
+    headers: { Authorization: `Bearer ${config.whatsappAccessToken}` }
+  });
+
+  if (!dataRes.ok) {
+    throw new Error(`Media download error ${dataRes.status}`);
+  }
+
+  const buffer = Buffer.from(await dataRes.arrayBuffer());
+  return {
+    data: buffer,
+    mimeType: info.mime_type || "application/octet-stream"
+  };
 }
 
 export async function sendWhatsAppText({

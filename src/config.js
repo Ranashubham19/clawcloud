@@ -62,7 +62,7 @@ export const config = {
   tavilyApiKey: process.env.TAVILY_API_KEY || "",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
-  geminiTimeoutMs: toInt(process.env.GEMINI_TIMEOUT_MS, 3200),
+  geminiTimeoutMs: toInt(process.env.GEMINI_TIMEOUT_MS, 30000),
   searchTimeoutMs: toInt(process.env.SEARCH_TIMEOUT_MS, 1800),
   replyLatencyBudgetMs: toInt(process.env.REPLY_LATENCY_BUDGET_MS, 600000),
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
