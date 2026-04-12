@@ -12,7 +12,11 @@ export function getReadinessReport() {
     whatsapp_access_token: present(config.whatsappAccessToken),
     whatsapp_phone_number_id: present(config.whatsappPhoneNumberId),
     whatsapp_business_account_id_optional: present(config.whatsappBusinessAccountId),
-    whatsapp_app_secret_optional: present(config.whatsappAppSecret)
+    whatsapp_app_secret_optional: present(config.whatsappAppSecret),
+    admin_api_token_optional: present(config.adminApiToken),
+    google_client_id_optional: present(config.googleClientId),
+    google_client_secret_optional: present(config.googleClientSecret),
+    app_base_url_optional: present(config.appBaseUrl || config.googleRedirectUri)
   };
 
   const requiredKeys = [

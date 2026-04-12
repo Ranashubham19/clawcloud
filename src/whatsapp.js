@@ -100,6 +100,128 @@ export async function sendWhatsAppText({
   return response.json();
 }
 
+function splitByLength(text, maxLen) {
+  if (text.length <= maxLen) {
+    return [text];
+  }
+
+  const paragraphs = text.split(/\n{2,}/);
+  const chunks = [];
+  let buffer = "";
+
+  for (const para of paragraphs) {
+    const candidate = buffer ? `${buffer}\n\n${para}` : para;
+    if (candidate.length <= maxLen) {
+      buffer = candidate;
+      continue;
+    }
+
+    if (buffer) {
+      chunks.push(buffer);
+      buffer = "";
+    }
+
+    if (para.length <= maxLen) {
+      buffer = para;
+      continue;
+    }
+
+    const sentences = para.split(/(?<=[.!?])\s+/);
+    let sentenceBuffer = "";
+    for (const sentence of sentences) {
+      const sentenceCandidate = sentenceBuffer
+        ? `${sentenceBuffer} ${sentence}`
+        : sentence;
+      if (sentenceCandidate.length <= maxLen) {
+        sentenceBuffer = sentenceCandidate;
+        continue;
+      }
+
+      if (sentenceBuffer) {
+        chunks.push(sentenceBuffer);
+        sentenceBuffer = "";
+      }
+
+      if (sentence.length <= maxLen) {
+        sentenceBuffer = sentence;
+        continue;
+      }
+
+      const words = sentence.split(/\s+/);
+      let wordBuffer = "";
+      for (const word of words) {
+        if (word.length > maxLen) {
+          if (wordBuffer) {
+            chunks.push(wordBuffer);
+            wordBuffer = "";
+          }
+          for (let i = 0; i < word.length; i += maxLen) {
+            chunks.push(word.slice(i, i + maxLen));
+          }
+          continue;
+        }
+
+        const wordCandidate = wordBuffer ? `${wordBuffer} ${word}` : word;
+        if (wordCandidate.length <= maxLen) {
+          wordBuffer = wordCandidate;
+          continue;
+        }
+        if (wordBuffer) {
+          chunks.push(wordBuffer);
+        }
+        wordBuffer = word;
+      }
+      if (wordBuffer) {
+        chunks.push(wordBuffer);
+      }
+    }
+
+    if (sentenceBuffer) {
+      chunks.push(sentenceBuffer);
+    }
+  }
+
+  if (buffer) {
+    chunks.push(buffer);
+  }
+
+  return chunks.filter((chunk) => chunk.trim().length);
+}
+
+export function splitWhatsAppMessage(body, maxLen = 3800) {
+  const text = String(body || "").trim();
+  if (!text) {
+    return [];
+  }
+  return splitByLength(text, maxLen);
+}
+
+export async function sendWhatsAppTextChunked({
+  to,
+  body,
+  replyToMessageId = "",
+  previewUrl = false,
+  maxLen = 3800
+}) {
+  const chunks = splitWhatsAppMessage(body, maxLen);
+  if (!chunks.length) {
+    return [];
+  }
+
+  const deliveries = [];
+  for (let i = 0; i < chunks.length; i += 1) {
+    const delivery = await sendWhatsAppText({
+      to,
+      body: chunks[i],
+      replyToMessageId: i === 0 ? replyToMessageId : "",
+      previewUrl: i === 0 ? previewUrl : false
+    });
+    deliveries.push(delivery);
+  }
+
+  return deliveries;
+}
+
 export async function sendTypingIndicator(inboundMessageId) {
   if (!inboundMessageId) {
     return null;

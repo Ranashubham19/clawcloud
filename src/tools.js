@@ -10,7 +10,7 @@ import {
   upsertContact
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
-import { sendWhatsAppText, outboundDedupKey } from "./whatsapp.js";
+import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
 import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
@@ -278,7 +278,7 @@ export async function executeTool(name, args, context) {
         });
       }
 
-      const delivery = await sendWhatsAppText({
+      const delivery = await sendWhatsAppTextChunked({
         to: resolved.contact.phone.replace(/^\+/, ""),
         body: args.message
       });

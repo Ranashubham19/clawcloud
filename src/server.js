@@ -12,7 +12,7 @@ import {
   extractIncomingMessages,
   outboundDedupKey,
   sendTypingIndicator,
-  sendWhatsAppText,
+  sendWhatsAppTextChunked,
   verifyWhatsAppSignature
 } from "./whatsapp.js";
 import { startReminderLoop } from "./reminders.js";
@@ -22,6 +22,12 @@ import {
   getPrivacyPolicyHtml,
   getTermsHtml
 } from "./legal.js";
+import {
+  beginGoogleContactsOAuth,
+  completeGoogleContactsOAuth,
+  getGoogleContactsStatus,
+  syncGoogleContacts
+} from "./google-contacts.js";
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -37,6 +43,20 @@ function sendText(response, statusCode, payload) {
   response.end(payload);
 }
 
+function sendHtml(response, statusCode, payload) {
+  response.writeHead(statusCode, {
+    "Content-Type": "text/html; charset=utf-8"
+  });
+  response.end(payload);
+}
+
+function sendRedirect(response, statusCode, location) {
+  response.writeHead(statusCode, {
+    Location: location
+  });
+  response.end();
+}
+
 async function readRawBody(request) {
   const chunks = [];
   for await (const chunk of request) {
@@ -47,6 +67,160 @@ async function readRawBody(request) {
 
 function parseUrl(request) {
   return new URL(request.url, `http://${request.headers.host || "localhost"}`);
+}
+
+function requestOrigin(request) {
+  const forwardedProto = String(request.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim();
+  const forwardedHost = String(request.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  const protocol =
+    forwardedProto || (request.socket.encrypted ? "https" : "http");
+  const host = forwardedHost || request.headers.host || "localhost";
+  return `${protocol}://${host}`;
+}
+
+function getAdminToken(request, url) {
+  const authorization = String(request.headers.authorization || "");
+  if (authorization.startsWith("Bearer ")) {
+    return authorization.slice("Bearer ".length).trim();
+  }
+
+  return (
+    String(request.headers["x-admin-token"] || "").trim() ||
+    String(url.searchParams.get("token") || "").trim()
+  );
+}
+
+function requireAdminAccess(request, response, url) {
+  if (!config.adminApiToken) {
+    sendJson(response, 503, {
+      error:
+        "Google Contacts admin routes are disabled. Set ADMIN_API_TOKEN first."
+    });
+    return false;
+  }
+
+  if (getAdminToken(request, url) !== config.adminApiToken) {
+    sendText(response, 403, "Forbidden");
+    return false;
+  }
+
+  return true;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function googleContactsDashboardHtml(status, adminToken = "") {
+  const tokenQuery = adminToken ? `?token=${encodeURIComponent(adminToken)}` : "";
+  const summaryJson = status.lastSyncSummary
+    ? JSON.stringify(status.lastSyncSummary, null, 2)
+    : "No sync has run yet.";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Claw Cloud Google Contacts</title>
+    <style>
+      body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #f4f7fb; color: #132238; }
+      main { max-width: 860px; margin: 40px auto; padding: 0 20px; }
+      .card { background: #fff; border: 1px solid #dbe5f0; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(19,34,56,.06); }
+      h1 { margin: 0 0 12px; font-size: 30px; }
+      h2 { margin: 0 0 12px; font-size: 20px; }
+      p { margin: 8px 0; line-height: 1.6; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+      .button { display: inline-block; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; }
+      .primary { background: #0b6bcb; color: #fff; }
+      .secondary { background: #eaf2fb; color: #0b6bcb; }
+      .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+      .ok { background: #e9f8ef; color: #0d7a34; }
+      .warn { background: #fff2df; color: #a55a00; }
+      pre { background: #0f1720; color: #eff6ff; padding: 16px; border-radius: 12px; overflow: auto; font-size: 13px; }
+      ul { margin: 10px 0 0 18px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Google Contacts Integration</h1>
+        <p>
+          Status:
+          <span class="badge ${status.connected ? "ok" : "warn"}">
+            ${status.connected ? "Connected" : "Not connected"}
+          </span>
+        </p>
+        <p>Redirect URI: <code>${escapeHtml(status.redirectUri || "Not configured")}</code></p>
+        <p>Scope: <code>${escapeHtml(status.scope || "Not configured")}</code></p>
+        <div class="row">
+          <a class="button primary" href="/integrations/google/connect${tokenQuery}">Connect Google Contacts</a>
+          <a class="button secondary" href="/integrations/google/sync${tokenQuery}">Run Contact Sync</a>
+          <a class="button secondary" href="/integrations/google/status${tokenQuery}">View JSON Status</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Configuration Checks</h2>
+        <ul>
+          ${Object.entries(status.checks)
+            .map(
+              ([key, value]) =>
+                `<li><strong>${escapeHtml(key)}</strong>: ${value ? "configured" : "missing"}</li>`
+            )
+            .join("")}
+        </ul>
+        ${
+          status.missing.length
+            ? `<p><strong>Missing:</strong> ${escapeHtml(status.missing.join(", "))}</p>`
+            : `<p>Everything required for Google Contacts sync is configured.</p>`
+        }
+      </section>
+
+      <section class="card">
+        <h2>Last Sync</h2>
+        <p>Last sync time: ${escapeHtml(status.lastSyncAt || "Never")}</p>
+        <pre>${escapeHtml(summaryJson)}</pre>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+function integrationResultHtml({ title, message, detail = "" }) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { font-family: "Segoe UI", Arial, sans-serif; background: #f4f7fb; color: #132238; margin: 0; }
+      main { max-width: 720px; margin: 56px auto; padding: 0 20px; }
+      .card { background: white; border: 1px solid #dbe5f0; border-radius: 16px; padding: 28px; box-shadow: 0 8px 24px rgba(19,34,56,.06); }
+      h1 { margin-top: 0; }
+      pre { background: #0f1720; color: #eff6ff; padding: 16px; border-radius: 12px; overflow: auto; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(message)}</p>
+        ${detail ? `<pre>${escapeHtml(detail)}</pre>` : ""}
+      </section>
+    </main>
+  </body>
+</html>`;
 }
 
 async function processInboundMessage(message) {
@@ -75,7 +249,7 @@ async function processInboundMessage(message) {
       assistantReply &&
       !(await hasRecentOutboundDedup(dedupeKey, 24 * 60 * 60 * 1000))
     ) {
-      const delivery = await sendWhatsAppText({
+      const delivery = await sendWhatsAppTextChunked({
         to: message.from,
         body: assistantReply,
         replyToMessageId: message.messageId
@@ -112,7 +286,7 @@ async function processInboundMessage(message) {
 
     if (!(await hasRecentOutboundDedup(dedupeKey, 24 * 60 * 60 * 1000))) {
       try {
-        const delivery = await sendWhatsAppText({
+        const delivery = await sendWhatsAppTextChunked({
           to: message.from,
           body: fallback,
           replyToMessageId: message.messageId
@@ -203,17 +377,128 @@ async function requestListener(request, response) {
   }
 
   if (request.method === "GET" && url.pathname === "/privacy") {
-    sendText(response, 200, getPrivacyPolicyHtml());
+    sendHtml(response, 200, getPrivacyPolicyHtml());
     return;
   }
 
   if (request.method === "GET" && url.pathname === "/terms") {
-    sendText(response, 200, getTermsHtml());
+    sendHtml(response, 200, getTermsHtml());
     return;
   }
 
   if (request.method === "GET" && url.pathname === "/data-deletion") {
-    sendText(response, 200, getDataDeletionHtml());
+    sendHtml(response, 200, getDataDeletionHtml());
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/integrations/google") {
+    if (!requireAdminAccess(request, response, url)) {
+      return;
+    }
+
+    const status = await getGoogleContactsStatus(requestOrigin(request));
+    sendHtml(
+      response,
+      200,
+      googleContactsDashboardHtml(status, getAdminToken(request, url))
+    );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/integrations/google/status") {
+    if (!requireAdminAccess(request, response, url)) {
+      return;
+    }
+
+    const status = await getGoogleContactsStatus(requestOrigin(request));
+    sendJson(response, 200, status);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/integrations/google/connect") {
+    if (!requireAdminAccess(request, response, url)) {
+      return;
+    }
+
+    const authUrl = await beginGoogleContactsOAuth(requestOrigin(request));
+    sendRedirect(response, 302, authUrl);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/integrations/google/callback") {
+    const error = url.searchParams.get("error");
+    if (error) {
+      sendHtml(
+        response,
+        400,
+        integrationResultHtml({
+          title: "Google connection failed",
+          message: "Google returned an authorization error.",
+          detail: error
+        })
+      );
+      return;
+    }
+
+    try {
+      const summary = await completeGoogleContactsOAuth({
+        code: url.searchParams.get("code") || "",
+        state: url.searchParams.get("state") || "",
+        origin: requestOrigin(request)
+      });
+
+      sendHtml(
+        response,
+        200,
+        integrationResultHtml({
+          title: "Google Contacts connected",
+          message:
+            "Google Contacts has been connected successfully and the first sync has completed.",
+          detail: JSON.stringify(summary, null, 2)
+        })
+      );
+    } catch (callbackError) {
+      sendHtml(
+        response,
+        400,
+        integrationResultHtml({
+          title: "Google callback failed",
+          message:
+            "The Google Contacts callback could not be completed. Please reconnect and try again.",
+          detail: callbackError.message
+        })
+      );
+    }
+    return;
+  }
+
+  if (
+    (request.method === "GET" || request.method === "POST") &&
+    url.pathname === "/integrations/google/sync"
+  ) {
+    if (!requireAdminAccess(request, response, url)) {
+      return;
+    }
+
+    const summary = await syncGoogleContacts(requestOrigin(request));
+
+    if (request.method === "GET") {
+      sendHtml(
+        response,
+        200,
+        integrationResultHtml({
+          title: "Google Contacts sync complete",
+          message: "The latest Google Contacts import completed successfully.",
+          detail: JSON.stringify(summary, null, 2)
+        })
+      );
+      return;
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      summary
+    });
     return;
   }
 

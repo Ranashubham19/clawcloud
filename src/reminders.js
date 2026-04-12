@@ -6,7 +6,7 @@ import {
   markReminderSent,
   rememberOutboundDedup
 } from "./store.js";
-import { outboundDedupKey, sendWhatsAppText } from "./whatsapp.js";
+import { outboundDedupKey, sendWhatsAppTextChunked } from "./whatsapp.js";
 
 export function startReminderLoop() {
   const timer = setInterval(async () => {
@@ -25,7 +25,7 @@ export function startReminderLoop() {
       }
 
       try {
-        const delivery = await sendWhatsAppText({
+        const delivery = await sendWhatsAppTextChunked({
           to: reminder.targetPhone.replace(/^\+/, ""),
           body: reminder.text
         });

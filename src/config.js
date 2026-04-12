@@ -50,7 +50,11 @@ export const config = {
   adminApiToken: process.env.ADMIN_API_TOKEN || "",
   nvidiaApiKey: process.env.NVIDIA_API_KEY || "",
   nvidiaModel:
-    process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
+    process.env.NVIDIA_MODEL || "qwen/qwen3.5-397b-a17b",
+  nvidiaModels: String(process.env.NVIDIA_MODELS || "")
+    .split(/[,;\n]+/)
+    .map((value) => value.trim())
+    .filter(Boolean),
   nvidiaApiBase:
     process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com/v1",
   tavilyApiKey: process.env.TAVILY_API_KEY || "",

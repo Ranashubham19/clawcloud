@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildProfessionalFallbackReply, getProfessionalQuickReply } from "../src/replies.js";
-import { extractIncomingMessages } from "../src/whatsapp.js";
+import { extractIncomingMessages, splitWhatsAppMessage } from "../src/whatsapp.js";
+import { extractGoogleContactImports } from "../src/google-contacts.js";
 
 async function run(name, fn) {
   try {
@@ -122,6 +123,70 @@ await run("handleIncomingText answers greetings without the model", async () => 
 await run("createChatCompletion accepts custom maxTokens", async () => {
   const nvidia = await import(`../src/nvidia.js?ts=${Date.now()}`);
   assert.equal(typeof nvidia.createChatCompletion, "function");
+  assert.ok(nvidia.DEFAULT_NVIDIA_MODELS.length >= 10);
+});
+
+await run("isToolLeakText catches raw function-call JSON", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.isToolLeakText('{"name":"min_cost","parameters":{"n":3}}'),
+    true
+  );
+  assert.equal(agent.isToolLeakText("Use DP over subsets and return the minimum cost."), false);
+});
+
+await run("extractGoogleContactImports maps Google contacts with phones", async () => {
+  const result = extractGoogleContactImports([
+    {
+      resourceName: "people/c123",
+      names: [{ displayName: "Dii Sharma", givenName: "Dii" }],
+      nicknames: [{ value: "Dii" }],
+      emailAddresses: [{ value: "dii@example.com" }],
+      phoneNumbers: [{ canonicalForm: "+919876543210" }]
+    }
+  ]);
+
+  assert.equal(result.skippedWithoutPhone, 0);
+  assert.equal(result.contacts.length, 1);
+  assert.equal(result.contacts[0].name, "Dii Sharma");
+  assert.equal(result.contacts[0].phone, "+919876543210");
+  assert.match(result.contacts[0].aliases.join(" "), /Dii/i);
+  assert.equal(result.contacts[0].emails[0], "dii@example.com");
+});
+
+await run("splitWhatsAppMessage chunks long replies safely", async () => {
+  const text = "A".repeat(9000);
+  const chunks = splitWhatsAppMessage(text, 3800);
+  assert.equal(chunks.length, 3);
+  assert.ok(chunks[0].length <= 3800);
+  assert.ok(chunks[1].length <= 3800);
+  assert.ok(chunks[2].length <= 3800);
+});
+
+await run("listContacts can find imported contact by email alias", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  await store.upsertContact({
+    name: "Dii Sharma",
+    phone: "+919876543210",
+    emails: ["dii@example.com"],
+    aliases: ["Dii"],
+    providers: {
+      googleContacts: {
+        resourceName: "people/c123"
+      }
+    }
+  });
+
+  const matches = await store.listContacts("dii@example.com");
+
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].name, "Dii Sharma");
+
+  await rm(tempDir, { recursive: true, force: true });
 });
 
 if (process.exitCode) {

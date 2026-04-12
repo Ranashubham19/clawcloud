@@ -8,6 +8,15 @@ const defaults = {
   contacts: [],
   conversations: {},
   reminders: [],
+  integrations: {
+    googleContacts: {
+      connected: false,
+      tokens: null,
+      oauthState: null,
+      lastSyncAt: null,
+      lastSyncSummary: null
+    }
+  },
   meta: {
     inbound: {},
     outbound: {}
@@ -18,6 +27,7 @@ const fileNames = {
   contacts: "contacts.json",
   conversations: "conversations.json",
   reminders: "reminders.json",
+  integrations: "integrations.json",
   meta: "meta.json"
 };
 
@@ -90,8 +100,12 @@ function contactMatches(contact, query) {
   const aliasPool = [contact.name, ...(contact.aliases || [])]
     .filter(Boolean)
     .map((value) => value.toLowerCase());
+  const emailPool = (contact.emails || [])
+    .filter(Boolean)
+    .map((value) => value.toLowerCase());
   return (
     aliasPool.some((value) => value.includes(lowerQuery)) ||
+    emailPool.some((value) => value.includes(lowerQuery)) ||
     (looksLikePhone(query) &&
       comparablePhone(contact.phone).includes(comparablePhone(query)))
   );
@@ -146,13 +160,23 @@ export async function resolveContact(query, fallbackPhone = "") {
   return { status: "not_found", matches: [] };
 }
 
-export async function upsertContact({ name, phone, aliases = [], overwriteName = true }) {
+export async function upsertContact({
+  name,
+  phone,
+  aliases = [],
+  emails = [],
+  overwriteName = true,
+  providers = {}
+}) {
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
     throw new Error("Phone is required to save a contact");
   }
 
   const normalizedAliases = [...new Set((aliases || []).filter(Boolean))];
+  const normalizedEmails = [...new Set((emails || []).filter(Boolean).map((value) => value.toLowerCase()))];
+  const normalizedProviders = providers && typeof providers === "object" ? providers : {};
+  const hasProviderMetadata = Object.keys(normalizedProviders).length > 0;
 
   return withWriteLock("contacts", (contacts) => {
     const existing = contacts.find(
@@ -170,7 +194,17 @@ export async function upsertContact({ name, phone, aliases = [], overwriteName =
         extraAliases.push(name);
       }
       existing.aliases = [...new Set([...(existing.aliases || []), ...extraAliases])];
+      existing.emails = [
+        ...new Set([...(existing.emails || []), ...normalizedEmails])
+      ];
+      existing.providers = {
+        ...(existing.providers || {}),
+        ...normalizedProviders
+      };
       existing.lastSeenAt = nowIso();
+      if (hasProviderMetadata) {
+        existing.lastSyncedAt = nowIso();
+      }
       return contacts;
     }
 
@@ -179,12 +213,36 @@ export async function upsertContact({ name, phone, aliases = [], overwriteName =
       name: name || normalizedPhone,
       phone: normalizedPhone,
       aliases: normalizedAliases,
+      emails: normalizedEmails,
+      providers: normalizedProviders,
       createdAt: nowIso(),
-      lastSeenAt: nowIso()
+      lastSeenAt: nowIso(),
+      lastSyncedAt: hasProviderMetadata ? nowIso() : null
     });
 
     return contacts;
   });
+}
+
+export async function getGoogleContactsIntegration() {
+  const integrations = await readJson("integrations");
+  return (
+    integrations.googleContacts || cloneDefault("integrations").googleContacts
+  );
+}
+
+export async function updateGoogleContactsIntegration(updater) {
+  const updated = await withWriteLock("integrations", (integrations) => {
+    integrations.googleContacts ||=
+      cloneDefault("integrations").googleContacts;
+
+    const next =
+      updater(integrations.googleContacts) || integrations.googleContacts;
+    integrations.googleContacts = next;
+    return integrations;
+  });
+
+  return updated.googleContacts;
 }
 
 export async function appendConversationMessage(chatId, message) {
