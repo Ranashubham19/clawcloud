@@ -164,11 +164,19 @@ async function handleWebhookPost(request, response) {
     return;
   }
 
-  const incoming = extractIncomingMessages(payload).filter(
-    (message) => message.text && message.type === "text"
-  );
+  const extracted = extractIncomingMessages(payload);
+  const incoming = extracted.filter((message) => message.text);
+  const ignored = extracted.filter((message) => !message.text);
 
   sendJson(response, 200, { received: true, messages: incoming.length });
+
+  if (ignored.length) {
+    console.log(
+      `Ignored ${ignored.length} inbound WhatsApp messages without readable text: ${ignored
+        .map((message) => message.type || "unknown")
+        .join(", ")}`
+    );
+  }
 
   for (const message of incoming) {
     await processInboundMessage(message);
