@@ -17,9 +17,28 @@ const longAnswerPattern =
 function pickMaxTokens(text, useTools) {
   const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 160;
   if (useTools) {
-    return long ? 2000 : 900;
+    return long ? 850 : 500;
   }
-  return long ? 1800 : 700;
+  return long ? 800 : 450;
+}
+
+const SINGLE_MESSAGE_LIMIT = 3000;
+
+function clampToSingleMessage(value) {
+  const text = String(value || "");
+  if (text.length <= SINGLE_MESSAGE_LIMIT) {
+    return text;
+  }
+  const slice = text.slice(0, SINGLE_MESSAGE_LIMIT);
+  const lastBreak = Math.max(
+    slice.lastIndexOf("\n\n"),
+    slice.lastIndexOf(". "),
+    slice.lastIndexOf("। ")
+  );
+  if (lastBreak > SINGLE_MESSAGE_LIMIT * 0.6) {
+    return slice.slice(0, lastBreak + 1).trim();
+  }
+  return slice.trim();
 }
 
 function systemPrompt(context) {
@@ -31,6 +50,7 @@ function systemPrompt(context) {
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot. Do NOT open every reply with 'Thank you for contacting…'.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
     "BREVITY RULE: Be maximally concise. Simple questions get 1–2 sentences. Medium questions get 2–4 sentences. Only go longer when the user explicitly asks for depth or the topic cannot be answered shorter. Do not pad with disclaimers.",
+    "SINGLE MESSAGE RULE — STRICT: Your entire reply MUST fit in ONE WhatsApp message. Hard limit: 3000 characters total. Never produce a response longer than that. If a topic genuinely needs more, summarise it tightly so the whole answer still fits in one message. Never split your reply into multiple parts. Never say 'continued' or 'part 1'.",
     "You have full programmatic control over this WhatsApp account through tools (lookup_contact, save_contact, get_recent_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder). Use them whenever the user asks you to read, write, send, message, contact, remember, remind, or look up someone — do not just describe what you would do, actually call the tool.",
     "When the user says things like 'message X', 'send hi to Y', 'tell mom I'll be late', resolve the contact (lookup_contact first if needed) and then call send_whatsapp_message. If the contact is not found and you only have a name, ask once for the phone number; if you have a clear phone number, send directly.",
     "Never produce fake instructions like 'Send this to X'. Either actually send via the tool or ask one short clarifying question for the single missing detail.",
@@ -133,7 +153,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     assistantText = buildProfessionalFallbackReply({ text, profileName });
   }
 
-  assistantText = sanitizeForWhatsApp(assistantText);
+  assistantText = clampToSingleMessage(sanitizeForWhatsApp(assistantText));
 
   await appendConversationMessage(from, {
     role: "assistant",
