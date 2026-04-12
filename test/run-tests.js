@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
+import { buildProfessionalFallbackReply, getProfessionalQuickReply } from "../src/replies.js";
 import { extractIncomingMessages } from "../src/whatsapp.js";
 
 async function run(name, fn) {
@@ -57,6 +58,26 @@ await run("extractIncomingMessages reads text payloads", async () => {
   assert.equal(messages[0].text, "Hello");
 });
 
+await run("quick reply returns a professional greeting", async () => {
+  const reply = getProfessionalQuickReply({
+    text: "HELLO",
+    profileName: "Shubham"
+  });
+
+  assert.match(reply, /Hello Shubham/i);
+  assert.match(reply, /How may I assist you today/i);
+});
+
+await run("fallback reply stays professional for general messages", async () => {
+  const reply = buildProfessionalFallbackReply({
+    text: "I need details",
+    profileName: "Shubham"
+  });
+
+  assert.match(reply, /Thank you for your message Shubham/i);
+  assert.match(reply, /professional answer/i);
+});
+
 await run("beginInboundProcessing dedupes repeated message ids", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
   process.env.CLAW_DATA_DIR = tempDir;
@@ -69,6 +90,31 @@ await run("beginInboundProcessing dedupes repeated message ids", async () => {
 
   assert.equal(first.status, "accepted");
   assert.equal(second.status, "duplicate");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("handleIncomingText answers greetings without the model", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+
+  const reply = await agent.handleIncomingText({
+    messageId: "wamid-greeting",
+    from: "919999999999",
+    profileName: "Shubham",
+    text: "Hello"
+  });
+
+  const history = await store.getConversation("919999999999");
+
+  assert.match(reply, /Hello Shubham/i);
+  assert.equal(history.length, 2);
+  assert.equal(history[0].role, "user");
+  assert.equal(history[1].role, "assistant");
 
   await rm(tempDir, { recursive: true, force: true });
 });

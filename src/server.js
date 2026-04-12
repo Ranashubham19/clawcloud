@@ -46,6 +46,9 @@ function parseUrl(request) {
 async function processInboundMessage(message) {
   const gate = await beginInboundProcessing(message.messageId);
   if (gate.status !== "accepted") {
+    console.log(
+      `Skipping duplicate inbound message ${message.messageId} from ${message.from}`
+    );
     return;
   }
 
@@ -74,14 +77,23 @@ async function processInboundMessage(message) {
         delivery,
         inboundMessageId: message.messageId
       });
+
+      console.log(
+        `Answered inbound message ${message.messageId} for ${message.from}`
+      );
     }
 
     await completeInboundProcessing(message.messageId, {
-      reply: assistantReply
+      reply: assistantReply,
+      outcome: assistantReply ? "answered" : "empty_reply"
     });
   } catch (error) {
+    console.error(
+      `Failed to process inbound message ${message.messageId} from ${message.from}: ${error.message}`
+    );
+
     const fallback =
-      "I hit a temporary issue while processing that. Please try again in a moment.";
+      "Thank you for your message. I am temporarily unable to complete the full request, but I am still here to help. Please try again in a moment.";
 
     const dedupeKey = outboundDedupKey(
       "assistant-error",
@@ -107,7 +119,8 @@ async function processInboundMessage(message) {
     }
 
     await completeInboundProcessing(message.messageId, {
-      error: error.message
+      error: error.message,
+      outcome: "error"
     });
   }
 }
