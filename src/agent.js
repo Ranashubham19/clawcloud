@@ -32,7 +32,7 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
     const answer = await geminiSearchAnswer({
       query,
       languageStyle,
-      maxOutputTokens: 420,
+      maxOutputTokens: 620,
       deadlineAt
     });
     if (answer) {

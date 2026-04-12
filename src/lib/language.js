@@ -143,13 +143,13 @@ export function isLanguageCompatible(text, style) {
   }
 
   if (style === "hinglish") {
+    // Devanagari in a Hinglish reply is wrong script
     if (hasDevanagari) {
       return false;
     }
-    if (value.length < 40) {
-      return true;
-    }
-    return hinglishHints >= 1;
+    // Roman script is always acceptable for Hinglish speakers
+    // (they read both English and mixed Hinglish)
+    return true;
   }
 
   if (hasDevanagari) {

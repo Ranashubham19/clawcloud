@@ -3,16 +3,16 @@ import { config, requireConfig } from "./config.js";
 import { toModelText } from "./lib/text.js";
 
 export const DEFAULT_NVIDIA_MODELS = [
-  "qwen/qwen3.5-397b-a17b",
+  "meta/llama-3.3-70b-instruct",
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "mistralai/mistral-medium-3-instruct",
+  "qwen/qwen2.5-coder-32b-instruct",
+  "google/gemma-3-27b-it",
+  "qwen/qwen3-next-80b-a3b-instruct",
+  "deepseek-ai/deepseek-v3.2",
   "meta/llama-3.1-405b-instruct",
   "mistralai/mistral-large-3-675b-instruct-2512",
-  "meta/llama-3.3-70b-instruct",
-  "mistralai/mistral-medium-3-instruct",
-  "meta/llama-4-maverick-17b-128e-instruct",
-  "qwen/qwen3-next-80b-a3b-instruct",
-  "google/gemma-3-27b-it",
-  "deepseek-ai/deepseek-v3.2",
-  "qwen/qwen2.5-coder-32b-instruct"
+  "qwen/qwen3.5-397b-a17b"
 ];
 
 const SELECTED_MODEL_LIMIT = DEFAULT_NVIDIA_MODELS.length;

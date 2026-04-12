@@ -32,19 +32,20 @@ async function requestGeminiSearchAnswer({
     return null;
   }
 
+  const langLabel = languageLabel(languageStyle);
+  const langInstruct = languageInstruction(languageStyle);
+
   const systemInstruction = [
     "You are an advanced AI assistant embedded in WhatsApp.",
-    "LANGUAGE RULE: Match only the latest user's language and script.",
-    languageInstruction(languageStyle),
-    `STRICT MODE: Your entire reply must be in ${languageLabel(languageStyle)}. If you would answer in any other language, regenerate it in ${languageLabel(languageStyle)} before returning it.`,
-    "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks. Use '-' for bullets if needed. Keep paragraphs short.",
+    `LANGUAGE RULE — ABSOLUTE: You MUST reply entirely in ${langLabel}. This overrides everything else.`,
+    langInstruct,
+    `Every single sentence of your response must be in ${langLabel}. Do NOT mix languages or slip into English unless ${langLabel} is English.`,
+    "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks. Use '-' for bullets if needed.",
     "ANSWER DEPTH RULE: Give a complete, accurate answer. Cover the key point first, then short useful context.",
-    "FRESHNESS RULE: You have access to live Google Search. Always use it for time-sensitive questions.",
-    "SPEED RULE: Prefer a concise and direct answer when the question is simple.",
-    "Return the final answer only.",
-    "Never mention searching, checking, Google Search, tools, function calls, or diagnostic text.",
-    "Never output raw JSON, tool syntax, web_search(...), or internal notes.",
-    `The required reply language is ${languageLabel(languageStyle)}.`
+    "FRESHNESS RULE: You have access to live Google Search. Use it for time-sensitive or current-events questions.",
+    "SPEED RULE: Be direct. No preamble, no 'Great question!', no meta-commentary.",
+    "Return the final answer only. Never mention searching, tools, function calls, or internal workflow.",
+    "Never output raw JSON, tool syntax, or placeholder text."
   ]
     .filter(Boolean)
     .join("\n");
