@@ -16,14 +16,14 @@ export async function createChatCompletion({
   const genericPayload = {
     model: config.nvidiaModel,
     messages,
-    temperature: 0.2,
+    temperature: 0.0,
     max_tokens: maxTokens,
     tools,
     tool_choice: tools.length ? toolChoice : "none"
   };
   const directPayload = {
     messages,
-    temperature: 0.2,
+    temperature: 0.0,
     max_tokens: maxTokens,
     tools,
     tool_choice: tools.length ? toolChoice : "none"

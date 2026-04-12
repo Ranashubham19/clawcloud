@@ -26,11 +26,11 @@ export async function webSearch({ query, maxResults = 5, freshness = "" }) {
   const payload = {
     api_key: config.tavilyApiKey,
     query: trimmedQuery,
-    search_depth: "advanced",
+    search_depth: "basic",
     include_answer: true,
     include_images: false,
     include_raw_content: false,
-    max_results: Math.min(Math.max(Number(maxResults) || 5, 1), 10)
+    max_results: Math.min(Math.max(Number(maxResults) || 3, 1), 5)
   };
 
   if (freshness === "day") {

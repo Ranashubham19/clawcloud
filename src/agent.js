@@ -20,9 +20,9 @@ const longAnswerPattern =
 function pickMaxTokens(text, useTools) {
   const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 160;
   if (useTools) {
-    return long ? 850 : 500;
+    return long ? 700 : 400;
   }
-  return long ? 800 : 450;
+  return long ? 650 : 350;
 }
 
 const SINGLE_MESSAGE_LIMIT = 3000;
@@ -104,7 +104,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   }
 
   const useTools = mayNeedTools(text);
-  const history = await getConversation(from, useTools ? 20 : 8);
+  const history = await getConversation(from, useTools ? 6 : 6);
   const messages = [
     { role: "system", content: systemPrompt({ currentUserPhone: from, profileName }) },
     ...historyToModelMessages(history)
