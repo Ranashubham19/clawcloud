@@ -1,12 +1,46 @@
 import { config } from "./config.js";
 import { appendConversationMessage, getConversation, upsertContact } from "./store.js";
-import { createChatCompletion, unpackAssistantMessage } from "./nvidia.js";
+import { createChatCompletion, unpackAssistantMessage, getRankedNvidiaModels } from "./nvidia.js";
 import { executeTool, toolDefinitions } from "./tools.js";
 import { safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
+import { webSearch, hasSearchProvider } from "./search.js";
 import {
   buildProfessionalFallbackReply,
   getProfessionalQuickReply
 } from "./replies.js";
+
+const WEB_SYNTHESIS_MODELS = [
+  "meta/llama-3.1-405b-instruct",
+  "meta/llama-3.3-70b-instruct",
+  "mistralai/mistral-large-3-675b-instruct-2512"
+];
+
+async function eagerSearch(query) {
+  if (!hasSearchProvider()) {
+    return null;
+  }
+  try {
+    const result = await webSearch({ query, maxResults: 4, freshness: "month" });
+    if (!result.ok || (!result.answer && !result.results?.length)) {
+      return null;
+    }
+    const lines = [];
+    if (result.answer) {
+      lines.push(`Summary: ${result.answer}`);
+    }
+    for (const r of result.results.slice(0, 4)) {
+      const parts = [];
+      if (r.published) parts.push(`[${r.published.slice(0, 10)}]`);
+      if (r.title) parts.push(r.title);
+      if (r.snippet) parts.push(`— ${r.snippet}`);
+      if (r.url) parts.push(`(${r.url})`);
+      if (parts.length) lines.push(parts.join(" "));
+    }
+    return lines.join("\n");
+  } catch {
+    return null;
+  }
+}
 
 const toolIntentPattern =
   /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|recent|contact|save\s+contact|lookup|look\s*up|find\s+contact|call\s+log|whatsapp|wa)\b/i;
@@ -168,12 +202,31 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     return quickReply;
   }
 
+  const isRecency = recencyIntentPattern.test(String(text || ""));
   const useTools = mayNeedTools(text);
-  const history = await getConversation(from, 6);
+
+  // Fire Tavily and history fetch in parallel — zero extra wall time
+  const [history, eagerSearchContext] = await Promise.all([
+    getConversation(from, 6),
+    isRecency ? eagerSearch(text) : Promise.resolve(null)
+  ]);
+
+  const preferredModels = isRecency
+    ? getRankedNvidiaModels({ preferredModels: WEB_SYNTHESIS_MODELS }).slice(0, 3)
+    : [];
+
   const messages = [
     { role: "system", content: systemPrompt({ currentUserPhone: from, profileName }) },
     ...historyToModelMessages(history)
   ];
+
+  // Inject live search results directly into the conversation context
+  if (eagerSearchContext) {
+    messages.push({
+      role: "user",
+      content: `[Live web search results for: "${text}"]\n\n${eagerSearchContext}\n\n---\nUsing the live results above, answer my question accurately in my language.`
+    });
+  }
 
   let assistantText = "";
   let toolRounds = 0;
@@ -184,8 +237,9 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     while (toolRounds < 6) {
       const completion = await createChatCompletion({
         messages,
-        tools: useTools ? toolDefinitions : [],
+        tools: eagerSearchContext ? [] : (useTools ? toolDefinitions : []),
         maxTokens: pickMaxTokens(text, useTools),
+        preferredModels,
         excludeModels: [...rejectedModels]
       });
       const assistant = unpackAssistantMessage(completion);
