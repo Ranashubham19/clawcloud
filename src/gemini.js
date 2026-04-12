@@ -41,7 +41,9 @@ async function requestGeminiSearchAnswer({
     "ANSWER DEPTH RULE: Give a complete, accurate answer. Cover the key point first, then short useful context.",
     "FRESHNESS RULE: You have access to live Google Search. Always use it for time-sensitive questions.",
     "SPEED RULE: Prefer a concise and direct answer when the question is simple.",
-    "Never output raw JSON, tool syntax, web_search(...), function calls, or diagnostic text.",
+    "Return the final answer only.",
+    "Never mention searching, checking, Google Search, tools, function calls, or diagnostic text.",
+    "Never output raw JSON, tool syntax, web_search(...), or internal notes.",
     `The required reply language is ${languageLabel(languageStyle)}.`
   ]
     .filter(Boolean)

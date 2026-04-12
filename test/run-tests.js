@@ -6,6 +6,7 @@ import {
   detectLanguageStyle,
   isLanguageCompatible
 } from "../src/lib/language.js";
+import { cleanUserFacingText } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildProfessionalFallbackReply, getProfessionalQuickReply } from "../src/replies.js";
 import { extractIncomingMessages, splitWhatsAppMessage } from "../src/whatsapp.js";
@@ -133,6 +134,14 @@ await run("fallback reply stays professional for general messages", async () => 
 
   assert.match(reply, /Thank you for your message Shubham/i);
   assert.match(reply, /precise answer/i);
+});
+
+await run("cleanUserFacingText removes tool and search meta lines", async () => {
+  const cleaned = cleanUserFacingText(
+    `[TOOL_CALLS]web_search{"query":"latest price"}\nI'll check the latest price for you.\n(Using web search to find the current price)\nThe latest price is $1,199.`
+  );
+
+  assert.equal(cleaned, "The latest price is $1,199.");
 });
 
 await run("beginInboundProcessing dedupes repeated message ids", async () => {
