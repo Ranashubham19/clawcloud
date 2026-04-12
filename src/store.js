@@ -146,7 +146,7 @@ export async function resolveContact(query, fallbackPhone = "") {
   return { status: "not_found", matches: [] };
 }
 
-export async function upsertContact({ name, phone, aliases = [] }) {
+export async function upsertContact({ name, phone, aliases = [], overwriteName = true }) {
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
     throw new Error("Phone is required to save a contact");
@@ -160,8 +160,16 @@ export async function upsertContact({ name, phone, aliases = [] }) {
     );
 
     if (existing) {
-      existing.name = name || existing.name;
-      existing.aliases = [...new Set([...(existing.aliases || []), ...normalizedAliases])];
+      if (overwriteName && name) {
+        existing.name = name;
+      } else if (!existing.name && name) {
+        existing.name = name;
+      }
+      const extraAliases = [...normalizedAliases];
+      if (!overwriteName && name && name !== existing.name) {
+        extraAliases.push(name);
+      }
+      existing.aliases = [...new Set([...(existing.aliases || []), ...extraAliases])];
       existing.lastSeenAt = nowIso();
       return contacts;
     }

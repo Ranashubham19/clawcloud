@@ -1,11 +1,10 @@
 import { config } from "./config.js";
 
-const greetingPattern =
-  /\b(hi|hii|hello|hey|good morning|good afternoon|good evening|greetings)\b/i;
-const wellbeingPattern = /\b(how are you|how r u|how are u|how're you)\b/i;
-const thanksPattern = /\b(thank you|thanks|thx)\b/i;
-const helpPattern =
-  /\b(help|support|what can you do|what do you do|menu|services)\b/i;
+const pureGreetingPattern =
+  /^(hi+|hello+|hey+|hola|namaste|salaam|salam|assalamu?\s*alaikum|good\s+(morning|afternoon|evening|night))[\s.!?]*$/i;
+const pureWellbeingPattern =
+  /^(how\s+(are|r)\s+(you|u|ya))[\s.!?]*$/i;
+const pureThanksPattern = /^(thank\s*you|thanks|thx|ty)[\s.!?]*$/i;
 
 function cleanText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
@@ -30,22 +29,16 @@ export function getProfessionalQuickReply({ text, profileName }) {
     return "";
   }
 
-  const wordCount = cleaned.split(" ").filter(Boolean).length;
-
-  if (wellbeingPattern.test(cleaned) && wordCount <= 8) {
+  if (pureWellbeingPattern.test(cleaned)) {
     return `I'm doing well, thank you${namedGreeting(profileName)}. How may I assist you today?`;
   }
 
-  if (greetingPattern.test(cleaned) && wordCount <= 6) {
-    return `Hello${namedGreeting(profileName)}. Thank you for contacting ${config.botName}. How may I assist you today?`;
+  if (pureGreetingPattern.test(cleaned)) {
+    return `Hello${namedGreeting(profileName)}. I'm ${config.botName}, your AI assistant. How may I help you today?`;
   }
 
-  if (thanksPattern.test(cleaned) && wordCount <= 8) {
+  if (pureThanksPattern.test(cleaned)) {
     return `You're welcome${namedGreeting(profileName)}. If you need anything else, I'm here to help.`;
-  }
-
-  if (helpPattern.test(cleaned) && wordCount <= 8) {
-    return `I can help with questions, reminders, recent chat context, and sending WhatsApp messages when you request it. Tell me what you need, and I'll assist you clearly and professionally.`;
   }
 
   return "";
@@ -57,5 +50,5 @@ export function buildProfessionalFallbackReply({ text, profileName }) {
     return quickReply;
   }
 
-  return `Thank you for your message${namedGreeting(profileName)}. I'm here to help. Please share a little more detail, and I'll reply with a clear and professional answer.`;
+  return `Thank you for your message${namedGreeting(profileName)}. I'm ${config.botName}, here to help. Could you share a little more detail so I can give you a precise answer?`;
 }

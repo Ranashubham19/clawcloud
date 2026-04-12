@@ -100,6 +100,47 @@ export async function sendWhatsAppText({
   return response.json();
 }
 
+export async function sendTypingIndicator(inboundMessageId) {
+  if (!inboundMessageId) {
+    return null;
+  }
+  if (!config.whatsappAccessToken || !config.whatsappPhoneNumberId) {
+    return null;
+  }
+
+  const payload = {
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: inboundMessageId,
+    typing_indicator: { type: "text" }
+  };
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${config.whatsappGraphVersion}/${config.whatsappPhoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.whatsappAccessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.warn(`Typing indicator failed ${response.status}: ${details}`);
+      return null;
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn(`Typing indicator error: ${error.message}`);
+    return null;
+  }
+}
+
 export function outboundDedupKey(prefix, to, body, inboundMessageId = "") {
   return `${prefix}:${to}:${inboundMessageId}:${hashText(body)}`;
 }

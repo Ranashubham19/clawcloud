@@ -65,7 +65,7 @@ await run("quick reply returns a professional greeting", async () => {
   });
 
   assert.match(reply, /Hello Shubham/i);
-  assert.match(reply, /How may I assist you today/i);
+  assert.match(reply, /how may I help you today/i);
 });
 
 await run("fallback reply stays professional for general messages", async () => {
@@ -75,7 +75,7 @@ await run("fallback reply stays professional for general messages", async () => 
   });
 
   assert.match(reply, /Thank you for your message Shubham/i);
-  assert.match(reply, /professional answer/i);
+  assert.match(reply, /precise answer/i);
 });
 
 await run("beginInboundProcessing dedupes repeated message ids", async () => {

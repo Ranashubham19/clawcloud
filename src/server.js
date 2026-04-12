@@ -11,6 +11,7 @@ import { handleIncomingText } from "./agent.js";
 import {
   extractIncomingMessages,
   outboundDedupKey,
+  sendTypingIndicator,
   sendWhatsAppText,
   verifyWhatsAppSignature
 } from "./whatsapp.js";
@@ -56,6 +57,8 @@ async function processInboundMessage(message) {
     );
     return;
   }
+
+  sendTypingIndicator(message.messageId).catch(() => {});
 
   let assistantReply = "";
   try {
