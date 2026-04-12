@@ -18,14 +18,14 @@ const longAnswerPattern =
   /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
 
 function pickMaxTokens(text, useTools) {
-  const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 120;
+  const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 100;
   if (useTools) {
-    return long ? 900 : 600;
+    return long ? 1000 : 650;
   }
-  return long ? 900 : 500;
+  return long ? 1000 : 550;
 }
 
-const SINGLE_MESSAGE_LIMIT = 3000;
+const SINGLE_MESSAGE_LIMIT = 2800;
 
 function clampToSingleMessage(value) {
   const text = String(value || "");
@@ -33,12 +33,16 @@ function clampToSingleMessage(value) {
     return text;
   }
   const slice = text.slice(0, SINGLE_MESSAGE_LIMIT);
-  const lastBreak = Math.max(
+  const breakPoints = [
     slice.lastIndexOf("\n\n"),
+    slice.lastIndexOf("\n"),
     slice.lastIndexOf(". "),
-    slice.lastIndexOf("। ")
-  );
-  if (lastBreak > SINGLE_MESSAGE_LIMIT * 0.6) {
+    slice.lastIndexOf("। "),
+    slice.lastIndexOf("? "),
+    slice.lastIndexOf("! ")
+  ];
+  const lastBreak = Math.max(...breakPoints);
+  if (lastBreak > SINGLE_MESSAGE_LIMIT * 0.55) {
     return slice.slice(0, lastBreak + 1).trim();
   }
   return slice.trim();
@@ -52,8 +56,9 @@ function systemPrompt(context) {
     "FORMATTING RULE — STRICT: Write clean plain text only. Do NOT use Markdown. No asterisks for bold or italic (no **text**, no *text*). No hash headings (#, ##). No horizontal rules (---). No code backticks. No bracket link syntax [text](url) — just write the URL if needed. For bullet points use the • character followed by a space. Keep paragraphs short.",
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot. Do NOT open every reply with 'Thank you for contacting…'.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
-    "ANSWER DEPTH RULE: Match your answer depth to the question complexity. Simple factual questions (greetings, single facts) get 1–3 sentences. Medium questions (explanations, how-to, comparisons) get a proper structured answer with all key points covered — don't cut corners. Hard or detailed questions (history, technical topics, analysis, news summaries) deserve a complete, thorough answer covering all important aspects. Always fully answer the question — never give a half-answer just to keep things short. Do not pad with disclaimers or filler, but do not truncate real content either.",
-    "SINGLE MESSAGE RULE — STRICT: Your entire reply MUST fit in ONE WhatsApp message. Hard limit: 3000 characters total. Never produce a response longer than that. If a topic genuinely needs more, summarise it tightly so the whole answer still fits in one message. Never split your reply into multiple parts. Never say 'continued' or 'part 1'.",
+    "ANSWER DEPTH RULE: Always give a complete, thorough answer. Simple questions (single facts, greetings) get 2–4 sentences. Medium questions (explanations, how-to, comparisons, definitions) get a full structured response covering all key points with examples where helpful. Hard or technical questions (algorithms, history, analysis, science, code logic, news) deserve a detailed answer — cover all important aspects, steps, or context. NEVER give a one-liner or two-sentence answer to a non-trivial question. Do not pad with filler but never sacrifice completeness for brevity.",
+    "SINGLE MESSAGE RULE: Keep your reply under 2800 characters so it fits in one WhatsApp message. You have generous space — use it for complete answers. Never say 'part 1', 'continued', or split across messages. If you absolutely must condense, prioritise the most important information.",
+    "FORMAT REMINDER: Write in plain natural language. Never output raw JSON, code objects, or tool-call syntax as your reply to the user. If explaining an algorithm or data structure, describe it in words and plain pseudocode, not JSON blobs.",
     "You have full programmatic control over this WhatsApp account through tools (lookup_contact, save_contact, get_recent_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder, web_search). Use them whenever the user asks you to read, write, send, message, contact, remember, remind, or look up someone — do not just describe what you would do, actually call the tool.",
     "FRESHNESS RULE — STRICT: Your own training knowledge is frozen at a past cutoff. Whenever the user asks about anything that could have changed after that cutoff — news, current events, latest releases, prices, scores, weather, who is currently in a role, what happened today/this week/this month, the year 2025 or later, or any 'latest / recent / now / today' question — you MUST call the web_search tool first and base your answer on those live results. Do NOT guess from memory and do NOT say 'as of my last update'. After searching, write a crisp natural answer in the user's language and, if the topic is news-like, briefly mention the freshest source. If web_search returns web_search_unavailable, tell the user that live web search is not currently configured and answer with whatever you can from training while clearly noting it may be outdated.",
     "When the user says things like 'message X', 'send hi to Y', 'tell mom I'll be late', resolve the contact (lookup_contact first if needed) and then call send_whatsapp_message. If the contact is not found and you only have a name, ask once for the phone number; if you have a clear phone number, send directly.",
