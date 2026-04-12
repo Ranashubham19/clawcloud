@@ -119,6 +119,11 @@ await run("handleIncomingText answers greetings without the model", async () => 
   await rm(tempDir, { recursive: true, force: true });
 });
 
+await run("createChatCompletion accepts custom maxTokens", async () => {
+  const nvidia = await import(`../src/nvidia.js?ts=${Date.now()}`);
+  assert.equal(typeof nvidia.createChatCompletion, "function");
+});
+
 if (process.exitCode) {
   process.exit(process.exitCode);
 }

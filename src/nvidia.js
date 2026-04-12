@@ -1,7 +1,12 @@
 import { config, requireConfig } from "./config.js";
 import { toModelText } from "./lib/text.js";
 
-export async function createChatCompletion({ messages, tools = [], toolChoice = "auto" }) {
+export async function createChatCompletion({
+  messages,
+  tools = [],
+  toolChoice = "auto",
+  maxTokens = 500
+}) {
   requireConfig("NVIDIA_API_KEY", config.nvidiaApiKey);
 
   const commonHeaders = {
@@ -12,14 +17,14 @@ export async function createChatCompletion({ messages, tools = [], toolChoice = 
     model: config.nvidiaModel,
     messages,
     temperature: 0.2,
-    max_tokens: 1200,
+    max_tokens: maxTokens,
     tools,
     tool_choice: tools.length ? toolChoice : "none"
   };
   const directPayload = {
     messages,
     temperature: 0.2,
-    max_tokens: 1200,
+    max_tokens: maxTokens,
     tools,
     tool_choice: tools.length ? toolChoice : "none"
   };

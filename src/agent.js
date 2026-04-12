@@ -8,12 +8,16 @@ import {
   getProfessionalQuickReply
 } from "./replies.js";
 
+const toolIntentPattern =
+  /\b(send|message|text|remind|reminder|history|recent|contact|save contact|lookup|look up|find contact)\b/i;
+
 function systemPrompt(context) {
   return [
     `You are ${config.botName}, a professional WhatsApp assistant.`,
     "Respond in a polished, trustworthy, and helpful tone.",
     "Answer normal questions directly with clear language and practical next steps when useful.",
-    "Prefer short paragraphs for WhatsApp. Use bullets only when they make the answer easier to scan.",
+    "Prefer 1 to 3 short paragraphs or a few bullets only when they make the answer easier to scan.",
+    "Keep replies brief by default and avoid long essays unless the user asks for detail.",
     "Acknowledge the user's goal, avoid slang, and do not sound robotic.",
     "Use tools only when you need real data or real actions such as contacts, history, reminders, or sending WhatsApp messages.",
     "If the user explicitly asks to send a message and you have enough information, call send_whatsapp_message instead of writing pseudo-instructions.",
@@ -32,6 +36,10 @@ function historyToModelMessages(history) {
     role: entry.role,
     content: entry.text
   }));
+}
+
+function mayNeedTools(text) {
+  return toolIntentPattern.test(String(text || ""));
 }
 
 export async function handleIncomingText({ messageId, from, profileName, text }) {
@@ -58,7 +66,8 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     return quickReply;
   }
 
-  const history = await getConversation(from);
+  const useTools = mayNeedTools(text);
+  const history = await getConversation(from, useTools ? 24 : 12);
   const messages = [
     { role: "system", content: systemPrompt({ currentUserPhone: from, profileName }) },
     ...historyToModelMessages(history)
@@ -72,7 +81,8 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     while (toolRounds < 6) {
       const completion = await createChatCompletion({
         messages,
-        tools: toolDefinitions
+        tools: useTools ? toolDefinitions : [],
+        maxTokens: useTools ? 700 : 260
       });
       const assistant = unpackAssistantMessage(completion);
 
