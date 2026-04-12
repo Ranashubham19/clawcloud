@@ -16,6 +16,11 @@ import {
 } from "./whatsapp.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
+import {
+  getDataDeletionHtml,
+  getPrivacyPolicyHtml,
+  getTermsHtml
+} from "./legal.js";
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -183,6 +188,21 @@ async function requestListener(request, response) {
   if (request.method === "GET" && url.pathname === "/ready") {
     const report = getReadinessReport();
     sendJson(response, report.ready ? 200 : 503, report);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/privacy") {
+    sendText(response, 200, getPrivacyPolicyHtml());
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/terms") {
+    sendText(response, 200, getTermsHtml());
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/data-deletion") {
+    sendText(response, 200, getDataDeletionHtml());
     return;
   }
 
