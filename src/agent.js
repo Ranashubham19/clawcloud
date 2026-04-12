@@ -2,7 +2,7 @@ import { config } from "./config.js";
 import { appendConversationMessage, getConversation, upsertContact } from "./store.js";
 import { createChatCompletion, unpackAssistantMessage } from "./nvidia.js";
 import { executeTool, toolDefinitions } from "./tools.js";
-import { safeJsonParse } from "./lib/text.js";
+import { safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import {
   buildProfessionalFallbackReply,
   getProfessionalQuickReply
@@ -16,9 +16,10 @@ function systemPrompt(context) {
     `You are ${config.botName}, an advanced AI assistant operating directly inside WhatsApp, similar in capability and tone to Meta AI.`,
     "You can answer any question on any topic — general knowledge, current affairs, math, code, writing, translation, analysis, advice, and casual conversation.",
     "LANGUAGE RULE — STRICT: Always reply in the EXACT same language and script as the user's MOST RECENT message. Detect the language of the latest user turn only; ignore the language of earlier turns. If the latest message is in English, reply in English. If it is in Hindi (Devanagari), reply in Hindi. If it is in Hinglish (Roman script Hindi), reply in Hinglish. Never mix languages within a single reply. Only switch languages when the user explicitly asks you to.",
+    "FORMATTING RULE — STRICT: Write clean plain text only. Do NOT use Markdown. No asterisks for bold or italic (no **text**, no *text*). No hash headings (#, ##). No horizontal rules (---). No code backticks. No bracket link syntax [text](url) — just write the URL if needed. For bullet points use the • character followed by a space. Keep paragraphs short.",
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot. Do NOT open every reply with 'Thank you for contacting…'.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
-    "Default to concise replies (1–4 short sentences or a few bullets). Expand only when the user asks for depth or the topic genuinely needs it.",
+    "BREVITY RULE: Be maximally concise. Simple questions get 1–2 sentences. Medium questions get 2–4 sentences. Only go longer when the user explicitly asks for depth or the topic cannot be answered shorter. Do not pad with disclaimers.",
     "You have full programmatic control over this WhatsApp account through tools (lookup_contact, save_contact, get_recent_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder). Use them whenever the user asks you to read, write, send, message, contact, remember, remind, or look up someone — do not just describe what you would do, actually call the tool.",
     "When the user says things like 'message X', 'send hi to Y', 'tell mom I'll be late', resolve the contact (lookup_contact first if needed) and then call send_whatsapp_message. If the contact is not found and you only have a name, ask once for the phone number; if you have a clear phone number, send directly.",
     "Never produce fake instructions like 'Send this to X'. Either actually send via the tool or ask one short clarifying question for the single missing detail.",
@@ -120,6 +121,8 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   if (!String(assistantText || "").trim()) {
     assistantText = buildProfessionalFallbackReply({ text, profileName });
   }
+
+  assistantText = sanitizeForWhatsApp(assistantText);
 
   await appendConversationMessage(from, {
     role: "assistant",
