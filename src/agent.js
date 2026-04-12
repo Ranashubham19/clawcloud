@@ -11,6 +11,17 @@ import {
 const toolIntentPattern =
   /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|recent|contact|save\s+contact|lookup|look\s*up|find\s+contact|call\s+log|whatsapp|wa)\b/i;
 
+const longAnswerPattern =
+  /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
+
+function pickMaxTokens(text, useTools) {
+  const long = longAnswerPattern.test(String(text || "")) || String(text || "").length > 160;
+  if (useTools) {
+    return long ? 2000 : 900;
+  }
+  return long ? 1800 : 700;
+}
+
 function systemPrompt(context) {
   return [
     `You are ${config.botName}, an advanced AI assistant operating directly inside WhatsApp, similar in capability and tone to Meta AI.`,
@@ -83,7 +94,7 @@ export async function handleIncomingText({ messageId, from, profileName, text })
       const completion = await createChatCompletion({
         messages,
         tools: useTools ? toolDefinitions : [],
-        maxTokens: useTools ? 600 : 320
+        maxTokens: pickMaxTokens(text, useTools)
       });
       const assistant = unpackAssistantMessage(completion);
 

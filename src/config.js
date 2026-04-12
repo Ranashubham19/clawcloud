@@ -46,9 +46,11 @@ export const config = {
   timezone: process.env.TIMEZONE || "Asia/Calcutta",
   dataDir: path.resolve(process.cwd(), process.env.CLAW_DATA_DIR || "./data"),
   botName: process.env.BOT_NAME || "Claw Cloud",
+  appBaseUrl: process.env.APP_BASE_URL || "",
+  adminApiToken: process.env.ADMIN_API_TOKEN || "",
   nvidiaApiKey: process.env.NVIDIA_API_KEY || "",
   nvidiaModel:
-    process.env.NVIDIA_MODEL || "mistralai/mistral-large-3-675b-instruct-2512",
+    process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
   nvidiaApiBase:
     process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com/v1",
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
@@ -57,6 +59,12 @@ export const config = {
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
   whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v22.0",
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || "",
+  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "",
+  googleContactsScope:
+    process.env.GOOGLE_CONTACTS_SCOPE ||
+    "https://www.googleapis.com/auth/contacts.readonly",
   reminderPollIntervalMs: toInt(process.env.REMINDER_POLL_INTERVAL_MS, 15000),
   maxConversationMessages: toInt(process.env.MAX_CONVERSATION_MESSAGES, 40)
 };
