@@ -3,16 +3,16 @@ import { config, requireConfig } from "./config.js";
 import { toModelText } from "./lib/text.js";
 
 export const DEFAULT_NVIDIA_MODELS = [
-  "meta/llama-3.3-70b-instruct",
-  "meta/llama-4-maverick-17b-128e-instruct",
-  "mistralai/mistral-medium-3-instruct",
-  "qwen/qwen2.5-coder-32b-instruct",
-  "google/gemma-3-27b-it",
-  "qwen/qwen3-next-80b-a3b-instruct",
-  "deepseek-ai/deepseek-v3.2",
-  "meta/llama-3.1-405b-instruct",
-  "mistralai/mistral-large-3-675b-instruct-2512",
-  "qwen/qwen3.5-397b-a17b"
+  "mistralai/mistral-large-3-675b-instruct-2512", // 675B — most capable, multilingual master
+  "qwen/qwen3.5-397b-a17b",                        // 397B MoE — excellent multilingual & reasoning
+  "deepseek-ai/deepseek-v3.2",                     // DeepSeek V3.2 — top reasoning & coding
+  "meta/llama-3.1-405b-instruct",                  // 405B — large, reliable, all-round
+  "qwen/qwen3-next-80b-a3b-instruct",              // 80B — strong multilingual
+  "mistralai/mistral-medium-3-instruct",            // Medium — balanced fallback
+  "meta/llama-3.3-70b-instruct",                   // 70B — fast & reliable
+  "meta/llama-4-maverick-17b-128e-instruct",       // MoE — speed fallback
+  "qwen/qwen2.5-coder-32b-instruct",               // Coder specialist
+  "google/gemma-3-27b-it"                          // 27B — last resort
 ];
 
 const SELECTED_MODEL_LIMIT = DEFAULT_NVIDIA_MODELS.length;

@@ -11,18 +11,23 @@ import {
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { geminiSearchAnswer, hasGeminiProvider } from "./gemini.js";
 
-const FAST_TECH_MODELS = [
-  "qwen/qwen2.5-coder-32b-instruct",
-  "meta/llama-3.3-70b-instruct",
-  "meta/llama-4-maverick-17b-128e-instruct",
-  "mistralai/mistral-medium-3-instruct"
+// Most capable models pushed to front for complex technical and analytical questions
+const ADVANCED_MODELS = [
+  "mistralai/mistral-large-3-675b-instruct-2512",
+  "qwen/qwen3.5-397b-a17b",
+  "deepseek-ai/deepseek-v3.2",
+  "meta/llama-3.1-405b-instruct"
 ];
 
 const toolIntentPattern =
   /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|contact|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+contact|call\s+log|whatsapp|wa)\b/i;
 
+// Live/recency queries — always routed to Gemini for real-time Google Search grounding
+const liveQueryPattern =
+  /\b(price|prices|rate|rates|rating|ratings|today|tonight|now|current|currently|latest|recent|recently|live|trending|trend|news|update|updates|market|stock|crypto|bitcoin|ethereum|btc|eth|forecast|prediction|weather|score|scores|match|matches|result|results|standings|leaderboard|2024|2025|2026)\b/i;
+
 const technicalAcademicPattern =
-  /\b(code|coding|program|programming|developer|develop|debug|bug|function|algorithm|array|string|graph|tree|dp|dynamic programming|java|javascript|typescript|python|c\+\+|cpp|c language|leetcode|sql|api|backend|frontend|regex|complexity|binary search|math|maths|algebra|geometry|trigonometry|calculus|equation|integral|derivative|statistics|probability|physics|chemistry|biology|bio|science|scientific|cell|genetics|organism|homework|theorem|prove|formula)\b/i;
+  /\b(code|coding|program|programming|developer|develop|debug|bug|function|algorithm|array|string|graph|tree|dp|dynamic programming|java|javascript|typescript|python|c\+\+|cpp|c language|leetcode|sql|api|backend|frontend|regex|complexity|binary search|math|maths|algebra|geometry|trigonometry|calculus|equation|integral|derivative|physics|chemistry|biology|bio|science|scientific|cell|genetics|organism|homework|theorem|prove|formula)\b/i;
 
 const longAnswerPattern =
   /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
@@ -52,16 +57,20 @@ function pickMaxTokens(text, useTools) {
 }
 
 function resolvePreferredModels(route) {
-  if (route === "nvidia") {
-    return FAST_TECH_MODELS;
+  if (route === "nvidia" || route === "nvidia-tools") {
+    return ADVANCED_MODELS;
   }
-  return [];
+  return ADVANCED_MODELS;
 }
 
 export function chooseAnswerRoute(text) {
   const value = String(text || "");
   if (toolIntentPattern.test(value)) {
     return "nvidia-tools";
+  }
+  // Live/price/rating/news queries always go to Gemini for real-time Google Search
+  if (liveQueryPattern.test(value)) {
+    return "gemini-first";
   }
   if (technicalAcademicPattern.test(value)) {
     return "nvidia";
@@ -181,10 +190,10 @@ async function continueIfTruncated({
 function systemPrompt(context) {
   const lines = [
     `You are ${config.botName}, an advanced AI assistant operating directly inside WhatsApp, similar in capability and tone to Meta AI.`,
-    "You can answer any question on any topic: general knowledge, current affairs, math, code, writing, translation, analysis, advice, and casual conversation.",
-    "LANGUAGE RULE - STRICT: Always reply in the exact same language and script as the user's most recent message. Detect the language of the latest user turn only. Do not switch languages unless the user explicitly asks.",
+    "You can answer any question on any topic across any language: general knowledge, current affairs, math, code, writing, translation, analysis, medical, legal, finance, science, and casual conversation.",
+    "LANGUAGE RULE — ABSOLUTE: You MUST reply in the exact same language and script as the user's most recent message. This is non-negotiable. If the user writes in Telugu, reply in Telugu. If in Arabic, reply in Arabic. If in Hinglish Roman script, reply in Hinglish. Never switch languages unless the user explicitly asks.",
     context.languageInstruction,
-    `Required language style: ${context.languageLabel}.`,
+    `Required language style: ${context.languageLabel}. Every sentence of your reply must be in this language.`,
     "FORMATTING RULE - STRICT: Write clean plain text only. No Markdown, no backticks, no headings, no bracket links, and no raw JSON. Keep paragraphs readable. For bullets use '- '.",
     "Speak naturally and intelligently like a top-tier AI assistant. Be warm, professional, and direct. Avoid sounding scripted or like a customer-support bot.",
     "Answer the actual question the user asked. Give the real answer first, then any short helpful context. Never reply with a pure greeting unless the user only sent a greeting.",
