@@ -20,6 +20,18 @@ export const toolDefinitions = [
   {
     type: "function",
     function: {
+      name: "get_whatsapp_overview",
+      description:
+        "Get a full overview of all stored WhatsApp data: total contacts, all conversation threads with message counts, and recent activity. Call this first when the user asks for a summary of their WhatsApp, inbox, or chats.",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_contacts",
       description:
         "List saved contacts, optionally filtered by name, alias, email, or phone number.",
@@ -250,6 +262,28 @@ async function resolveTarget(target, context) {
 
 export async function executeTool(name, args, context) {
   switch (name) {
+    case "get_whatsapp_overview": {
+      const [allContacts, allThreads] = await Promise.all([
+        listContacts(""),
+        listConversationThreads({ limit: 200 })
+      ]);
+      return result({
+        totalContacts: allContacts.length,
+        contacts: allContacts.map((c) => ({
+          name: c.name,
+          phone: c.phone,
+          aliases: c.aliases || []
+        })),
+        totalThreads: allThreads.length,
+        threads: allThreads.map((t) => ({
+          contact: t.contact?.name || t.contact?.phone || "Unknown",
+          phone: t.contact?.phone || "",
+          messageCount: t.messageCount || 0,
+          lastMessage: t.lastMessage || ""
+        }))
+      });
+    }
+
     case "list_contacts": {
       const contacts = await listContacts(args.query || "");
       const limit = Math.min(Math.max(Number(args.limit) || 25, 1), 100);

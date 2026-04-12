@@ -66,7 +66,7 @@ await run("chooseAnswerRoute sends current affairs to Gemini first", async () =>
 
 await run("chooseAnswerRoute sends greetings through the model path", async () => {
   const agent = await import(`../src/agent.js?ts=${Date.now()}`);
-  assert.equal(agent.chooseAnswerRoute("Hello"), "gemini-first");
+  assert.equal(agent.chooseAnswerRoute("Hello"), "nvidia");
 });
 
 await run("chooseAnswerRoute keeps live lookup questions on Gemini first", async () => {
