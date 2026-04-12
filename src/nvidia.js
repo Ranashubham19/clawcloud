@@ -124,35 +124,59 @@ export function getRankedNvidiaModels({
     .map((entry) => entry.model);
 }
 
+function createTimeoutSignal(timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(250, timeoutMs));
+  return {
+    signal: controller.signal,
+    cancel() {
+      clearTimeout(timer);
+    }
+  };
+}
+
 async function requestChatCompletion({
   model,
   messages,
   tools,
   toolChoice,
-  maxTokens
+  maxTokens,
+  timeoutMs
 }) {
-  const response = await fetch(`${config.nvidiaApiBase}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.nvidiaApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.0,
-      max_tokens: maxTokens,
-      tools,
-      tool_choice: tools.length ? toolChoice : "none"
-    })
-  });
+  const { signal, cancel } = createTimeoutSignal(timeoutMs);
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`NVIDIA API error ${response.status}: ${details}`);
+  try {
+    const response = await fetch(`${config.nvidiaApiBase}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.nvidiaApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.0,
+        max_tokens: maxTokens,
+        tools,
+        tool_choice: tools.length ? toolChoice : "none"
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`NVIDIA API error ${response.status}: ${details}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`NVIDIA request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    cancel();
   }
-
-  return response.json();
 }
 
 export async function createChatCompletion({
@@ -161,7 +185,9 @@ export async function createChatCompletion({
   toolChoice = "auto",
   maxTokens = 800,
   excludeModels = [],
-  preferredModels = []
+  preferredModels = [],
+  deadlineAt = 0,
+  maxAttempts = config.nvidiaMaxAttempts
 }) {
   requireConfig("NVIDIA_API_KEY", config.nvidiaApiKey);
 
@@ -171,8 +197,22 @@ export async function createChatCompletion({
   }
 
   const errors = [];
+  let attempts = 0;
 
   for (const model of candidates) {
+    if (attempts >= Math.max(1, maxAttempts)) {
+      break;
+    }
+
+    const remainingMs = deadlineAt ? deadlineAt - Date.now() : config.nvidiaTimeoutMs;
+    if (remainingMs < 700) {
+      break;
+    }
+
+    const timeoutMs = Math.max(
+      700,
+      Math.min(config.nvidiaTimeoutMs, deadlineAt ? remainingMs - 200 : config.nvidiaTimeoutMs)
+    );
     const startedAt = performance.now();
 
     try {
@@ -181,7 +221,8 @@ export async function createChatCompletion({
         messages,
         tools,
         toolChoice,
-        maxTokens
+        maxTokens,
+        timeoutMs
       });
       const latencyMs = Math.round(performance.now() - startedAt);
       recordModelSuccess(model, latencyMs);
@@ -194,6 +235,7 @@ export async function createChatCompletion({
     } catch (error) {
       recordModelFailure(model);
       errors.push(`[${model}] ${error.message}`);
+      attempts += 1;
     }
   }
 

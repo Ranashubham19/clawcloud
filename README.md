@@ -13,6 +13,7 @@ A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The
 - Can sync Google Contacts into the bot's contact store
 - Splits long answers into clean WhatsApp-sized chunks instead of cutting replies mid-sentence
 - Can use Gemini with Google Search grounding for faster live answers while preserving the user's language
+- Applies provider timeouts and a shared latency budget so replies prefer fast paths
 
 ## Project shape
 
@@ -21,6 +22,7 @@ A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The
 - `src/tools.js`: contact, history, reminder, and outbound message tools
 - `src/google-contacts.js`: Google OAuth and Google Contacts sync
 - `src/nvidia.js`: NVIDIA OpenAI-compatible chat client
+- `src/gemini.js`: Gemini live-answer client with Google Search grounding
 - `src/whatsapp.js`: WhatsApp Cloud API integration
 - `src/store.js`: JSON persistence
 - `src/reminders.js`: reminder poller
@@ -32,6 +34,7 @@ A professional WhatsApp-only backend powered by a ranked NVIDIA model stack. The
 2. Fill in:
    - `NVIDIA_API_KEY`
    - `GEMINI_API_KEY` if you want faster live answers for recent updates and current events
+   - Optional latency controls: `GEMINI_MODEL`, `GEMINI_TIMEOUT_MS`, `NVIDIA_TIMEOUT_MS`, `NVIDIA_MAX_ATTEMPTS`, `SEARCH_TIMEOUT_MS`, `REPLY_LATENCY_BUDGET_MS`
    - `WHATSAPP_VERIFY_TOKEN`
    - `WHATSAPP_ACCESS_TOKEN`
    - `WHATSAPP_PHONE_NUMBER_ID`

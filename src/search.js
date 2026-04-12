@@ -4,6 +4,17 @@ export function hasSearchProvider() {
   return Boolean(config.tavilyApiKey);
 }
 
+function createTimeoutSignal(timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(250, timeoutMs));
+  return {
+    signal: controller.signal,
+    cancel() {
+      clearTimeout(timer);
+    }
+  };
+}
+
 export async function webSearch({ query, maxResults = 5, freshness = "" }) {
   if (!config.tavilyApiKey) {
     return {
@@ -41,11 +52,14 @@ export async function webSearch({ query, maxResults = 5, freshness = "" }) {
     payload.days = 30;
   }
 
+  const { signal, cancel } = createTimeoutSignal(config.searchTimeoutMs);
+
   try {
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal
     });
 
     if (!response.ok) {
@@ -76,8 +90,13 @@ export async function webSearch({ query, maxResults = 5, freshness = "" }) {
   } catch (error) {
     return {
       ok: false,
-      error: "tavily_request_failed",
-      message: error.message
+      error: error?.name === "AbortError" ? "tavily_timeout" : "tavily_request_failed",
+      message:
+        error?.name === "AbortError"
+          ? `Search timed out after ${config.searchTimeoutMs}ms`
+          : error.message
     };
+  } finally {
+    cancel();
   }
 }

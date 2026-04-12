@@ -189,6 +189,12 @@ await run("isToolLeakText catches raw function-call JSON", async () => {
     true
   );
   assert.equal(agent.isToolLeakText('web_search(query="top 10 richest people")'), true);
+  assert.equal(
+    agent.isToolLeakText(
+      'Here is the function call in JSON format: {"name":"web_search","parameters":{"query":"latest news"}}'
+    ),
+    true
+  );
   assert.equal(agent.isToolLeakText("Use DP over subsets and return the minimum cost."), false);
 });
 

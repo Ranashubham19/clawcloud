@@ -16,10 +16,25 @@ import {
   getProfessionalQuickReply
 } from "./replies.js";
 
-const WEB_SYNTHESIS_MODELS = [
-  "meta/llama-3.1-405b-instruct",
+const FAST_GENERAL_MODELS = [
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "mistralai/mistral-medium-3-instruct",
   "meta/llama-3.3-70b-instruct",
-  "mistralai/mistral-large-3-675b-instruct-2512"
+  "qwen/qwen3-next-80b-a3b-instruct"
+];
+
+const FAST_TECH_MODELS = [
+  "qwen/qwen2.5-coder-32b-instruct",
+  "meta/llama-3.3-70b-instruct",
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "mistralai/mistral-medium-3-instruct"
+];
+
+const WEB_SYNTHESIS_MODELS = [
+  "meta/llama-3.3-70b-instruct",
+  "mistralai/mistral-medium-3-instruct",
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "meta/llama-3.1-405b-instruct"
 ];
 
 const toolIntentPattern =
@@ -34,15 +49,25 @@ const technicalAcademicPattern =
 const longAnswerPattern =
   /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
 
-async function getLiveAnswer(query, languageStyle) {
+async function getLiveAnswer(
+  query,
+  languageStyle,
+  { allowSearchFallback = false, deadlineAt = 0 } = {}
+) {
   if (hasGeminiProvider()) {
-    const answer = await geminiSearchAnswer({ query, languageStyle });
+    const answer = await geminiSearchAnswer({
+      query,
+      languageStyle,
+      maxOutputTokens: 420,
+      deadlineAt
+    });
     if (answer) {
       return { source: "gemini", answer, inject: false };
     }
   }
 
-  if (hasSearchProvider()) {
+  const remainingMs = deadlineAt ? deadlineAt - Date.now() : config.searchTimeoutMs;
+  if (allowSearchFallback && hasSearchProvider() && remainingMs >= 900) {
     try {
       const result = await webSearch({ query, maxResults: 4, freshness: "month" });
       if (result.ok && (result.answer || result.results?.length)) {
@@ -82,9 +107,23 @@ function pickMaxTokens(text, useTools) {
   const value = String(text || "");
   const long = longAnswerPattern.test(value) || value.length > 100;
   if (useTools) {
-    return long ? 1300 : 750;
+    return long ? 1100 : 650;
   }
-  return long ? 1600 : 850;
+  return long ? 1100 : 650;
+}
+
+function needsLiveFreshness(text) {
+  return recencyIntentPattern.test(String(text || ""));
+}
+
+function resolvePreferredModels({ route, liveSource }) {
+  if (liveSource === "tavily") {
+    return getRankedNvidiaModels({ preferredModels: WEB_SYNTHESIS_MODELS }).slice(0, 4);
+  }
+  if (route === "nvidia") {
+    return getRankedNvidiaModels({ preferredModels: FAST_TECH_MODELS }).slice(0, 5);
+  }
+  return getRankedNvidiaModels({ preferredModels: FAST_GENERAL_MODELS }).slice(0, 4);
 }
 
 export function chooseAnswerRoute(text) {
@@ -160,14 +199,19 @@ async function continueIfTruncated({
   finishReason,
   preferredModel,
   excludeModels,
-  languageStyle
+  languageStyle,
+  deadlineAt
 }) {
   let combined = String(text || "").trim();
   let nextFinishReason = finishReason;
   let rounds = 0;
   let workingMessages = [...baseMessages];
 
-  while (combined && nextFinishReason === "length" && rounds < 2) {
+  while (combined && nextFinishReason === "length" && rounds < 1) {
+    if (deadlineAt && deadlineAt - Date.now() < 1200) {
+      break;
+    }
+
     workingMessages = [
       ...workingMessages,
       { role: "assistant", content: combined },
@@ -182,7 +226,9 @@ async function continueIfTruncated({
       tools: [],
       maxTokens: 750,
       preferredModels: preferredModel ? [preferredModel] : [],
-      excludeModels
+      excludeModels,
+      deadlineAt,
+      maxAttempts: 1
     });
     const continuation = unpackAssistantMessage(continuationCompletion);
     const nextText = sanitizeForWhatsApp(continuation.text);
@@ -245,6 +291,8 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   const answerRoute = chooseAnswerRoute(text);
   const useTools = mayNeedTools(text);
   const useGeminiFirst = answerRoute === "gemini-first";
+  const wantsFreshness = needsLiveFreshness(text);
+  const deadlineAt = Date.now() + config.replyLatencyBudgetMs;
 
   await upsertContact({
     name: profileName || from,
@@ -274,7 +322,10 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   let history = [];
 
   if (useGeminiFirst) {
-    liveResult = await getLiveAnswer(text, languageStyle);
+    liveResult = await getLiveAnswer(text, languageStyle, {
+      allowSearchFallback: wantsFreshness,
+      deadlineAt
+    });
     if (liveResult?.source === "gemini" && liveResult.answer) {
       const geminiText = sanitizeForWhatsApp(liveResult.answer);
       if (geminiText && isLanguageCompatible(geminiText, languageStyle)) {
@@ -286,14 +337,15 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         return geminiText;
       }
     }
-    history = await getConversation(from, 4);
+    history = await getConversation(from, 3);
   } else {
-    history = await getConversation(from, 6);
+    history = await getConversation(from, 4);
   }
 
-  const preferredModels = useGeminiFirst && liveResult?.source === "tavily"
-    ? getRankedNvidiaModels({ preferredModels: WEB_SYNTHESIS_MODELS }).slice(0, 3)
-    : [];
+  const preferredModels = resolvePreferredModels({
+    route: answerRoute,
+    liveSource: liveResult?.source || ""
+  });
 
   const messages = [
     {
@@ -327,32 +379,39 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         tools: liveResult?.source === "tavily" ? [] : (useTools ? toolDefinitions : []),
         maxTokens: pickMaxTokens(text, useTools),
         preferredModels,
-        excludeModels: [...rejectedModels]
+        excludeModels: [...rejectedModels],
+        deadlineAt,
+        maxAttempts: useTools ? 2 : 3
       });
       const assistant = unpackAssistantMessage(completion);
 
       if (!assistant.toolCalls.length) {
         const cleanedAssistantText = sanitizeForWhatsApp(assistant.text);
+        let rejectAndRetry = false;
 
         if (!cleanedAssistantText && assistant.model) {
           rejectedModels.add(assistant.model);
           if (rejectedModels.size < 5) {
-            continue;
+            rejectAndRetry = true;
           }
         }
 
         if (isToolLeakText(cleanedAssistantText) && assistant.model) {
           rejectedModels.add(assistant.model);
           if (rejectedModels.size < 5) {
-            continue;
+            rejectAndRetry = true;
           }
         }
 
         if (!isLanguageCompatible(cleanedAssistantText, languageStyle) && assistant.model) {
           rejectedModels.add(assistant.model);
           if (rejectedModels.size < 5) {
-            continue;
+            rejectAndRetry = true;
           }
+        }
+
+        if (rejectAndRetry) {
+          continue;
         }
 
         assistantText = await continueIfTruncated({
@@ -361,12 +420,15 @@ export async function handleIncomingText({ messageId, from, profileName, text })
           finishReason: assistant.finishReason,
           preferredModel: assistant.model,
           excludeModels: [...rejectedModels],
-          languageStyle
+          languageStyle,
+          deadlineAt
         });
 
         if (assistantText) {
           break;
         }
+
+        break;
       }
 
       messages.push({
