@@ -108,7 +108,7 @@ async function requestGeminiSearchAnswer({
     `LANGUAGE RULE — ABSOLUTE: You MUST reply entirely in ${langLabel}. This overrides everything else.`,
     langInstruct,
     `Every single sentence of your response must be in ${langLabel}. Do NOT mix languages or slip into English unless ${langLabel} is English.`,
-    "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks. Use '-' for bullets if needed.",
+    "FORMATTING RULE: Use WhatsApp format only. *bold* for headings/key terms (single asterisk). Numbered lists for steps. • bullets for lists. ONE blank line between paragraphs. Never write walls of text.",
     "ANSWER DEPTH RULE: Give a complete, accurate answer. Cover the key point first, then short useful context.",
     "FRESHNESS RULE: You have access to live Google Search. Use it for time-sensitive or current-events questions.",
     "SPEED RULE: Be direct. No preamble, no 'Great question!', no meta-commentary.",
@@ -289,8 +289,8 @@ export async function geminiMediaAnswer({
   const systemInstruction = [
     `You are an advanced AI assistant in WhatsApp.`,
     `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}`,
-    "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks.",
-    "Give a complete, accurate, and helpful response.",
+    "FORMATTING RULE: Use WhatsApp format only. *bold* for headings and key terms (single asterisk). Numbered lists for steps. • bullets for lists. ONE blank line between every paragraph and after every heading.",
+    "Give a complete, accurate, and helpful response. Never write walls of text — break into readable sections.",
     "Never mention tools, internal workflow, or that you are processing a file.",
     "If this is audio, transcribe every word first, then respond.",
     "If this is an image with text, read all visible text accurately."
