@@ -151,7 +151,20 @@ export async function sendWhatsAppText({
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`WhatsApp API error ${response.status}: ${details}`);
+    let reason = `WhatsApp API error ${response.status}: ${details}`;
+
+    // Translate common API errors into plain English
+    if (details.includes("not_allowed") || details.includes("not allowed")) {
+      reason =
+        "This number cannot receive messages yet. Either: (1) the recipient must message this bot first to open a conversation window, or (2) if using a test number, add them to the allowed list in Meta Developer Console → WhatsApp → API Setup.";
+    } else if (details.includes("invalid_parameter") || details.includes("Invalid parameter")) {
+      reason =
+        "The phone number format is invalid. Make sure it includes the country code (e.g. 917876831965 for India).";
+    } else if (details.includes("rate_limit") || response.status === 429) {
+      reason = "WhatsApp rate limit hit. Wait a moment and try again.";
+    }
+
+    throw new Error(reason);
   }
 
   return response.json();
