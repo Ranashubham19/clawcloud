@@ -425,11 +425,9 @@ export async function handleIncomingText({ messageId, from, profileName, text })
   }
 
   if (!String(assistantText || "").trim()) {
-    throw new Error(
-      modelError
-        ? `Model routing failed: ${modelError.message}`
-        : "Model routing failed: no usable model answer was produced."
-    );
+    const errMsg = modelError ? modelError.message : "no usable model answer";
+    console.error(`[agent] All models failed for ${from}: ${errMsg}`);
+    assistantText = "Sorry, I couldn't generate a response right now. Please try again in a moment.";
   }
 
   assistantText = sanitizeForWhatsApp(assistantText);
@@ -472,32 +470,54 @@ export async function handleIncomingMedia({
   });
 
   if (!hasGeminiProvider()) {
-    throw new Error("Media processing requires GEMINI_API_KEY to be configured.");
+    const fallback = "I can't process media files right now — GEMINI_API_KEY is not configured. Please send a text message instead.";
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    return fallback;
   }
 
   // Download the media file from WhatsApp
-  const { data: mediaData, mimeType: resolvedMime } = await downloadWhatsAppMedia(mediaId);
+  let mediaData, resolvedMime;
+  try {
+    const downloaded = await downloadWhatsAppMedia(mediaId);
+    mediaData = downloaded.data;
+    resolvedMime = downloaded.mimeType;
+  } catch (dlError) {
+    console.error(`[agent] Media download failed for ${mediaId}: ${dlError.message}`);
+    const fallback = "Sorry, I couldn't download that file from WhatsApp. Please try sending it again.";
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    return fallback;
+  }
 
   const TWENTY_MB = 20 * 1024 * 1024;
   if (mediaData.length > TWENTY_MB) {
-    throw new Error(
-      `File too large for processing (${Math.round(mediaData.length / 1024 / 1024)}MB). Max is 20MB.`
-    );
+    const fallback = `That file is too large to process (${Math.round(mediaData.length / 1024 / 1024)}MB). Please send files under 20MB.`;
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    return fallback;
   }
 
-  const deadlineAt = Date.now() + config.geminiTimeoutMs;
-  const answer = await geminiMediaAnswer({
-    mediaData,
-    mimeType: resolvedMime || mimeType,
-    mediaType,
-    caption,
-    filename,
-    languageStyle,
-    deadlineAt
-  });
+  let answer;
+  try {
+    const deadlineAt = Date.now() + config.geminiTimeoutMs;
+    answer = await geminiMediaAnswer({
+      mediaData,
+      mimeType: resolvedMime || mimeType,
+      mediaType,
+      caption,
+      filename,
+      languageStyle,
+      deadlineAt
+    });
+  } catch (geminiError) {
+    console.warn(`[agent] Gemini media error for ${mediaType}: ${geminiError.message}`);
+    answer = null;
+  }
 
   if (!answer) {
-    throw new Error("Could not process this media file. Please try again.");
+    const fallback = caption
+      ? `I received your ${mediaType} but couldn't analyse it right now. You mentioned: "${caption}". Could you describe what you need help with?`
+      : `I received your ${mediaType} but couldn't analyse it right now. Please try again in a moment or describe what you need.`;
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    return fallback;
   }
 
   const assistantText = sanitizeForWhatsApp(cleanUserFacingText(answer));

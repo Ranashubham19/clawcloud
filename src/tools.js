@@ -433,10 +433,44 @@ async function runTool(name, args, context) {
         return result({ error: "Contact phone number is invalid or too short.", contact: resolved.contact });
       }
 
-      const delivery = await sendWhatsAppTextChunked({
-        to: toNumber,
-        body: args.message
-      });
+      let delivery;
+      try {
+        delivery = await sendWhatsAppTextChunked({
+          to: toNumber,
+          body: args.message
+        });
+      } catch (sendError) {
+        if (sendError.message === "RECIPIENT_NOT_ALLOWED") {
+          return result({
+            sent: false,
+            target: resolved.contact,
+            reason: "RECIPIENT_NOT_ALLOWED",
+            userMessage: `Message could not be sent to ${resolved.contact.name || resolved.contact.phone}. This number has not yet started a conversation with this bot. Please ask them to send any message to this bot first to open the chat window. Alternatively, add their number manually at: Meta Developer Console → WhatsApp → API Setup → To phone numbers.`
+          });
+        }
+        if (sendError.message === "INVALID_PHONE") {
+          return result({
+            sent: false,
+            target: resolved.contact,
+            reason: "INVALID_PHONE",
+            userMessage: `The phone number saved for ${resolved.contact.name || resolved.contact.phone} appears to be invalid. Please update the contact with the correct number.`
+          });
+        }
+        if (sendError.message === "RATE_LIMITED") {
+          return result({
+            sent: false,
+            target: resolved.contact,
+            reason: "RATE_LIMITED",
+            userMessage: `WhatsApp is rate-limiting messages right now. Please wait a minute and try again.`
+          });
+        }
+        return result({
+          sent: false,
+          target: resolved.contact,
+          reason: sendError.message,
+          userMessage: `Failed to send message to ${resolved.contact.name || resolved.contact.phone}: ${sendError.message}`
+        });
+      }
 
       await appendConversationMessage(resolved.contact.phone, {
         role: "assistant",
