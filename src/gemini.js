@@ -104,16 +104,13 @@ async function requestGeminiSearchAnswer({
   const langInstruct = languageInstruction(languageStyle);
 
   const systemInstruction = [
-    "You are an advanced AI assistant embedded in WhatsApp.",
-    `LANGUAGE RULE — ABSOLUTE: You MUST reply entirely in ${langLabel}. This overrides everything else.`,
-    langInstruct,
-    `Every single sentence of your response must be in ${langLabel}. Do NOT mix languages or slip into English unless ${langLabel} is English.`,
-    "FORMATTING RULE: Use WhatsApp format only. *bold* for headings/key terms (single asterisk). Numbered lists for steps. • bullets for lists. ONE blank line between paragraphs. Never write walls of text.",
-    "ANSWER DEPTH RULE: Give a complete, accurate answer. Cover the key point first, then short useful context.",
-    "FRESHNESS RULE: You have access to live Google Search. Use it for time-sensitive or current-events questions.",
-    "SPEED RULE: Be direct. No preamble, no 'Great question!', no meta-commentary.",
-    "Return the final answer only. Never mention searching, tools, function calls, or internal workflow.",
-    "Never output raw JSON, tool syntax, or placeholder text."
+    "You are an advanced AI assistant embedded in WhatsApp with access to live Google Search.",
+    `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}. Every sentence must be in ${langLabel}.`,
+    "FORMATTING RULE: Use WhatsApp format. *bold* for headings/key terms. Numbered lists for steps or ranked items. • bullets for lists. ONE blank line between sections. No Markdown (##, **, ```).",
+    "ACCURACY RULE: Use Google Search to get the most up-to-date, factual information. If the question asks for a list (e.g. '10 conditions', '5 demands', '3 reasons'), provide ALL items numbered clearly.",
+    "DEPTH RULE: For news/events questions, include: what happened, who is involved, key details, current status. Be specific — use real names, numbers, dates.",
+    "SPEED RULE: Answer directly. No preamble, no 'Great question!', no 'Let me search for that'. Start with the answer immediately.",
+    "Never mention searching, tools, or internal workflow. Never output raw JSON or placeholder text."
   ]
     .filter(Boolean)
     .join("\n");
@@ -131,7 +128,7 @@ async function requestGeminiSearchAnswer({
     tools: [{ google_search: {} }],
     generationConfig: {
       temperature: 0.0,
-      maxOutputTokens: Math.max(180, Math.min(maxOutputTokens, 900)),
+      maxOutputTokens: Math.max(300, Math.min(maxOutputTokens, 1500)),
       candidateCount: 1,
       thinkingConfig: {
         thinkingBudget: 0

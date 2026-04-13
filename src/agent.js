@@ -36,9 +36,10 @@ const ADVANCED_MODELS = [
 const toolIntentPattern =
   /\b(send\s+message|send\s+a\s+message|send\s+him|send\s+her|send\s+them|send\s+to|msg\s+to|text\s+to|forward\s+to|remind\s+me|reminder\s+for|schedule\s+message|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+my\s+contact|find\s+contact|my\s+contacts|my\s+contact|my\s+chats|my\s+messages|my\s+history|my\s+whatsapp|whatsapp\s+history|whatsapp\s+chat|who\s+said|what\s+did\s+\w+\s+say|who\s+messaged|auto\s*reply|auto-reply|read\s+my\s+messages|show\s+my\s+chats|list\s+my\s+contacts|search\s+my\s+messages|check\s+my\s+chats|last\s+message\s+from|recent\s+message\s+from|whatsapp\s+overview|my\s+inbox|chat\s+with\s+\w|message\s+to\s+\w|send\s+\w+\s+a\s+message)\b/i;
 
-// Live/recency queries — always routed to Gemini for real-time Google Search grounding
+// Live/recency queries — routed to Gemini for real-time Google Search grounding
+// Covers: finance, news, sports, weather, geopolitics, current events, recent facts
 const liveQueryPattern =
-  /\b(price|prices|rate|rates|rating|ratings|today|tonight|now|current|currently|latest|recent|recently|live|trending|trend|news|update|updates|market|stock|crypto|bitcoin|ethereum|btc|eth|forecast|prediction|weather|score|scores|match|matches|result|results|standings|leaderboard|2024|2025|2026)\b/i;
+  /\b(price|prices|rate|rates|rating|today|tonight|now|current|currently|latest|recent|recently|live|trending|news|update|updates|market|stock|crypto|bitcoin|ethereum|btc|eth|forecast|weather|score|scores|match|matches|result|results|standings|leaderboard|2024|2025|2026|happening|happened|what\s+is\s+happening|breaking|announced|announcement|declared|decision|verdict|ruling|election|vote|voted|won|lost|winner|loser|war|attack|strike|missile|bomb|invasion|troops|army|ceasefire|cease.?fire|peace\s+deal|treaty|sanction|sanctions|agreement|deal|negotiation|negotiations|condition|conditions|demand|demands|proposal|summit|meeting|talks|conflict|crisis|tension|protest|rally|riot|casualt|killed|death|toll|victim|hostage|refugee|diplomat|diplomacy|nuclear|weapon|military|defense|nato|un\s+resolution|security\s+council|iran|israel|ukraine|russia|china|pakistan|india|us\s+president|prime\s+minister|government|parliament|congress|senate|policy|law|bill|passed|signed|launch|launched|released|revealed|discovered|found|arrested|charged|convicted|sentenced|fire|earthquake|flood|disaster|accident|crash|explosion)\b/i;
 
 
 const longAnswerPattern =
@@ -49,7 +50,7 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
     const answer = await geminiSearchAnswer({
       query,
       languageStyle,
-      maxOutputTokens: 620,
+      maxOutputTokens: 1200,
       deadlineAt
     });
     if (answer) {
