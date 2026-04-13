@@ -13,7 +13,7 @@ import {
   appendConversationMessage
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
-import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
+import { sendWhatsAppTextChunked, outboundDedupKey, autoWhitelistPhone } from "./whatsapp.js";
 import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
@@ -313,15 +313,24 @@ async function runTool(name, args, context) {
     }
 
     case "save_contact": {
+      const savedPhone = normalizePhone(args.phone);
       await upsertContact({
         name: args.name,
-        phone: args.phone,
+        phone: savedPhone,
         aliases: args.aliases || []
       });
+
+      // Auto-whitelist so the bot can message this number immediately
+      const whitelist = await autoWhitelistPhone(savedPhone);
+
       return result({
         saved: true,
         name: args.name,
-        phone: normalizePhone(args.phone)
+        phone: savedPhone,
+        messagingEnabled: whitelist.ok,
+        note: whitelist.ok
+          ? "Contact saved and whitelisted — you can now send them messages directly."
+          : "Contact saved. If sending fails, ask the user to message the bot first to open a conversation window."
       });
     }
 
