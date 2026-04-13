@@ -135,25 +135,40 @@ function countHinglishHints(value) {
   return latinTokens(value).filter((token) => HINGLISH_HINTS.has(token)).length;
 }
 
+// Maps language keywords → style keys
+const LANG_KEYWORD_MAP = [
+  { re: /\b(hindi|हिंदी)\b/iu,      style: "hindi"     },
+  { re: /\bhinglish\b/i,            style: "hinglish"  },
+  { re: /\b(bengali|bangla)\b/i,    style: "bengali"   },
+  { re: /\bgujarati\b/i,            style: "gujarati"  },
+  { re: /\b(punjabi|panjabi)\b/i,   style: "punjabi"   },
+  { re: /\bkannada\b/i,             style: "kannada"   },
+  { re: /\bmalayalam\b/i,           style: "malayalam" },
+  { re: /\btamil\b/i,               style: "tamil"     },
+  { re: /\btelugu\b/i,              style: "telugu"    },
+  { re: /\b(arabic|urdu)\b/i,       style: "arabic"    },
+  { re: /\bthai\b/i,                style: "thai"      },
+  { re: /\b(chinese|mandarin)\b/i,  style: "chinese"   },
+  { re: /\bjapanese\b/i,            style: "japanese"  },
+  { re: /\bkorean\b/i,              style: "korean"    },
+  { re: /\benglish\b/i,             style: "english"   }
+];
+
+// Phrases that signal an explicit language switch request
+const LANG_SWITCH_RE =
+  /\b(in|mein|mein|mai|main|me|ko|give\s+in|tell\s+in|say\s+in|write\s+in|reply\s+in|answer\s+in|respond\s+in|speak\s+in|translate\s+to|explain\s+in|bolo|batao|likho)\b/i;
+
 export function detectExplicitLanguageRequest(value) {
-  const text = String(value || "");
-  if (!text.trim()) return "";
+  const text = String(value || "").trim();
+  if (!text) return "";
 
-  if (
-    /\b(reply|answer|respond|speak|write)\s+in\s+english\b/i.test(text) ||
-    /\benglish\s+(me|mein)\b/i.test(text)
-  ) return "english";
+  // Only fire if the message is explicitly asking to switch language
+  // e.g. "give it in hindi", "hindi mein bolo", "in urdu", "reply in telugu"
+  if (!LANG_SWITCH_RE.test(text)) return "";
 
-  if (
-    /\b(reply|answer|respond|speak|write)\s+in\s+hinglish\b/i.test(text) ||
-    /\bhinglish\s+(me|mein)\b/i.test(text)
-  ) return "hinglish";
-
-  if (
-    /\b(reply|answer|respond|speak|write)\s+in\s+hindi\b/i.test(text) ||
-    /\bhindi\s+(me|mein)\b/i.test(text) ||
-    /हिंदी\s+में/u.test(text)
-  ) return "hindi";
+  for (const { re, style } of LANG_KEYWORD_MAP) {
+    if (re.test(text)) return style;
+  }
 
   return "";
 }

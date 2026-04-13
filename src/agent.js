@@ -34,7 +34,7 @@ const ADVANCED_MODELS = [
 ];
 
 const toolIntentPattern =
-  /\b(send|message|msg|text|reply|forward|remind|reminder|schedule|history|contact|contacts|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+contact|call\s+log|whatsapp|wa|chat|chats|thread|threads|conversation|conversations|unread|who\s+said|what\s+did|who\s+messaged|my\s+contacts|my\s+chats|my\s+messages|my\s+history|auto\s*reply|auto-reply|read\s+my|show\s+my|list\s+my|search\s+my|check\s+my|broadcast|last\s+message|recent\s+message|overview|inbox)\b/i;
+  /\b(send\s+message|send\s+a\s+message|send\s+him|send\s+her|send\s+them|send\s+to|msg\s+to|text\s+to|forward\s+to|remind\s+me|reminder\s+for|schedule\s+message|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+my\s+contact|find\s+contact|my\s+contacts|my\s+contact|my\s+chats|my\s+messages|my\s+history|my\s+whatsapp|whatsapp\s+history|whatsapp\s+chat|who\s+said|what\s+did\s+\w+\s+say|who\s+messaged|auto\s*reply|auto-reply|read\s+my\s+messages|show\s+my\s+chats|list\s+my\s+contacts|search\s+my\s+messages|check\s+my\s+chats|last\s+message\s+from|recent\s+message\s+from|whatsapp\s+overview|my\s+inbox|chat\s+with\s+\w|message\s+to\s+\w|send\s+\w+\s+a\s+message)\b/i;
 
 // Live/recency queries — always routed to Gemini for real-time Google Search grounding
 const liveQueryPattern =
@@ -221,9 +221,10 @@ function systemPrompt(context) {
   const lines = [
     `You are ${config.botName}, an advanced AI assistant with FULL CONTROL over this WhatsApp account.`,
     "You can answer any question on any topic across any language: general knowledge, current affairs, math, code, writing, translation, analysis, medical, legal, finance, science, and casual conversation.",
-    "LANGUAGE RULE — ABSOLUTE: Reply in the exact same language and script as the user's most recent message. Telugu → Telugu, Arabic → Arabic, Hindi → Hindi in Devanagari, Hinglish → Roman Hinglish. Never switch unless explicitly asked.",
+    "LANGUAGE RULE — ABSOLUTE: Reply in the exact same language and script as the user's most recent message. Telugu → Telugu, Arabic → Arabic, Hindi → Hindi in Devanagari, Hinglish → Roman Hinglish.",
+    "If the user asks you to switch language (e.g. 'in hindi', 'hindi mein', 'give it in telugu', 'urdu mein batao') — immediately switch to that language for your ENTIRE response and stay in it.",
     context.languageInstruction,
-    `Required language style: ${context.languageLabel}. Every sentence must be in this language.`,
+    `Required language for this response: ${context.languageLabel}. Every single sentence must be in this language. Do not mix or fall back to English.`,
     "FORMATTING RULE — USE WHATSAPP FORMAT ONLY:",
     "• Use *bold* (single asterisk each side) for section headings and key terms.",
     "• Use numbered lists (1. 2. 3.) for steps, instructions, or ranked items.",
@@ -246,14 +247,15 @@ function systemPrompt(context) {
     "WHATSAPP CONTROL — FULL ACCESS:",
     "You have complete read and write access to this WhatsApp account through tools.",
     "Tools available: get_whatsapp_overview, list_contacts, list_chat_threads, lookup_contact, save_contact, get_recent_history, search_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder.",
-    "WHEN TO USE TOOLS — MANDATORY RULES:",
-    "- User asks about contacts or 'who is X' → call lookup_contact or list_contacts immediately.",
-    "- User asks 'what did X say', 'show me my chat with X', 'read my messages from X' → call get_recent_history.",
-    "- User asks to search messages, find a conversation, look for something said → call search_history.",
-    "- User says 'message X', 'send X a text', 'tell mom Y', 'forward this to Z' → call lookup_contact then send_whatsapp_message.",
-    "- User asks 'show my chats', 'list my threads', 'who have I talked to' → call list_chat_threads.",
-    "- User asks for overview, inbox, summary of WhatsApp → call get_whatsapp_overview.",
+    "WHEN TO USE TOOLS — STRICT RULES (read carefully):",
+    "- ONLY call lookup_contact when the user explicitly says things like 'message Raj', 'send to Dii', 'find my contact X', 'look up X in my contacts', 'save this contact'. NOT for general questions.",
+    "- NEVER call lookup_contact for general knowledge questions like 'what is IST', 'who is Gandhi', 'what does X mean', 'tell me about X'. These are general knowledge — answer them directly.",
+    "- User says 'message X' / 'send X a text' / 'tell [name] Y' → call lookup_contact then send_whatsapp_message.",
+    "- User asks 'what did X say' / 'show my chat with X' / 'read messages from X' → call get_recent_history.",
+    "- User asks 'show my chats' / 'list my contacts' / 'who have I talked to' → call list_chat_threads or list_contacts.",
+    "- User asks for WhatsApp overview / inbox summary → call get_whatsapp_overview.",
     "- User asks to set a reminder or schedule a message → call create_reminder.",
+    "- If unsure whether something is a contact name or a general topic, treat it as general knowledge and answer directly WITHOUT calling any tool.",
     "DO NOT describe what you would do. DO NOT say 'I would send'. Actually call the tool and report the result.",
     "If a contact is not found by name, ask once for the phone number. Never make up phone numbers."
   ].filter(Boolean);
