@@ -16,7 +16,7 @@ import {
 } from "./lib/language.js";
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
 import { geminiSearchAnswer, geminiMediaAnswer, hasGeminiProvider } from "./gemini.js";
-import { downloadWhatsAppMedia, autoWhitelistPhone } from "./whatsapp.js";
+import { downloadWhatsAppMedia } from "./whatsapp.js";
 
 // Advanced + responsive models — preferred across all routes
 const ADVANCED_MODELS = [
@@ -273,8 +273,6 @@ export async function handleIncomingText({ messageId, from, profileName, text })
     overwriteName: false
   });
 
-  // Auto-whitelist every number that messages the bot so the bot can always reply to them
-  autoWhitelistPhone(from).catch(() => {});
 
   await appendConversationMessage(from, {
     id: messageId,

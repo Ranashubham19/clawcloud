@@ -340,43 +340,10 @@ export function outboundDedupKey(prefix, to, body, inboundMessageId = "") {
 }
 
 /**
- * Auto-whitelist a phone number so the bot can message it without the
- * recipient needing to message first. Works on test numbers (adds to the
- * allowed-contacts list in Meta Developer Console automatically) and
- * is a no-op on production numbers where there is no restriction.
+ * No-op: Meta's WhatsApp test numbers require recipients to be added manually
+ * through the Developer Console UI. There is no API endpoint for this.
+ * On production/live numbers there is no restriction at all.
  */
-export async function autoWhitelistPhone(phone) {
-  if (!config.whatsappAccessToken || !config.whatsappPhoneNumberId) {
-    return { ok: false, reason: "not_configured" };
-  }
-
-  const normalized = phone.startsWith("+") ? phone : `+${phone.replace(/\D/g, "")}`;
-
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${config.whatsappGraphVersion}/${config.whatsappPhoneNumberId}/whitelisted_contacts`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.whatsappAccessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ contacts: [normalized] })
-      }
-    );
-
-    if (response.ok) {
-      console.log(`Auto-whitelisted ${normalized} for WhatsApp messaging`);
-      return { ok: true };
-    }
-
-    const details = await response.text();
-    console.warn(
-      `Auto-whitelist ${normalized} → ${response.status}: ${details.slice(0, 200)}`
-    );
-    return { ok: false, status: response.status };
-  } catch (error) {
-    console.warn(`Auto-whitelist error: ${error.message}`);
-    return { ok: false, reason: error.message };
-  }
+export function autoWhitelistPhone(_phone) {
+  return Promise.resolve({ ok: false, reason: "manual_only" });
 }

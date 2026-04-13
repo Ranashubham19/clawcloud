@@ -13,7 +13,7 @@ import {
   appendConversationMessage
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
-import { sendWhatsAppTextChunked, outboundDedupKey, autoWhitelistPhone } from "./whatsapp.js";
+import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
 import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
@@ -320,17 +320,11 @@ async function runTool(name, args, context) {
         aliases: args.aliases || []
       });
 
-      // Auto-whitelist so the bot can message this number immediately
-      const whitelist = await autoWhitelistPhone(savedPhone);
-
       return result({
         saved: true,
         name: args.name,
         phone: savedPhone,
-        messagingEnabled: whitelist.ok,
-        note: whitelist.ok
-          ? "Contact saved and whitelisted — you can now send them messages directly."
-          : "Contact saved. If sending fails, ask the user to message the bot first to open a conversation window."
+        note: "Contact saved. To message this number, add it at developers.facebook.com → your App → WhatsApp → API Setup → To section (test number limit: 5 recipients). Production numbers have no such restriction."
       });
     }
 
@@ -445,7 +439,7 @@ async function runTool(name, args, context) {
             sent: false,
             target: resolved.contact,
             reason: "RECIPIENT_NOT_ALLOWED",
-            userMessage: `Message could not be sent to ${resolved.contact.name || resolved.contact.phone}. This number has not yet started a conversation with this bot. Please ask them to send any message to this bot first to open the chat window. Alternatively, add their number manually at: Meta Developer Console → WhatsApp → API Setup → To phone numbers.`
+            userMessage: `Cannot send to ${resolved.contact.name || resolved.contact.phone} yet. You are on a WhatsApp test number which only allows messaging up to 5 manually approved numbers. To fix: go to developers.facebook.com → your App → WhatsApp → API Setup → scroll to the "To" section → Add phone number → enter ${resolved.contact.phone}. Once added there, messages will go through instantly. For unlimited recipients, upgrade to a WhatsApp Business production number.`
           });
         }
         if (sendError.message === "INVALID_PHONE") {
