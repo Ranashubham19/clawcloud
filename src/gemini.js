@@ -7,6 +7,74 @@ import {
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
+// MIME types Gemini natively understands (inline base64)
+const GEMINI_SUPPORTED_MIME = new Set([
+  // Images
+  "image/jpeg", "image/jpg", "image/png", "image/gif",
+  "image/webp", "image/heic", "image/heif", "image/bmp",
+  // Audio
+  "audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg",
+  "audio/aiff", "audio/x-aiff", "audio/aac", "audio/x-aac",
+  "audio/ogg", "audio/flac", "audio/x-flac", "audio/opus",
+  "audio/amr", "audio/x-amr",
+  // Video
+  "video/mp4", "video/mpeg", "video/mpg", "video/mov",
+  "video/quicktime", "video/avi", "video/x-msvideo",
+  "video/x-flv", "video/webm", "video/wmv", "video/3gpp",
+  "video/3gp",
+  // Documents
+  "application/pdf",
+  "text/plain", "text/html", "text/css", "text/csv",
+  "text/markdown", "text/xml", "text/rtf", "application/rtf",
+  "application/json"
+]);
+
+// Human-readable format names for unsupported types
+const UNSUPPORTED_FORMAT_NAMES = {
+  "application/msword": "Word document (.doc)",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document (.docx)",
+  "application/vnd.ms-excel": "Excel spreadsheet (.xls)",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet (.xlsx)",
+  "application/vnd.ms-powerpoint": "PowerPoint (.ppt)",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint (.pptx)",
+  "application/zip": "ZIP archive",
+  "application/x-zip-compressed": "ZIP archive",
+  "application/x-rar-compressed": "RAR archive",
+  "application/octet-stream": "binary file"
+};
+
+/**
+ * Strip MIME parameters (e.g. "audio/ogg; codecs=opus" → "audio/ogg")
+ * and normalise aliases so Gemini always receives a clean type.
+ */
+export function normalizeMimeType(raw) {
+  if (!raw) return "application/octet-stream";
+  const base = raw.split(";")[0].trim().toLowerCase();
+  const aliases = {
+    "audio/x-wav": "audio/wav",
+    "audio/x-aiff": "audio/aiff",
+    "audio/x-aac": "audio/aac",
+    "audio/x-flac": "audio/flac",
+    "audio/x-m4a": "audio/aac",
+    "audio/mp4": "audio/aac",
+    "audio/opus": "audio/ogg",
+    "image/jpg": "image/jpeg",
+    "video/quicktime": "video/mov",
+    "video/x-msvideo": "video/avi",
+    "video/3gp": "video/3gpp"
+  };
+  return aliases[base] || base;
+}
+
+export function isMimeSupported(mimeType) {
+  return GEMINI_SUPPORTED_MIME.has(normalizeMimeType(mimeType));
+}
+
+export function unsupportedFormatName(mimeType) {
+  const base = mimeType.split(";")[0].trim().toLowerCase();
+  return UNSUPPORTED_FORMAT_NAMES[base] || base;
+}
+
 function createTimeoutSignal(timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(250, timeoutMs));
@@ -115,21 +183,88 @@ async function requestGeminiSearchAnswer({
   }
 }
 
-function mediaPrompt(mediaType, mimeType, caption) {
-  if (caption) return caption;
-  if (mediaType === "audio" || mediaType === "voice" || mimeType.startsWith("audio/")) {
-    return "Transcribe this audio message fully and accurately. Then respond to anything the person said or asked.";
+function mediaPrompt(mediaType, mimeType, caption, filename) {
+  // If the user wrote a caption, that IS the question — answer it using the file as context
+  if (caption && caption.trim()) {
+    return caption.trim();
   }
-  if (mediaType === "video" || mimeType.startsWith("video/")) {
-    return "Describe what is happening in this video. Then respond to anything being asked or shown.";
+
+  const mime = normalizeMimeType(mimeType);
+
+  // Audio / voice
+  if (mediaType === "audio" || mediaType === "voice" || mime.startsWith("audio/")) {
+    return (
+      "This is an audio message. Please:\n" +
+      "1. Transcribe every word spoken, accurately and completely.\n" +
+      "2. If the person asked something or said something needing a response, reply to it directly.\n" +
+      "3. If it is music or ambient sound, describe what you hear."
+    );
   }
-  if (mediaType === "document" || mimeType === "application/pdf") {
-    return "Read this document/PDF fully. Summarize the key points and answer any questions the user might have about it.";
+
+  // Video
+  if (mediaType === "video" || mime.startsWith("video/")) {
+    return (
+      "This is a video. Please:\n" +
+      "1. Describe what is happening scene by scene.\n" +
+      "2. Transcribe any speech or important text visible on screen.\n" +
+      "3. If the video contains a question or request, answer it."
+    );
   }
-  if (mediaType === "image" || mimeType.startsWith("image/")) {
-    return "Describe this image in detail. Identify any text, objects, people, or data visible. Answer any implied questions.";
+
+  // PDF
+  if (mime === "application/pdf") {
+    const name = filename ? `"${filename}"` : "this PDF";
+    return (
+      `Please read ${name} fully and:\n` +
+      "1. Give a clear summary of the main content.\n" +
+      "2. List any key facts, figures, or decisions.\n" +
+      "3. If it is a bill, contract, or form, highlight the most important parts."
+    );
   }
-  return "Process this file and describe its contents clearly.";
+
+  // HTML / web page
+  if (mime === "text/html") {
+    return (
+      "This is an HTML file. Please:\n" +
+      "1. Extract and summarize the main text content.\n" +
+      "2. Ignore navigation, ads, and boilerplate.\n" +
+      "3. Highlight any important information."
+    );
+  }
+
+  // CSV / spreadsheet data
+  if (mime === "text/csv") {
+    return (
+      "This is a CSV data file. Please:\n" +
+      "1. Describe what data it contains (columns, row count, topic).\n" +
+      "2. Highlight notable patterns, totals, or outliers.\n" +
+      "3. Answer any questions the user might have about this data."
+    );
+  }
+
+  // Plain text
+  if (mime === "text/plain" || mime === "text/markdown") {
+    return (
+      "This is a text file. Please read it fully and:\n" +
+      "1. Summarize the content.\n" +
+      "2. Answer any questions implied by the content."
+    );
+  }
+
+  // Image (default)
+  if (mediaType === "image" || mediaType === "sticker" || mime.startsWith("image/")) {
+    return (
+      "Please analyse this image and:\n" +
+      "1. Describe what you see in detail.\n" +
+      "2. Read and transcribe any visible text, numbers, or labels.\n" +
+      "3. If it is a document, receipt, screenshot, or chart, extract the key information."
+    );
+  }
+
+  // Generic fallback
+  return (
+    `Please process this ${filename ? `file (${filename})` : "file"} and describe its contents clearly and helpfully.`
+  );
 }
 
 export async function geminiMediaAnswer({
@@ -143,9 +278,11 @@ export async function geminiMediaAnswer({
 }) {
   if (!config.geminiApiKey) return null;
 
-  const remainingMs = deadlineAt ? deadlineAt - Date.now() : config.geminiTimeoutMs;
-  if (remainingMs < 1000) return null;
+  const timeoutBudget = config.geminiMediaTimeoutMs;
+  const remainingMs = deadlineAt ? Math.min(deadlineAt - Date.now(), timeoutBudget) : timeoutBudget;
+  if (remainingMs < 2000) return null;
 
+  const normalizedMime = normalizeMimeType(mimeType);
   const langLabel = languageLabel(languageStyle);
   const langInstruct = languageInstruction(languageStyle);
 
@@ -154,20 +291,23 @@ export async function geminiMediaAnswer({
     `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}`,
     "FORMATTING RULE: Plain text only. No Markdown, no asterisks, no hashtags, no backticks.",
     "Give a complete, accurate, and helpful response.",
-    "Never mention tools, internal workflow, or that you are processing a file."
+    "Never mention tools, internal workflow, or that you are processing a file.",
+    "If this is audio, transcribe every word first, then respond.",
+    "If this is an image with text, read all visible text accurately."
   ].join("\n");
 
-  const userText = mediaPrompt(mediaType, mimeType, caption);
+  const userPrompt = mediaPrompt(mediaType, mimeType, caption, filename);
+
   const filePart = {
     inlineData: {
-      mimeType,
+      mimeType: normalizedMime,
       data: mediaData.toString("base64")
     }
   };
 
   const textParts = [];
-  if (filename) textParts.push({ text: `File: ${filename}\n` });
-  textParts.push({ text: userText });
+  if (filename) textParts.push({ text: `File name: ${filename}\n` });
+  textParts.push({ text: userPrompt });
 
   const payload = {
     systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -179,15 +319,13 @@ export async function geminiMediaAnswer({
     ],
     generationConfig: {
       temperature: 0.0,
-      maxOutputTokens: 1200,
+      maxOutputTokens: 2000,
       candidateCount: 1,
       thinkingConfig: { thinkingBudget: 0 }
     }
   };
 
-  const { signal, cancel } = createTimeoutSignal(
-    Math.min(config.geminiTimeoutMs, remainingMs)
-  );
+  const { signal, cancel } = createTimeoutSignal(remainingMs);
 
   try {
     const response = await fetch(
@@ -221,7 +359,7 @@ export async function geminiMediaAnswer({
   } catch (error) {
     const message =
       error?.name === "AbortError"
-        ? `Gemini media timed out after ${config.geminiTimeoutMs}ms`
+        ? `Gemini media timed out after ${remainingMs}ms`
         : error.message;
     console.warn(`Gemini media error: ${message}`);
     return null;

@@ -15,7 +15,14 @@ import {
   languageLabel
 } from "./lib/language.js";
 import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
-import { geminiSearchAnswer, geminiMediaAnswer, hasGeminiProvider } from "./gemini.js";
+import {
+  geminiSearchAnswer,
+  geminiMediaAnswer,
+  hasGeminiProvider,
+  isMimeSupported,
+  normalizeMimeType,
+  unsupportedFormatName
+} from "./gemini.js";
 import { downloadWhatsAppMedia } from "./whatsapp.js";
 
 // Advanced + responsive models — preferred across all routes
@@ -486,6 +493,20 @@ export async function handleIncomingMedia({
     return fallback;
   }
 
+  const effectiveMime = resolvedMime || mimeType;
+
+  // Detect unsupported formats before even trying Gemini
+  if (!isMimeSupported(effectiveMime)) {
+    const formatName = unsupportedFormatName(effectiveMime);
+    const ext = filename ? filename.split(".").pop().toUpperCase() : "";
+    const label = ext || formatName;
+    const fallback = caption
+      ? `I received your ${label} file. I can't read the file contents directly, but you mentioned: "${caption}". What would you like help with?`
+      : `I received your ${label} file. I can't read this format directly. Supported formats are: images (JPG, PNG, GIF, WEBP), audio (MP3, OGG, WAV, AAC), video (MP4, MOV, AVI, WEBM), and documents (PDF, HTML, CSV, TXT). Please convert the file or paste the text content directly.`;
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    return fallback;
+  }
+
   const TWENTY_MB = 20 * 1024 * 1024;
   if (mediaData.length > TWENTY_MB) {
     const fallback = `That file is too large to process (${Math.round(mediaData.length / 1024 / 1024)}MB). Please send files under 20MB.`;
@@ -495,10 +516,10 @@ export async function handleIncomingMedia({
 
   let answer;
   try {
-    const deadlineAt = Date.now() + config.geminiTimeoutMs;
+    const deadlineAt = Date.now() + config.geminiMediaTimeoutMs;
     answer = await geminiMediaAnswer({
       mediaData,
-      mimeType: resolvedMime || mimeType,
+      mimeType: effectiveMime,
       mediaType,
       caption,
       filename,
@@ -510,10 +531,52 @@ export async function handleIncomingMedia({
     answer = null;
   }
 
+  // NVIDIA text fallback — if Gemini couldn't process the file, use NVIDIA with context
+  if (!answer && caption) {
+    try {
+      const waContext = await loadWhatsAppContext();
+      const fallbackMessages = [
+        {
+          role: "system",
+          content: systemPrompt({
+            currentUserPhone: from,
+            profileName,
+            languageInstruction: languageInstruction(languageStyle),
+            languageLabel: languageLabel(languageStyle),
+            contactCount: waContext.contactCount,
+            threadCount: waContext.threadCount,
+            contactList: waContext.contactList
+          })
+        },
+        {
+          role: "user",
+          content: `The user sent a ${mediaType} file${filename ? ` (${filename})` : ""}. You cannot see the file content directly. Their message/caption was: "${caption}". Please respond helpfully to what they said.`
+        }
+      ];
+
+      const fallbackCompletion = await createChatCompletion({
+        messages: fallbackMessages,
+        tools: [],
+        maxTokens: 800,
+        preferredModels: ADVANCED_MODELS,
+        excludeModels: [],
+        deadlineAt: Date.now() + 60000,
+        maxAttempts: 3
+      });
+      const fallbackAssistant = unpackAssistantMessage(fallbackCompletion);
+      const fallbackText = cleanUserFacingText(fallbackAssistant.text);
+      if (fallbackText && !isToolLeakText(fallbackText)) {
+        answer = fallbackText;
+      }
+    } catch (nvidiaError) {
+      console.warn(`[agent] NVIDIA media fallback failed: ${nvidiaError.message}`);
+    }
+  }
+
   if (!answer) {
     const fallback = caption
       ? `I received your ${mediaType} but couldn't analyse it right now. You mentioned: "${caption}". Could you describe what you need help with?`
-      : `I received your ${mediaType} but couldn't analyse it right now. Please try again in a moment or describe what you need.`;
+      : `I received your ${mediaType} but couldn't process it right now. Please try again in a moment, or send it as a different format.`;
     await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
     return fallback;
   }

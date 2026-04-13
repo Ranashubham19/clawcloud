@@ -63,6 +63,7 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
   geminiTimeoutMs: toInt(process.env.GEMINI_TIMEOUT_MS, 30000),
+  geminiMediaTimeoutMs: toInt(process.env.GEMINI_MEDIA_TIMEOUT_MS, 90000),
   searchTimeoutMs: toInt(process.env.SEARCH_TIMEOUT_MS, 1800),
   replyLatencyBudgetMs: toInt(process.env.REPLY_LATENCY_BUDGET_MS, 600000),
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
