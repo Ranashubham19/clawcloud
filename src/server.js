@@ -8,6 +8,7 @@ import {
   rememberOutboundDedup
 } from "./store.js";
 import { handleIncomingText, handleIncomingMedia } from "./agent.js";
+import { extractAiSensyFlowInput } from "./aisensy-flow.js";
 import {
   extractIncomingMessages,
   outboundDedupKey,
@@ -224,6 +225,13 @@ function integrationResultHtml({ title, message, detail = "" }) {
 }
 
 async function processInboundMessage(message) {
+  if (!config.whatsappAutoReply) {
+    console.log(
+      `Skipping webhook auto-reply for ${message.messageId} from ${message.from}`
+    );
+    return;
+  }
+
   const gate = await beginInboundProcessing(message.messageId);
   if (gate.status !== "accepted") {
     console.log(
@@ -333,6 +341,64 @@ async function handleWebhookPost(request, response) {
   for (const message of incoming) {
     await processInboundMessage(message);
   }
+}
+
+async function handleAiSensyFlowAnswer(request, response) {
+  const url = parseUrl(request);
+
+  if (!config.aisensyFlowToken) {
+    sendJson(response, 503, {
+      error: "AiSensy Flow answer endpoint is disabled. Set AISENSY_FLOW_TOKEN first."
+    });
+    return;
+  }
+
+  if (getAdminToken(request, url) !== config.aisensyFlowToken) {
+    sendText(response, 403, "Forbidden");
+    return;
+  }
+
+  const rawBody = await readRawBody(request);
+  let payload = {};
+  if (rawBody.length) {
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      sendJson(response, 400, { error: "Invalid JSON" });
+      return;
+    }
+  }
+
+  const input = extractAiSensyFlowInput(payload, url.searchParams);
+  console.log(
+    `AiSensy flow answer request from ${input.from || "missing-from"} with text: ${String(
+      input.text || ""
+    ).slice(0, 80)}`
+  );
+
+  if (!input.text) {
+    sendJson(response, 400, { error: "Missing required field: text" });
+    return;
+  }
+
+  const from = input.from || "0000000000";
+  const messageId =
+    input.messageId ||
+    `aisensy-flow:${from}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+
+  const answer = await handleIncomingText({
+    messageId,
+    from,
+    profileName: input.profileName,
+    text: input.text
+  });
+
+  sendJson(response, 200, {
+    data: answer,
+    answer,
+    reply: answer,
+    text: answer
+  });
 }
 
 async function requestListener(request, response) {
@@ -487,6 +553,11 @@ async function requestListener(request, response) {
 
   if (url.pathname === "/webhooks/whatsapp" && request.method === "POST") {
     await handleWebhookPost(request, response);
+    return;
+  }
+
+  if (url.pathname === "/integrations/aisensy/answer" && request.method === "POST") {
+    await handleAiSensyFlowAnswer(request, response);
     return;
   }
 
