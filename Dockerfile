@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package.json ./
 COPY src ./src
-COPY data ./data
+RUN mkdir -p data
 COPY .env.example ./.env.example
 COPY README.md ./README.md
 

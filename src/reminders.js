@@ -1,17 +1,18 @@
 import { config } from "./config.js";
 import {
   appendConversationMessage,
-  getDueReminders,
+  claimDueReminders,
   hasRecentOutboundDedup,
   markReminderFailed,
   markReminderSent,
   rememberOutboundDedup
 } from "./store.js";
+import { comparablePhone } from "./lib/phones.js";
 import { outboundDedupKey, sendWhatsAppTextChunked } from "./whatsapp.js";
 
 export function startReminderLoop() {
   const timer = setInterval(async () => {
-    const due = await getDueReminders();
+    const due = await claimDueReminders();
     for (const reminder of due) {
       const dedupeKey = outboundDedupKey(
         "reminder",
@@ -26,8 +27,13 @@ export function startReminderLoop() {
       }
 
       try {
+        const to = comparablePhone(reminder.targetPhone);
+        if (!to || to.length < 7) {
+          throw new Error("INVALID_PHONE");
+        }
+
         const delivery = await sendWhatsAppTextChunked({
-          to: reminder.targetPhone.replace(/^\+/, ""),
+          to,
           body: reminder.text
         });
         await appendConversationMessage(reminder.targetPhone, {

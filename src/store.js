@@ -32,6 +32,13 @@ const fileNames = {
 };
 
 const writeQueues = new Map();
+const INBOUND_PROCESSING_STALE_MS = 10 * 60 * 1000;
+const REMINDER_PROCESSING_STALE_MS = 10 * 60 * 1000;
+const PERMANENT_REMINDER_ERRORS = [
+  "RECIPIENT_NOT_ALLOWED",
+  "INVALID_PHONE"
+];
+const MAX_REMINDER_ATTEMPTS = 5;
 
 function cloneDefault(name) {
   return JSON.parse(JSON.stringify(defaults[name]));
@@ -95,6 +102,46 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function parseTime(value) {
+  const timestamp = new Date(value || "").getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.NaN;
+}
+
+function isReminderDue(reminder, nowMs) {
+  const dueAtMs = parseTime(reminder.dueAt);
+  if (!Number.isFinite(dueAtMs) || dueAtMs > nowMs) {
+    return false;
+  }
+
+  const nextAttemptAtMs = parseTime(reminder.nextAttemptAt || reminder.dueAt);
+  return !Number.isFinite(nextAttemptAtMs) || nextAttemptAtMs <= nowMs;
+}
+
+function reminderBackoffMs(attempts) {
+  const baseDelayMs = 60 * 1000;
+  return Math.min(baseDelayMs * 2 ** Math.max(0, attempts - 1), 60 * 60 * 1000);
+}
+
+async function pruneStaleInboundProcessing() {
+  const staleBefore = Date.now() - INBOUND_PROCESSING_STALE_MS;
+
+  return withWriteLock("meta", (meta) => {
+    meta.inbound ||= {};
+
+    for (const [messageId, entry] of Object.entries(meta.inbound)) {
+      if (
+        entry?.status === "processing" &&
+        (!Number.isFinite(parseTime(entry.startedAt)) ||
+          parseTime(entry.startedAt) <= staleBefore)
+      ) {
+        delete meta.inbound[messageId];
+      }
+    }
+
+    return meta;
+  });
+}
+
 function contactMatches(contact, query) {
   const lowerQuery = query.toLowerCase();
   const aliasPool = [contact.name, ...(contact.aliases || [])]
@@ -113,6 +160,7 @@ function contactMatches(contact, query) {
 
 export async function initStore() {
   await ensureFiles();
+  await pruneStaleInboundProcessing();
 }
 
 export async function listContacts(query = "") {
@@ -386,7 +434,7 @@ export async function searchConversationHistory({
 }
 
 export async function beginInboundProcessing(messageId) {
-  const staleBefore = Date.now() - 10 * 60 * 1000;
+  const staleBefore = Date.now() - INBOUND_PROCESSING_STALE_MS;
   let result = { status: "accepted" };
 
   await withWriteLock("meta", (meta) => {
@@ -467,7 +515,12 @@ export async function createReminder({ targetPhone, text, dueAt, sourceChatId, c
       status: "pending",
       createdAt: nowIso(),
       sentAt: null,
-      lastError: null
+      lastError: null,
+      lastAttemptAt: null,
+      nextAttemptAt: dueAt,
+      attempts: 0,
+      failedAt: null,
+      processingStartedAt: null
     });
     return reminders;
   });
@@ -499,9 +552,9 @@ export async function cancelReminder(reminderId) {
 
 export async function getDueReminders(now = new Date()) {
   const reminders = await readJson("reminders");
+  const nowMs = now.getTime();
   return reminders.filter(
-    (reminder) =>
-      reminder.status === "pending" && new Date(reminder.dueAt).getTime() <= now.getTime()
+    (reminder) => reminder.status === "pending" && isReminderDue(reminder, nowMs)
   );
 }
 
@@ -514,8 +567,46 @@ export async function markReminderSent(reminderId, delivery = {}) {
     reminder.status = "sent";
     reminder.sentAt = nowIso();
     reminder.delivery = delivery;
+    reminder.lastError = null;
+    reminder.failedAt = null;
+    reminder.nextAttemptAt = null;
+    reminder.processingStartedAt = null;
     return reminders;
   });
+}
+
+export async function claimDueReminders(now = new Date()) {
+  const nowMs = now.getTime();
+  const staleBefore = nowMs - REMINDER_PROCESSING_STALE_MS;
+  const claimedAt = now.toISOString();
+  let claimed = [];
+
+  await withWriteLock("reminders", (reminders) => {
+    claimed = [];
+
+    for (const reminder of reminders) {
+      if (
+        reminder.status === "processing" &&
+        (!Number.isFinite(parseTime(reminder.processingStartedAt)) ||
+          parseTime(reminder.processingStartedAt) <= staleBefore)
+      ) {
+        reminder.status = "pending";
+        reminder.processingStartedAt = null;
+      }
+
+      if (reminder.status !== "pending" || !isReminderDue(reminder, nowMs)) {
+        continue;
+      }
+
+      reminder.status = "processing";
+      reminder.processingStartedAt = claimedAt;
+      claimed.push({ ...reminder });
+    }
+
+    return reminders;
+  });
+
+  return claimed;
 }
 
 export async function markReminderFailed(reminderId, errorMessage) {
@@ -524,8 +615,31 @@ export async function markReminderFailed(reminderId, errorMessage) {
     if (!reminder) {
       return reminders;
     }
-    reminder.lastError = errorMessage;
+    const errorText = String(errorMessage || "Unknown reminder error");
+    const attempts = (reminder.attempts || 0) + 1;
+    reminder.attempts = attempts;
+    reminder.lastError = errorText;
     reminder.lastAttemptAt = nowIso();
+
+    const isPermanent =
+      PERMANENT_REMINDER_ERRORS.some((code) => errorText.includes(code)) ||
+      attempts >= MAX_REMINDER_ATTEMPTS;
+
+    if (isPermanent) {
+      reminder.status = "failed";
+      reminder.failedAt = nowIso();
+      reminder.nextAttemptAt = null;
+      reminder.processingStartedAt = null;
+      return reminders;
+    }
+
+    reminder.status = "pending";
+    reminder.failedAt = null;
+    reminder.processingStartedAt = null;
+    reminder.nextAttemptAt = new Date(
+      Date.now() + reminderBackoffMs(attempts)
+    ).toISOString();
+
     return reminders;
   });
 }

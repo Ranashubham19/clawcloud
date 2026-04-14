@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -15,6 +15,7 @@ import {
   splitWhatsAppMessage
 } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
+import { extractAiSensyFlowInput } from "../src/aisensy-flow.js";
 
 async function run(name, fn) {
   try {
@@ -135,6 +136,48 @@ await run("extractIncomingMessages reads text payloads", async () => {
   assert.equal(messages[0].text, "Hello");
 });
 
+await run("extractAiSensyFlowInput reads flexible flow payloads", async () => {
+  const input = extractAiSensyFlowInput({
+    contact: { phone: "918091392311", name: "Shubh" },
+    message: "What is zapma",
+    message_id: "flow-1"
+  });
+
+  assert.deepEqual(input, {
+    from: "918091392311",
+    text: "What is zapma",
+    profileName: "Shubh",
+    messageId: "flow-1"
+  });
+});
+
+await run("extractAiSensyFlowInput falls back to query params", async () => {
+  const input = extractAiSensyFlowInput(
+    {},
+    new URLSearchParams({
+      phone: "918091392311",
+      text: "Hello",
+      name: "Shubh"
+    })
+  );
+
+  assert.equal(input.from, "918091392311");
+  assert.equal(input.text, "Hello");
+  assert.equal(input.profileName, "Shubh");
+});
+
+await run("extractAiSensyFlowInput ignores unresolved attributes", async () => {
+  const input = extractAiSensyFlowInput({
+    from: "$phone",
+    profileName: "$name",
+    text: "$message"
+  });
+
+  assert.equal(input.from, "");
+  assert.equal(input.text, "");
+  assert.equal(input.profileName, "");
+});
+
 await run("cleanUserFacingText removes tool and search meta lines", async () => {
   const cleaned = cleanUserFacingText(
     `[TOOL_CALLS]web_search{"query":"latest price"}\nI'll check the latest price for you.\n(Using web search to find the current price)\nThe latest price is $1,199.`
@@ -163,6 +206,126 @@ await run("beginInboundProcessing dedupes repeated message ids", async () => {
 
   assert.equal(first.status, "accepted");
   assert.equal(second.status, "duplicate");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("initStore prunes stale inbound processing records", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  await writeFile(
+    path.join(tempDir, "meta.json"),
+    `${JSON.stringify(
+      {
+        inbound: {
+          "wamid-stale": {
+            status: "processing",
+            startedAt: "2026-04-11T21:16:12.452Z"
+          },
+          "wamid-done": {
+            status: "done",
+            finishedAt: "2026-04-12T00:00:00.000Z"
+          }
+        },
+        outbound: {}
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+
+  const meta = JSON.parse(await readFile(path.join(tempDir, "meta.json"), "utf8"));
+
+  assert.equal(meta.inbound["wamid-stale"], undefined);
+  assert.equal(meta.inbound["wamid-done"].status, "done");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("claimDueReminders leases each due reminder once", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  const reminders = await store.createReminder({
+    targetPhone: "+919876543210",
+    text: "Ping",
+    dueAt: new Date(Date.now() - 60_000).toISOString(),
+    sourceChatId: "+919876543210",
+    createdBy: "+919876543210"
+  });
+
+  const firstClaim = await store.claimDueReminders(new Date());
+  const secondClaim = await store.claimDueReminders(new Date());
+  const [storedReminder] = await store.listReminders(reminders[0].targetPhone);
+
+  assert.equal(firstClaim.length, 1);
+  assert.equal(firstClaim[0].id, reminders[0].id);
+  assert.equal(secondClaim.length, 0);
+  assert.equal(storedReminder.status, "processing");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("markReminderFailed backs off transient reminder errors", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  const reminders = await store.createReminder({
+    targetPhone: "+919876543210",
+    text: "Ping",
+    dueAt: new Date(Date.now() - 60_000).toISOString(),
+    sourceChatId: "+919876543210",
+    createdBy: "+919876543210"
+  });
+
+  await store.claimDueReminders(new Date());
+  await store.markReminderFailed(reminders[0].id, "RATE_LIMITED");
+
+  const [storedReminder] = await store.listReminders(reminders[0].targetPhone);
+  const dueNow = await store.getDueReminders(new Date());
+
+  assert.equal(storedReminder.status, "pending");
+  assert.equal(storedReminder.attempts, 1);
+  assert.ok(new Date(storedReminder.nextAttemptAt).getTime() > Date.now());
+  assert.equal(dueNow.length, 0);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("markReminderFailed permanently fails invalid reminder recipients", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  const reminders = await store.createReminder({
+    targetPhone: "+919876543210",
+    text: "Ping",
+    dueAt: new Date(Date.now() - 60_000).toISOString(),
+    sourceChatId: "+919876543210",
+    createdBy: "+919876543210"
+  });
+
+  await store.claimDueReminders(new Date());
+  await store.markReminderFailed(reminders[0].id, "RECIPIENT_NOT_ALLOWED");
+
+  const [storedReminder] = await store.listReminders(reminders[0].targetPhone);
+  const dueNow = await store.getDueReminders(new Date());
+
+  assert.equal(storedReminder.status, "failed");
+  assert.equal(storedReminder.attempts, 1);
+  assert.ok(Boolean(storedReminder.failedAt));
+  assert.equal(storedReminder.nextAttemptAt, null);
+  assert.equal(dueNow.length, 0);
 
   await rm(tempDir, { recursive: true, force: true });
 });

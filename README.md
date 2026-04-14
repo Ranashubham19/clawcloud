@@ -80,6 +80,33 @@ Important: AiSensy API Campaigns send approved-template messages. Create one liv
 
 The backend passes the AI answer as `templateParams[0]`. Incoming user messages still need a webhook source. AiSensy trial accounts may not expose incoming-message webhooks, so Meta webhook intake can remain enabled while AiSensy handles outbound delivery.
 
+## AiSensy Flow Clean Reply Mode
+
+Use this mode when you want AiSensy to send the AI answer as a normal Flow Builder text reply without a template prefix or suffix.
+
+Required variable:
+
+- `AISENSY_FLOW_TOKEN`
+- Set `WHATSAPP_AUTO_REPLY=false` after the AiSensy Flow is connected, so the old Meta webhook path does not also send a template reply.
+
+Flow Builder API Request:
+
+- URL: `https://your-domain.com/integrations/aisensy/answer`
+- Method: `POST`
+- Header: `x-admin-token: <AISENSY_FLOW_TOKEN>`
+- Header: `Content-Type: application/json`
+- JSON body:
+
+```json
+{
+  "from": "$phone",
+  "profileName": "$name",
+  "text": "$message"
+}
+```
+
+Capture `answer` from the JSON response, then send a Flow Builder text message containing that captured value. In this mode the backend returns the AI answer but does not send a WhatsApp template campaign message itself.
+
 ## Google Contacts sync
 
 This backend can import your Google Contacts so the WhatsApp agent can resolve names like `Dii`, `Papa`, or `Maa` much more reliably.
