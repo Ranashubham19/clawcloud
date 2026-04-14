@@ -39,6 +39,8 @@ A professional WhatsApp-only backend powered by Gemini for live/general answers 
    - `WHATSAPP_ACCESS_TOKEN`
    - `WHATSAPP_PHONE_NUMBER_ID`
    - `WHATSAPP_BUSINESS_ACCOUNT_ID`
+   - `WHATSAPP_PROVIDER=meta` for direct Meta sending, or `WHATSAPP_PROVIDER=aisensy` for AiSensy outbound sending
+   - `AISENSY_API_KEY` and `AISENSY_CAMPAIGN_NAME` if using AiSensy outbound sending
    - `ADMIN_API_TOKEN` if you want protected admin/integration routes
    - `APP_BASE_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` if you want Google Contacts sync
 3. Start the server:
@@ -61,6 +63,22 @@ npm start
 - `POST /integrations/google/sync`
 
 Use the webhook URL plus `WHATSAPP_VERIFY_TOKEN` in the Meta dashboard.
+
+## AiSensy Outbound Mode
+
+Set `WHATSAPP_PROVIDER=aisensy` when the production number must send through AiSensy instead of direct Meta Cloud API.
+
+Required variables:
+
+- `AISENSY_API_KEY`
+- `AISENSY_CAMPAIGN_NAME`
+- `AISENSY_API_URL`, defaults to `https://backend.aisensy.com/campaign/t1/api/v2`
+
+Important: AiSensy API Campaigns send approved-template messages. Create one live API Campaign in AiSensy with one body variable for the AI reply, for example:
+
+`{{1}}`
+
+The backend passes the AI answer as `templateParams[0]`. Incoming user messages still need a webhook source. AiSensy trial accounts may not expose incoming-message webhooks, so Meta webhook intake can remain enabled while AiSensy handles outbound delivery.
 
 ## Google Contacts sync
 

@@ -72,6 +72,15 @@ export const config = {
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
   whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v22.0",
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || "",
+  whatsappProvider: (process.env.WHATSAPP_PROVIDER || "meta").toLowerCase(),
+  aisensyApiKey: process.env.AISENSY_API_KEY || "",
+  aisensyCampaignName: process.env.AISENSY_CAMPAIGN_NAME || "",
+  aisensyApiUrl:
+    process.env.AISENSY_API_URL ||
+    "https://backend.aisensy.com/campaign/t1/api/v2",
+  aisensySource: process.env.AISENSY_SOURCE || "Claw Cloud AI",
+  aisensyDefaultUserName:
+    process.env.AISENSY_DEFAULT_USER_NAME || "WhatsApp user",
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "",

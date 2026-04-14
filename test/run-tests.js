@@ -6,9 +6,14 @@ import {
   detectLanguageStyle,
   isLanguageCompatible
 } from "../src/lib/language.js";
+import { config } from "../src/config.js";
 import { cleanUserFacingText } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
-import { extractIncomingMessages, splitWhatsAppMessage } from "../src/whatsapp.js";
+import {
+  buildAiSensyCampaignPayload,
+  extractIncomingMessages,
+  splitWhatsAppMessage
+} from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 
 async function run(name, fn) {
@@ -212,6 +217,20 @@ await run("splitWhatsAppMessage chunks long replies safely", async () => {
   assert.ok(chunks[0].length <= 3800);
   assert.ok(chunks[1].length <= 3800);
   assert.ok(chunks[2].length <= 3800);
+});
+
+await run("buildAiSensyCampaignPayload maps replies into template params", async () => {
+  config.aisensyApiKey = "test-key";
+  config.aisensyCampaignName = "Claw Cloud Reply";
+  const payload = buildAiSensyCampaignPayload({
+    to: "918091392311",
+    body: "Hello from AI"
+  });
+
+  assert.equal(payload.apiKey, "test-key");
+  assert.equal(payload.campaignName, "Claw Cloud Reply");
+  assert.equal(payload.destination, "+918091392311");
+  assert.deepEqual(payload.templateParams, ["Hello from AI"]);
 });
 
 await run("listContacts can find imported contact by email alias", async () => {

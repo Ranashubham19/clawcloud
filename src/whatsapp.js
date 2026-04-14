@@ -119,6 +119,10 @@ export async function sendWhatsAppText({
   replyToMessageId = "",
   previewUrl = false
 }) {
+  if (config.whatsappProvider === "aisensy") {
+    return sendAiSensyText({ to, body });
+  }
+
   requireConfig("WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken);
   requireConfig("WHATSAPP_PHONE_NUMBER_ID", config.whatsappPhoneNumberId);
 
@@ -170,6 +174,65 @@ export async function sendWhatsAppText({
   }
 
   return response.json();
+}
+
+function asAiSensyDestination(to) {
+  const value = String(to || "").trim();
+  if (value.startsWith("+")) {
+    return value;
+  }
+
+  const digits = value.replace(/\D/g, "");
+  return digits ? `+${digits}` : value;
+}
+
+export function buildAiSensyCampaignPayload({ to, body, userName = "" }) {
+  return {
+    apiKey: config.aisensyApiKey,
+    campaignName: config.aisensyCampaignName,
+    destination: asAiSensyDestination(to),
+    userName: userName || config.aisensyDefaultUserName,
+    source: config.aisensySource,
+    templateParams: [String(body || "")],
+    tags: ["claw-cloud-ai"],
+    attributes: {
+      claw_cloud_provider: "aisensy",
+      claw_cloud_last_reply: String(body || "").slice(0, 512)
+    }
+  };
+}
+
+async function sendAiSensyText({ to, body }) {
+  requireConfig("AISENSY_API_KEY", config.aisensyApiKey);
+  requireConfig("AISENSY_CAMPAIGN_NAME", config.aisensyCampaignName);
+
+  const response = await fetch(config.aisensyApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(buildAiSensyCampaignPayload({ to, body }))
+  });
+
+  const details = await response.text();
+  let parsed = {};
+  try {
+    parsed = details ? JSON.parse(details) : {};
+  } catch {
+    parsed = { raw: details };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `AiSensy API error ${response.status}: ${details.slice(0, 400)}`
+    );
+  }
+
+  return {
+    provider: "aisensy",
+    destination: asAiSensyDestination(to),
+    response: parsed
+  };
 }
 
 function splitByLength(text, maxLen) {
