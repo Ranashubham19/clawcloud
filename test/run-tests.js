@@ -229,7 +229,7 @@ await run("buildAiSensyCampaignPayload maps replies into template params", async
 
   assert.equal(payload.apiKey, "test-key");
   assert.equal(payload.campaignName, "Claw Cloud Reply");
-  assert.equal(payload.destination, "+918091392311");
+  assert.equal(payload.destination, "918091392311");
   assert.deepEqual(payload.templateParams, ["Hello from AI"]);
 });
 

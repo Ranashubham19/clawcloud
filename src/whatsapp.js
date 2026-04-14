@@ -178,12 +178,8 @@ export async function sendWhatsAppText({
 
 function asAiSensyDestination(to) {
   const value = String(to || "").trim();
-  if (value.startsWith("+")) {
-    return value;
-  }
-
   const digits = value.replace(/\D/g, "");
-  return digits ? `+${digits}` : value;
+  return digits || value;
 }
 
 export function buildAiSensyCampaignPayload({ to, body, userName = "" }) {
