@@ -23,7 +23,12 @@ import {
   normalizeMimeType,
   unsupportedFormatName
 } from "./gemini.js";
-import { downloadWhatsAppMedia } from "./whatsapp.js";
+import { downloadInboundMedia } from "./messaging.js";
+import {
+  buildBusinessSystemPrompt,
+  captureLeadFromInbound,
+  getLeadContextForBusiness
+} from "./saas.js";
 
 // Advanced + responsive models — preferred across all routes
 const ADVANCED_MODELS = [
@@ -66,11 +71,11 @@ function pickMaxTokens(text) {
   return long ? 1500 : 800;
 }
 
-async function loadWhatsAppContext() {
+async function loadWhatsAppContext(options = {}) {
   try {
     const [contacts, threads] = await Promise.all([
-      listContacts(""),
-      listConversationThreads({ limit: 200 })
+      listContacts("", { businessId: options.businessId || "" }),
+      listConversationThreads({ limit: 200, businessId: options.businessId || "" })
     ]);
     const contactList = contacts
       .slice(0, 40)
@@ -219,8 +224,20 @@ async function continueIfTruncated({
 }
 
 function systemPrompt(context) {
+  if (context.business) {
+    return buildBusinessSystemPrompt({
+      business: context.business,
+      languageInstruction: context.languageInstruction,
+      languageLabel: context.languageLabel,
+      currentUserPhone: context.currentUserPhone,
+      profileName: context.profileName,
+      lead: context.lead,
+      booking: context.booking
+    });
+  }
+
   const lines = [
-    `You are ${config.botName}, an advanced AI assistant with FULL CONTROL over this WhatsApp account.`,
+    `You are ${config.botName}, a professional AI assistant inside WhatsApp.`,
     "You can answer any question on any topic across any language: general knowledge, current affairs, math, code, writing, translation, analysis, medical, legal, finance, science, and casual conversation.",
     "LANGUAGE RULE — ABSOLUTE: Reply in the exact same language and script as the user's most recent message. Telugu → Telugu, Arabic → Arabic, Hindi → Hindi in Devanagari, Hinglish → Roman Hinglish.",
     "If the user asks you to switch language (e.g. 'in hindi', 'hindi mein', 'give it in telugu', 'urdu mein batao') — immediately switch to that language for your ENTIRE response and stay in it.",
@@ -236,38 +253,50 @@ function systemPrompt(context) {
     "• Never write a wall of text — split content into short readable chunks.",
     "• Do NOT use Markdown syntax (##, **, __, ``` ) — use the WhatsApp formats above only.",
     "• No raw JSON, no tool-call syntax, no internal notes in replies.",
-    "Be warm, confident, and direct. Give the real answer first, supporting details after. Never sound scripted or robotic.",
+    "Be warm, confident, professional, and direct. Answer the user's actual question first, then add supporting detail only when it helps.",
+    "Never sound scripted, robotic, evasive, or overly salesy.",
+    "For greetings, small talk, or 'what can you do' type messages, reply briefly and naturally like a polished human assistant.",
+    "CRITICAL: Never volunteer or recite stored contact names, phone numbers, chat history, or account data unless the user explicitly asks a WhatsApp-specific action.",
+    "If you are unsure, say only what you can support confidently. Do not invent facts. Ask one concise clarifying question only when it is genuinely required.",
+    "Never say you are a large language model, never describe your emotions or lack of emotions, and never explain your internal nature unless the user explicitly asks.",
     "ANSWER DEPTH: Complete and accurate always. Short for simple questions, detailed for hard ones. Never cut off mid-answer.",
     "Never mention tools, searching, models, or internal workflow to the user.",
     `Current timezone: ${config.timezone}.`,
     `Current ISO time: ${new Date().toISOString()}.`,
     `Current chat phone: ${context.currentUserPhone}.`,
     `Current chat profile name: ${context.profileName || "Unknown"}.`,
-    `Stored contacts: ${context.contactCount} contacts saved. Stored chat threads: ${context.threadCount}.`,
-    context.contactList ? `Known contacts include: ${context.contactList}.` : "",
-    "WHATSAPP CONTROL — FULL ACCESS:",
-    "You have complete read and write access to this WhatsApp account through tools.",
-    "Tools available: get_whatsapp_overview, list_contacts, list_chat_threads, lookup_contact, save_contact, get_recent_history, search_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder.",
-    "WHEN TO USE TOOLS — STRICT RULES (read carefully):",
-    "- ONLY call lookup_contact when the user explicitly says things like 'message Raj', 'send to Dii', 'find my contact X', 'look up X in my contacts', 'save this contact'. NOT for general questions.",
-    "- NEVER call lookup_contact for general knowledge questions like 'what is IST', 'who is Gandhi', 'what does X mean', 'tell me about X'. These are general knowledge — answer them directly.",
-    "- User says 'message X' / 'send X a text' / 'tell [name] Y' → call lookup_contact then send_whatsapp_message.",
-    "- User asks 'what did X say' / 'show my chat with X' / 'read messages from X' → call get_recent_history.",
-    "- User asks 'show my chats' / 'list my contacts' / 'who have I talked to' → call list_chat_threads or list_contacts.",
-    "- User asks for WhatsApp overview / inbox summary → call get_whatsapp_overview.",
-    "- User asks to set a reminder or schedule a message → call create_reminder.",
-    "- If unsure whether something is a contact name or a general topic, treat it as general knowledge and answer directly WITHOUT calling any tool.",
-    "DO NOT describe what you would do. DO NOT say 'I would send'. Actually call the tool and report the result.",
-    "If a contact is not found by name, ask once for the phone number. Never make up phone numbers."
+    context.useTools
+      ? `Stored contacts: ${context.contactCount} contacts saved. Stored chat threads: ${context.threadCount}.`
+      : "",
+    context.useTools && context.contactList
+      ? `Known contacts include: ${context.contactList}.`
+      : "",
+    context.useTools
+      ? [
+          "WHATSAPP CONTROL — FULL ACCESS:",
+          "You have complete read and write access to this WhatsApp account through tools.",
+          "Tools available: get_whatsapp_overview, list_contacts, list_chat_threads, lookup_contact, save_contact, get_recent_history, search_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder.",
+          "WHEN TO USE TOOLS — STRICT RULES (read carefully):",
+          "- ONLY call lookup_contact when the user explicitly says things like 'message Raj', 'send to Dii', 'find my contact X', 'look up X in my contacts', 'save this contact'. NOT for general questions.",
+          "- NEVER call lookup_contact for general knowledge questions like 'what is IST', 'who is Gandhi', 'what does X mean', 'tell me about X'. These are general knowledge — answer them directly.",
+          "- User says 'message X' / 'send X a text' / 'tell [name] Y' → call lookup_contact then send_whatsapp_message.",
+          "- User asks 'what did X say' / 'show my chat with X' / 'read messages from X' → call get_recent_history.",
+          "- User asks 'show my chats' / 'list my contacts' / 'who have I talked to' → call list_chat_threads or list_contacts.",
+          "- User asks for WhatsApp overview / inbox summary → call get_whatsapp_overview.",
+          "- User asks to set a reminder or schedule a message → call create_reminder.",
+          "- If unsure whether something is a contact name or a general topic, treat it as general knowledge and answer directly WITHOUT calling any tool.",
+          "DO NOT describe what you would do. DO NOT say 'I would send'. Actually call the tool and report the result.",
+          "If a contact is not found by name, ask once for the phone number. Never make up phone numbers."
+        ].join("\n")
+      : ""
   ].filter(Boolean);
 
   return lines.join("\n");
 }
 
-function mayNeedTools(text) {
-  // Tools always available for nvidia routes so the model can act on WhatsApp freely
-  const route = chooseAnswerRoute(text);
-  return route === "nvidia-tools" || route === "nvidia";
+export function shouldUseWhatsAppTools(text) {
+  // Only explicit WhatsApp/account actions should unlock tool access.
+  return chooseAnswerRoute(text) === "nvidia-tools";
 }
 
 function historyToModelMessages(history) {
@@ -277,27 +306,125 @@ function historyToModelMessages(history) {
   }));
 }
 
-export async function handleIncomingText({ messageId, from, profileName, text }) {
+export function directSmallTalkReply(text, languageStyle) {
+  const source = String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  if (!source) {
+    return "";
+  }
+
+  if (/^(how are you|how are you today|how're you|how r you|how are u|hru|how r u)\??$/.test(source)) {
+    if (languageStyle === "hinglish") {
+      return "Main bilkul theek hoon, shukriya! Aaj main aapki kaise madad kar sakta hoon?";
+    }
+    return "I'm doing great, thank you for asking! How may I assist you today?";
+  }
+
+  if (/^(hi|hello|hey|hii|hlo|helo|yo|sup|greetings|good morning|good afternoon|good evening|good night|namaste|namaskar)\!?$/.test(source)) {
+    if (languageStyle === "hinglish") {
+      return "Namaste! Main aapki madad ke liye yahan hoon. Aap mujhse koi bhi sawaal pooch sakte hain — main poori koshish karunga ki aapko sahi aur jaldi jawab milein.";
+    }
+    return "Hello! I'm here and ready to help. Feel free to ask me anything — I'll do my best to give you a clear and accurate answer.";
+  }
+
+  if (
+    /^(what can you do|what can u do|what all can you do|what all you can do|what do you do|how can you help|how can you help me|what can you help me with|what are your capabilities|what are you capable of|what do you offer|tell me what you can do|what can you assist with)\??$/.test(
+      source
+    )
+  ) {
+    if (languageStyle === "hinglish") {
+      return "Main aapke liye bahut kuch kar sakta hoon:\n\n• *Sawaalon ke jawab* — general knowledge, science, history, math, coding, finance, law, health aur aur bhi bahut kuch\n• *Writing mein help* — emails, essays, summaries, translations\n• *Explain karna* — koi bhi topic ko simple language mein\n• *Planning* — travel, projects, daily tasks\n• *WhatsApp actions* — message bhejne, contacts dhundne, reminders set karne mein bhi help\n\nBas apna sawaal bhejiye — main direct aur clear jawab dunga.";
+    }
+    return "Here's what I can help you with:\n\n• *Answering questions* — general knowledge, science, history, math, coding, finance, law, health, and much more\n• *Writing assistance* — emails, essays, summaries, translations\n• *Explaining topics* — breaking down complex subjects simply\n• *Planning & advice* — travel, projects, decisions, daily tasks\n• *WhatsApp actions* — sending messages, finding contacts, setting reminders\n\nJust send me your question — I'll give you a direct, accurate answer.";
+  }
+
+  if (/^(who are you|what are you|are you a bot|are you ai|are you human|are you a robot|are you an ai|are you chatgpt|who made you|who created you)\??$/.test(source)) {
+    if (languageStyle === "hinglish") {
+      return `Main ${config.botName} hoon — ek professional AI assistant jo aapke WhatsApp pe available hai. Main aapke sawaalo ka jawab dene ke liye yahan hoon. Aap kya jaanna chahte hain?`;
+    }
+    return `I'm ${config.botName}, a professional AI assistant available right here on WhatsApp. I'm here to answer your questions and help you get things done. What would you like to know?`;
+  }
+
+  if (/^(thanks|thank you|thank u|thx|ty|great|awesome|nice|good|perfect|excellent|amazing|wonderful)\!?$/.test(source)) {
+    if (languageStyle === "hinglish") {
+      return "Khushi hui madad karke! Koi aur sawaal ho toh zaroor poochein.";
+    }
+    return "You're welcome! Feel free to ask if there's anything else I can help you with.";
+  }
+
+  if (/^(ok|okay|alright|got it|i see|understood|sure|fine)\!?$/.test(source)) {
+    if (languageStyle === "hinglish") {
+      return "Bilkul! Koi bhi sawaal ho toh poochein.";
+    }
+    return "Of course! Let me know whenever you have a question.";
+  }
+
+  return "";
+}
+
+export async function handleIncomingText({
+  messageId,
+  from,
+  profileName,
+  text,
+  businessContext = null
+}) {
   const languageStyle = detectLanguageStyle(text);
-  const answerRoute = chooseAnswerRoute(text);
-  const useTools = mayNeedTools(text);
-  const useGeminiFirst = answerRoute === "gemini-first";
+  const answerRoute = businessContext ? "business" : chooseAnswerRoute(text);
+  const useTools = businessContext ? false : shouldUseWhatsAppTools(text);
+  const useGeminiFirst = businessContext ? false : answerRoute === "gemini-first";
+  const businessId = businessContext?.id || "";
   let nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
+  let leadCapture = { lead: null, booking: null };
 
   await upsertContact({
+    businessId,
     name: profileName || from,
     phone: from,
     aliases: profileName ? [profileName] : [],
     overwriteName: false
   });
 
+  await appendConversationMessage(
+    from,
+    {
+      id: messageId,
+      role: "user",
+      text,
+      meta: { profileName }
+    },
+    { businessId }
+  );
 
-  await appendConversationMessage(from, {
-    id: messageId,
-    role: "user",
-    text,
-    meta: { profileName }
-  });
+  if (businessContext) {
+    leadCapture = await captureLeadFromInbound({
+      business: businessContext,
+      message: {
+        messageId,
+        from,
+        profileName,
+        text
+      }
+    });
+  }
+
+  if (!businessContext) {
+    const smallTalkReply = directSmallTalkReply(text, languageStyle);
+    if (smallTalkReply) {
+      await appendConversationMessage(
+        from,
+        {
+          role: "assistant",
+          text: smallTalkReply,
+          meta: { source: "small-talk-direct" }
+        },
+        { businessId }
+      );
+      return smallTalkReply;
+    }
+  }
 
   let history = [];
 
@@ -314,36 +441,44 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         !isToolLeakText(geminiText) &&
         isLanguageCompatible(geminiText, languageStyle)
       ) {
-        await appendConversationMessage(from, {
-          role: "assistant",
-          text: geminiText,
-          meta: { source: "gemini-first" }
-        });
+        await appendConversationMessage(
+          from,
+          {
+            role: "assistant",
+            text: geminiText,
+            meta: { source: "gemini-first" }
+          },
+          { businessId }
+        );
         return geminiText;
       }
     }
     nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
-    history = await getConversation(from, 6);
+    history = await getConversation(from, 6, { businessId });
   } else {
-    // Load more history for tool routes so "this contact" / "them" resolves correctly
-    history = await getConversation(from, useTools ? 10 : 6);
+    history = await getConversation(from, useTools ? 10 : 6, { businessId });
   }
 
   const preferredModels = resolvePreferredModels(answerRoute);
-
-  const waContext = await loadWhatsAppContext();
+  const leadContext =
+    leadCapture.lead || (businessContext ? await getLeadContextForBusiness(businessContext, from) : null);
+  const waContext = useTools ? await loadWhatsAppContext({ businessId }) : { contactCount: 0, threadCount: 0, contactList: "" };
 
   const messages = [
     {
       role: "system",
       content: systemPrompt({
+        business: businessContext,
         currentUserPhone: from,
         profileName,
         languageInstruction: languageInstruction(languageStyle),
         languageLabel: languageLabel(languageStyle),
         contactCount: waContext.contactCount,
         threadCount: waContext.threadCount,
-        contactList: waContext.contactList
+        contactList: waContext.contactList,
+        lead: leadContext,
+        booking: leadCapture.booking,
+        useTools
       })
     },
     ...historyToModelMessages(history)
@@ -425,7 +560,10 @@ export async function handleIncomingText({ messageId, from, profileName, text })
         const toolResult = await executeTool(toolCall.function.name, args, {
           currentUserPhone: from,
           profileName,
-          inboundMessageId: messageId
+          inboundMessageId: messageId,
+          businessId,
+          whatsappIntegration:
+            businessContext?.messagingConfig || businessContext?.whatsappConfig || {}
         });
         messages.push({
           role: "tool",
@@ -448,11 +586,15 @@ export async function handleIncomingText({ messageId, from, profileName, text })
 
   assistantText = sanitizeForWhatsApp(assistantText);
 
-  await appendConversationMessage(from, {
-    role: "assistant",
-    text: assistantText,
-    meta: {}
-  });
+  await appendConversationMessage(
+    from,
+    {
+      role: "assistant",
+      text: assistantText,
+      meta: {}
+    },
+    { businessId }
+  );
 
   return assistantText;
 }
@@ -465,42 +607,68 @@ export async function handleIncomingMedia({
   mediaType,
   mimeType,
   caption,
-  filename
+  filename,
+  businessContext = null
 }) {
   const languageStyle = detectLanguageStyle(caption || "");
+  const businessId = businessContext?.id || "";
 
   await upsertContact({
+    businessId,
     name: profileName || from,
     phone: from,
     aliases: profileName ? [profileName] : [],
     overwriteName: false
   });
 
-  await appendConversationMessage(from, {
+  await appendConversationMessage(
+    from,
+    {
     id: messageId,
     role: "user",
     text: caption
       ? `[${mediaType} — ${filename || mimeType}] ${caption}`
       : `[${mediaType} — ${filename || mimeType}]`,
-    meta: { profileName, mediaType, mimeType, filename }
-  });
+      meta: { profileName, mediaType, mimeType, filename }
+    },
+    { businessId }
+  );
+
+  if (businessContext && caption) {
+    await captureLeadFromInbound({
+      business: businessContext,
+      message: {
+        messageId,
+        from,
+        profileName,
+        text: caption
+      }
+    });
+  }
 
   if (!hasGeminiProvider()) {
     const fallback = "I can't process media files right now — GEMINI_API_KEY is not configured. Please send a text message instead.";
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
+      businessId
+    });
     return fallback;
   }
 
   // Download the media file from WhatsApp
   let mediaData, resolvedMime;
   try {
-    const downloaded = await downloadWhatsAppMedia(mediaId);
+    const downloaded = await downloadInboundMedia(
+      mediaId,
+      businessContext?.messagingConfig || businessContext?.whatsappConfig || {}
+    );
     mediaData = downloaded.data;
     resolvedMime = downloaded.mimeType;
   } catch (dlError) {
     console.error(`[agent] Media download failed for ${mediaId}: ${dlError.message}`);
     const fallback = "Sorry, I couldn't download that file from WhatsApp. Please try sending it again.";
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
+      businessId
+    });
     return fallback;
   }
 
@@ -514,14 +682,18 @@ export async function handleIncomingMedia({
     const fallback = caption
       ? `I received your ${label} file. I can't read the file contents directly, but you mentioned: "${caption}". What would you like help with?`
       : `I received your ${label} file. I can't read this format directly. Supported formats are: images (JPG, PNG, GIF, WEBP), audio (MP3, OGG, WAV, AAC), video (MP4, MOV, AVI, WEBM), and documents (PDF, HTML, CSV, TXT). Please convert the file or paste the text content directly.`;
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
+      businessId
+    });
     return fallback;
   }
 
   const TWENTY_MB = 20 * 1024 * 1024;
   if (mediaData.length > TWENTY_MB) {
     const fallback = `That file is too large to process (${Math.round(mediaData.length / 1024 / 1024)}MB). Please send files under 20MB.`;
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
+      businessId
+    });
     return fallback;
   }
 
@@ -545,11 +717,12 @@ export async function handleIncomingMedia({
   // NVIDIA text fallback — if Gemini couldn't process the file, use NVIDIA with context
   if (!answer && caption) {
     try {
-      const waContext = await loadWhatsAppContext();
+      const waContext = await loadWhatsAppContext({ businessId });
       const fallbackMessages = [
         {
           role: "system",
           content: systemPrompt({
+            business: businessContext,
             currentUserPhone: from,
             profileName,
             languageInstruction: languageInstruction(languageStyle),
@@ -588,17 +761,23 @@ export async function handleIncomingMedia({
     const fallback = caption
       ? `I received your ${mediaType} but couldn't analyse it right now. You mentioned: "${caption}". Could you describe what you need help with?`
       : `I received your ${mediaType} but couldn't process it right now. Please try again in a moment, or send it as a different format.`;
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} });
+    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
+      businessId
+    });
     return fallback;
   }
 
   const assistantText = sanitizeForWhatsApp(cleanUserFacingText(answer));
 
-  await appendConversationMessage(from, {
-    role: "assistant",
-    text: assistantText,
-    meta: { source: "gemini-media" }
-  });
+  await appendConversationMessage(
+    from,
+    {
+      role: "assistant",
+      text: assistantText,
+      meta: { source: "gemini-media" }
+    },
+    { businessId }
+  );
 
   return assistantText;
 }
