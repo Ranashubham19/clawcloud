@@ -304,12 +304,14 @@ function historyToModelMessages(history) {
 
 function stripFormatting(text) {
   return String(text || "")
-    .replace(/\*{1,3}([^*]+)\*{1,3}/g, "$1")
-    .replace(/_{1,3}([^_]+)_{1,3}/g, "$1")
+    .replace(/\*{1,3}([^*\n]+)\*{1,3}/g, "$1")
+    .replace(/_{1,3}([^_\n]+)_{1,3}/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^[-*•]\s+/gm, "")
-    .replace(/^\d+\.\s+/gm, "")
-    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""))
+    .replace(/^[ \t]*[-*•·]\s+/gm, "")
+    .replace(/^[ \t]*\d+[.)]\s+/gm, "")
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")
+    .replace(/\*+/g, "")
+    .replace(/_{2,}/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
