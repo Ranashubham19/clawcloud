@@ -243,16 +243,12 @@ function systemPrompt(context) {
     "If the user asks you to switch language (e.g. 'in hindi', 'hindi mein', 'give it in telugu', 'urdu mein batao') — immediately switch to that language for your ENTIRE response and stay in it.",
     context.languageInstruction,
     `Required language for this response: ${context.languageLabel}. Every single sentence must be in this language. Do not mix or fall back to English.`,
-    "FORMATTING RULE — USE WHATSAPP FORMAT ONLY:",
-    "• Use *bold* (single asterisk each side) for section headings and key terms.",
-    "• Use numbered lists (1. 2. 3.) for steps, instructions, or ranked items.",
-    "• Use • bullet points for unordered lists.",
-    "• Leave ONE blank line between every paragraph and after every heading — this creates readable spacing.",
-    "• Short factual answers: 1–3 clean sentences with no forced structure.",
-    "• Long or detailed answers: divide into clear sections with *Heading* on its own line, blank line, then content.",
-    "• Never write a wall of text — split content into short readable chunks.",
-    "• Do NOT use Markdown syntax (##, **, __, ``` ) — use the WhatsApp formats above only.",
+    "FORMATTING RULE — PLAIN TEXT ONLY, NO EXCEPTIONS:",
+    "• Write in plain conversational sentences only. No bullet points, no numbered lists, no bold, no headings.",
+    "• Do NOT use *, **, #, ##, •, -, 1. 2. 3. or any other formatting symbols anywhere in your reply.",
+    "• Do NOT use Markdown syntax of any kind.",
     "• No raw JSON, no tool-call syntax, no internal notes in replies.",
+    "• Short questions get short answers (1-3 sentences). Long questions get clear paragraph answers with natural line breaks.",
     "Be warm, confident, professional, and direct. Answer the user's actual question first, then add supporting detail only when it helps.",
     "Never sound scripted, robotic, evasive, or overly salesy.",
     "For greetings, small talk, or 'what can you do' type messages, reply briefly and naturally like a polished human assistant.",
@@ -304,6 +300,18 @@ function historyToModelMessages(history) {
     role: entry.role,
     content: entry.text
   }));
+}
+
+function stripFormatting(text) {
+  return String(text || "")
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, "$1")
+    .replace(/_{1,3}([^_]+)_{1,3}/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*•]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function directSmallTalkReply(text, languageStyle) {
@@ -584,7 +592,7 @@ export async function handleIncomingText({
     assistantText = "Sorry, I couldn't generate a response right now. Please try again in a moment.";
   }
 
-  assistantText = sanitizeForWhatsApp(assistantText);
+  assistantText = sanitizeForWhatsApp(stripFormatting(assistantText));
 
   await appendConversationMessage(
     from,
