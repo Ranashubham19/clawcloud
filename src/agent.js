@@ -120,10 +120,9 @@ export function isToolLeakText(value) {
     return false;
   }
 
+  // Known tool names or any get_/search_/lookup_ invented tool as function call
   if (
-    /(?:^|\b)(web_search|lookup_contact|save_contact|get_recent_history|search_history|send_whatsapp_message|create_reminder|list_reminders|cancel_reminder|list_contacts|list_chat_threads)\s*\(/i.test(
-      text
-    )
+    /(?:^|\b)(web_search|lookup_contact|save_contact|get_recent_history|search_history|send_whatsapp_message|create_reminder|list_reminders|cancel_reminder|list_contacts|list_chat_threads|get_definition|get_meaning|get_info|get_weather|get_news|get_\w+|search_\w+|lookup_\w+|fetch_\w+|find_\w+)\s*[\(\{]/i.test(text)
   ) {
     return true;
   }
@@ -133,6 +132,21 @@ export function isToolLeakText(value) {
   }
 
   if (/function call/i.test(text) && /\b(web_search|lookup_contact|send_whatsapp_message)\b/i.test(text)) {
+    return true;
+  }
+
+  // Detect JSON tool call format anywhere in text
+  if (/"name"\s*:\s*"[\w_]+"[\s\S]*?"parameters"/i.test(text)) {
+    return true;
+  }
+
+  // Detect escaped/corrupted tool call patterns like \get_definition\
+  if (/\\(?:get|search|lookup|find|create|send|list|cancel|save|fetch)_\w+/i.test(text)) {
+    return true;
+  }
+
+  // Detect tool call fragments like: { name: get_definition, parameters:
+  if (/\b(name|parameters|arguments)\s*[:\\]\s*[\w\\]+_\w+/i.test(text)) {
     return true;
   }
 
