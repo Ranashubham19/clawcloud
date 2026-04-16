@@ -44,15 +44,18 @@ function cloneDefault(name) {
   return JSON.parse(JSON.stringify(defaults[name]));
 }
 
-function filePath(name) {
-  const dataDir = process.env.CLAW_DATA_DIR
+function dataDir() {
+  return process.env.CLAW_DATA_DIR
     ? path.resolve(process.cwd(), process.env.CLAW_DATA_DIR)
     : config.dataDir;
-  return path.join(dataDir, fileNames[name]);
+}
+
+function filePath(name) {
+  return path.join(dataDir(), fileNames[name]);
 }
 
 async function ensureFiles() {
-  await mkdir(config.dataDir, { recursive: true });
+  await mkdir(dataDir(), { recursive: true });
 
   await Promise.all(
     Object.keys(fileNames).map(async (name) => {
@@ -107,6 +110,87 @@ function parseTime(value) {
   return Number.isFinite(timestamp) ? timestamp : Number.NaN;
 }
 
+function normalizeBusinessId(value) {
+  return String(value || "").trim();
+}
+
+function hasScope(options = {}) {
+  return Object.prototype.hasOwnProperty.call(options, "businessId");
+}
+
+function scopeMatches(recordBusinessId, options = {}) {
+  if (!hasScope(options)) {
+    return !normalizeBusinessId(recordBusinessId);
+  }
+
+  return normalizeBusinessId(recordBusinessId) === normalizeBusinessId(options.businessId);
+}
+
+function entityKey(phone, businessId = "") {
+  return `${normalizeBusinessId(businessId)}::${comparablePhone(phone)}`;
+}
+
+function conversationKey(chatId, options = {}) {
+  const businessId = normalizeBusinessId(options.businessId);
+  const normalizedChatId = normalizePhone(chatId) || String(chatId || "").trim();
+  if (!normalizedChatId) {
+    return "";
+  }
+  return businessId ? `${businessId}::${normalizedChatId}` : normalizedChatId;
+}
+
+function parseConversationKey(value) {
+  const raw = String(value || "");
+  const separatorIndex = raw.indexOf("::");
+  if (separatorIndex === -1) {
+    return {
+      businessId: "",
+      chatId: raw
+    };
+  }
+
+  return {
+    businessId: raw.slice(0, separatorIndex),
+    chatId: raw.slice(separatorIndex + 2)
+  };
+}
+
+function contactMatches(contact, query) {
+  const lowerQuery = query.toLowerCase();
+  const aliasPool = [contact.name, ...(contact.aliases || [])]
+    .filter(Boolean)
+    .map((value) => value.toLowerCase());
+  const emailPool = (contact.emails || [])
+    .filter(Boolean)
+    .map((value) => value.toLowerCase());
+  return (
+    aliasPool.some((value) => value.includes(lowerQuery)) ||
+    emailPool.some((value) => value.includes(lowerQuery)) ||
+    (looksLikePhone(query) &&
+      comparablePhone(contact.phone).includes(comparablePhone(query)))
+  );
+}
+
+function normalizeLimit(value, fallback, max) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
+}
+
+function reminderMatchesScope(reminder, options = {}) {
+  return scopeMatches(reminder.businessId, options);
+}
+
+function contactMatchesScope(contact, options = {}) {
+  return scopeMatches(contact.businessId, options);
+}
+
+function threadMatchesScope(threadBusinessId, options = {}) {
+  return scopeMatches(threadBusinessId, options);
+}
+
 function isReminderDue(reminder, nowMs) {
   const dueAtMs = parseTime(reminder.dueAt);
   if (!Number.isFinite(dueAtMs) || dueAtMs > nowMs) {
@@ -142,20 +226,32 @@ async function pruneStaleInboundProcessing() {
   });
 }
 
-function contactMatches(contact, query) {
-  const lowerQuery = query.toLowerCase();
-  const aliasPool = [contact.name, ...(contact.aliases || [])]
-    .filter(Boolean)
-    .map((value) => value.toLowerCase());
-  const emailPool = (contact.emails || [])
-    .filter(Boolean)
-    .map((value) => value.toLowerCase());
-  return (
-    aliasPool.some((value) => value.includes(lowerQuery)) ||
-    emailPool.some((value) => value.includes(lowerQuery)) ||
-    (looksLikePhone(query) &&
-      comparablePhone(contact.phone).includes(comparablePhone(query)))
-  );
+function getConversationArgs(limitOrOptions, maybeOptions) {
+  if (typeof limitOrOptions === "object" && limitOrOptions !== null) {
+    return {
+      limit: config.maxConversationMessages,
+      options: limitOrOptions
+    };
+  }
+
+  return {
+    limit: normalizeLimit(limitOrOptions, config.maxConversationMessages, 200),
+    options: maybeOptions || {}
+  };
+}
+
+function getReminderArgs(targetPhoneOrOptions, maybeOptions) {
+  if (typeof targetPhoneOrOptions === "object" && targetPhoneOrOptions !== null) {
+    return {
+      targetPhone: "",
+      options: targetPhoneOrOptions
+    };
+  }
+
+  return {
+    targetPhone: targetPhoneOrOptions || "",
+    options: maybeOptions || {}
+  };
 }
 
 export async function initStore() {
@@ -163,24 +259,27 @@ export async function initStore() {
   await pruneStaleInboundProcessing();
 }
 
-export async function listContacts(query = "") {
+export async function listContacts(query = "", options = {}) {
   const contacts = await readJson("contacts");
+  const scoped = contacts.filter((contact) => contactMatchesScope(contact, options));
+
   if (!query) {
-    return contacts;
+    return scoped;
   }
 
-  return contacts.filter((contact) => contactMatches(contact, query));
+  return scoped.filter((contact) => contactMatches(contact, query));
 }
 
-function normalizeLimit(value, fallback, max) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
+export async function resolveContact(query, fallbackPhone = "", options = {}) {
+  if (
+    typeof fallbackPhone === "object" &&
+    fallbackPhone !== null &&
+    !Array.isArray(fallbackPhone)
+  ) {
+    options = fallbackPhone;
+    fallbackPhone = "";
   }
-  return Math.min(parsed, max);
-}
 
-export async function resolveContact(query, fallbackPhone = "") {
   if (!query || query === "current_chat" || query === "me" || query === "self") {
     if (!fallbackPhone) {
       return { status: "missing_target" };
@@ -190,7 +289,8 @@ export async function resolveContact(query, fallbackPhone = "") {
       contact: {
         name: "Current chat",
         phone: normalizePhone(fallbackPhone),
-        aliases: []
+        aliases: [],
+        businessId: normalizeBusinessId(options.businessId)
       }
     };
   }
@@ -201,12 +301,13 @@ export async function resolveContact(query, fallbackPhone = "") {
       contact: {
         name: query,
         phone: normalizePhone(query),
-        aliases: []
+        aliases: [],
+        businessId: normalizeBusinessId(options.businessId)
       }
     };
   }
 
-  const matches = await listContacts(query);
+  const matches = await listContacts(query, options);
   if (matches.length === 1) {
     return { status: "resolved", contact: matches[0] };
   }
@@ -217,6 +318,7 @@ export async function resolveContact(query, fallbackPhone = "") {
 }
 
 export async function upsertContact({
+  businessId = "",
   name,
   phone,
   aliases = [],
@@ -229,14 +331,24 @@ export async function upsertContact({
     throw new Error("Phone is required to save a contact");
   }
 
+  const normalizedBusinessId = normalizeBusinessId(businessId);
   const normalizedAliases = [...new Set((aliases || []).filter(Boolean))];
-  const normalizedEmails = [...new Set((emails || []).filter(Boolean).map((value) => value.toLowerCase()))];
-  const normalizedProviders = providers && typeof providers === "object" ? providers : {};
+  const normalizedEmails = [
+    ...new Set(
+      (emails || [])
+        .filter(Boolean)
+        .map((value) => value.toLowerCase())
+    )
+  ];
+  const normalizedProviders =
+    providers && typeof providers === "object" ? providers : {};
   const hasProviderMetadata = Object.keys(normalizedProviders).length > 0;
 
   return withWriteLock("contacts", (contacts) => {
     const existing = contacts.find(
-      (contact) => comparablePhone(contact.phone) === comparablePhone(normalizedPhone)
+      (contact) =>
+        comparablePhone(contact.phone) === comparablePhone(normalizedPhone) &&
+        normalizeBusinessId(contact.businessId) === normalizedBusinessId
     );
 
     if (existing) {
@@ -257,6 +369,7 @@ export async function upsertContact({
         ...(existing.providers || {}),
         ...normalizedProviders
       };
+      existing.businessId = normalizedBusinessId || "";
       existing.lastSeenAt = nowIso();
       if (hasProviderMetadata) {
         existing.lastSyncedAt = nowIso();
@@ -266,6 +379,7 @@ export async function upsertContact({
 
     contacts.push({
       id: crypto.randomUUID(),
+      businessId: normalizedBusinessId || "",
       name: name || normalizedPhone,
       phone: normalizedPhone,
       aliases: normalizedAliases,
@@ -301,49 +415,73 @@ export async function updateGoogleContactsIntegration(updater) {
   return updated.googleContacts;
 }
 
-export async function appendConversationMessage(chatId, message) {
+export async function appendConversationMessage(chatId, message, options = {}) {
+  const key = conversationKey(chatId, options);
+  if (!key) {
+    throw new Error("Conversation chat id is required");
+  }
+
+  const businessId = normalizeBusinessId(options.businessId);
+
   return withWriteLock("conversations", (conversations) => {
-    const history = conversations[chatId] || [];
+    const history = conversations[key] || [];
     history.push({
       id: message.id || crypto.randomUUID(),
       role: message.role,
       text: message.text,
       at: message.at || nowIso(),
-      meta: message.meta || {}
+      meta: {
+        ...(message.meta || {}),
+        ...(businessId ? { businessId } : {})
+      }
     });
-    conversations[chatId] = history.slice(-200);
+    conversations[key] = history.slice(-200);
     return conversations;
   });
 }
 
-export async function getConversation(chatId, limit = config.maxConversationMessages) {
+export async function getConversation(chatId, limitOrOptions, maybeOptions) {
+  const { limit, options } = getConversationArgs(limitOrOptions, maybeOptions);
   const conversations = await readJson("conversations");
-  return (conversations[chatId] || []).slice(-limit);
+  const key = conversationKey(chatId, options);
+  return (conversations[key] || []).slice(-limit);
 }
 
-export async function listConversationThreads({ query = "", limit = 30 } = {}) {
-  const contacts = await readJson("contacts");
+export async function listConversationThreads({ query = "", limit = 30, businessId } = {}) {
+  const options = hasScope({ businessId }) ? { businessId } : {};
+  const contacts = await listContacts("", options);
   const conversations = await readJson("conversations");
-  const contactByComparablePhone = new Map(
-    contacts.map((contact) => [comparablePhone(contact.phone), contact])
+  const contactByScopedPhone = new Map(
+    contacts.map((contact) => [entityKey(contact.phone, contact.businessId), contact])
   );
   const lowerQuery = String(query || "").trim().toLowerCase();
-  const threads = Object.entries(conversations).map(([chatId, history]) => {
+  const threads = [];
+
+  for (const [storedKey, history] of Object.entries(conversations)) {
+    const parsed = parseConversationKey(storedKey);
+    if (!threadMatchesScope(parsed.businessId, options)) {
+      continue;
+    }
+
     const contact =
-      contactByComparablePhone.get(comparablePhone(chatId)) || null;
+      contactByScopedPhone.get(entityKey(parsed.chatId, parsed.businessId)) ||
+      contactByScopedPhone.get(entityKey(parsed.chatId, "")) ||
+      null;
     const lastMessage = history[history.length - 1] || null;
-    return {
-      chatId,
+    threads.push({
+      businessId: parsed.businessId || "",
+      chatId: parsed.chatId,
       contact: contact || {
-        name: chatId,
-        phone: normalizePhone(chatId),
-        aliases: []
+        name: parsed.chatId,
+        phone: normalizePhone(parsed.chatId),
+        aliases: [],
+        businessId: parsed.businessId || ""
       },
       messageCount: history.length,
       lastMessage,
       lastAt: lastMessage?.at || null
-    };
-  });
+    });
+  }
 
   const filtered = !lowerQuery
     ? threads
@@ -371,37 +509,46 @@ export async function listConversationThreads({ query = "", limit = 30 } = {}) {
 export async function searchConversationHistory({
   query,
   target = "",
-  limit = 12
+  limit = 12,
+  businessId
 } = {}) {
   const needle = String(query || "").trim().toLowerCase();
   if (!needle) {
     return [];
   }
 
-  const contacts = await readJson("contacts");
+  const options = hasScope({ businessId }) ? { businessId } : {};
+  const contacts = await listContacts("", options);
   const conversations = await readJson("conversations");
-  const contactByComparablePhone = new Map(
-    contacts.map((contact) => [comparablePhone(contact.phone), contact])
+  const contactByScopedPhone = new Map(
+    contacts.map((contact) => [entityKey(contact.phone, contact.businessId), contact])
   );
 
-  let allowedChatIds = Object.keys(conversations);
+  let allowedKeys = Object.keys(conversations).filter((storedKey) => {
+    const parsed = parseConversationKey(storedKey);
+    return threadMatchesScope(parsed.businessId, options);
+  });
+
   if (target) {
-    const resolved = await resolveContact(target);
+    const resolved = await resolveContact(target, "", options);
     if (resolved.status === "resolved") {
-      allowedChatIds = [resolved.contact.phone];
+      allowedKeys = [conversationKey(resolved.contact.phone, options)];
     } else {
       return [];
     }
   }
 
   const matches = [];
-  for (const chatId of allowedChatIds) {
-    const history = conversations[chatId] || [];
+  for (const storedKey of allowedKeys) {
+    const parsed = parseConversationKey(storedKey);
+    const history = conversations[storedKey] || [];
     const contact =
-      contactByComparablePhone.get(comparablePhone(chatId)) || {
-        name: chatId,
-        phone: normalizePhone(chatId),
-        aliases: []
+      contactByScopedPhone.get(entityKey(parsed.chatId, parsed.businessId)) ||
+      contactByScopedPhone.get(entityKey(parsed.chatId, "")) || {
+        name: parsed.chatId,
+        phone: normalizePhone(parsed.chatId),
+        aliases: [],
+        businessId: parsed.businessId || ""
       };
 
     for (const message of history) {
@@ -411,7 +558,8 @@ export async function searchConversationHistory({
       }
 
       matches.push({
-        chatId,
+        businessId: parsed.businessId || "",
+        chatId: parsed.chatId,
         contact,
         message: {
           id: message.id,
@@ -465,6 +613,11 @@ export async function beginInboundProcessing(messageId) {
   return result;
 }
 
+export async function getInboundProcessingResult(messageId) {
+  const meta = await readJson("meta");
+  return meta.inbound?.[messageId] || null;
+}
+
 export async function completeInboundProcessing(messageId, details = {}) {
   return withWriteLock("meta", (meta) => {
     meta.inbound ||= {};
@@ -498,7 +651,15 @@ export async function rememberOutboundDedup(key, details = {}) {
   });
 }
 
-export async function createReminder({ targetPhone, text, dueAt, sourceChatId, createdBy }) {
+export async function createReminder({
+  businessId = "",
+  targetPhone,
+  text,
+  dueAt,
+  sourceChatId,
+  createdBy,
+  integration = {}
+}) {
   const normalizedPhone = normalizePhone(targetPhone);
   if (!normalizedPhone) {
     throw new Error("Reminder target phone is required");
@@ -507,11 +668,13 @@ export async function createReminder({ targetPhone, text, dueAt, sourceChatId, c
   return withWriteLock("reminders", (reminders) => {
     reminders.push({
       id: crypto.randomUUID(),
+      businessId: normalizeBusinessId(businessId),
       targetPhone: normalizedPhone,
       text,
       dueAt,
       sourceChatId,
       createdBy,
+      integration,
       status: "pending",
       createdAt: nowIso(),
       sentAt: null,
@@ -526,8 +689,12 @@ export async function createReminder({ targetPhone, text, dueAt, sourceChatId, c
   });
 }
 
-export async function listReminders(targetPhone = "") {
-  const reminders = await readJson("reminders");
+export async function listReminders(targetPhoneOrOptions = "", maybeOptions = {}) {
+  const { targetPhone, options } = getReminderArgs(targetPhoneOrOptions, maybeOptions);
+  const reminders = (await readJson("reminders")).filter((reminder) =>
+    reminderMatchesScope(reminder, options)
+  );
+
   if (!targetPhone) {
     return reminders;
   }

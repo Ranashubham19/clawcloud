@@ -47,6 +47,8 @@ export const config = {
   dataDir: path.resolve(process.cwd(), process.env.CLAW_DATA_DIR || "./data"),
   botName: process.env.BOT_NAME || "Claw Cloud",
   appBaseUrl: process.env.APP_BASE_URL || "",
+  appCookieSecure:
+    (process.env.APP_COOKIE_SECURE || "auto").toLowerCase(),
   adminApiToken: process.env.ADMIN_API_TOKEN || "",
   nvidiaApiKey: process.env.NVIDIA_API_KEY || "",
   nvidiaModel:
@@ -72,7 +74,16 @@ export const config = {
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
   whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v22.0",
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || "",
-  whatsappProvider: (process.env.WHATSAPP_PROVIDER || "meta").toLowerCase(),
+  messagingProvider: (
+    process.env.MESSAGING_PROVIDER ||
+    process.env.WHATSAPP_PROVIDER ||
+    "aisensy"
+  ).toLowerCase(),
+  whatsappProvider: (
+    process.env.MESSAGING_PROVIDER ||
+    process.env.WHATSAPP_PROVIDER ||
+    "aisensy"
+  ).toLowerCase(),
   whatsappAutoReply: process.env.WHATSAPP_AUTO_REPLY !== "false",
   aisensyApiKey: process.env.AISENSY_API_KEY || "",
   aisensyCampaignName: process.env.AISENSY_CAMPAIGN_NAME || "",
@@ -89,6 +100,15 @@ export const config = {
   googleContactsScope:
     process.env.GOOGLE_CONTACTS_SCOPE ||
     "https://www.googleapis.com/auth/contacts.readonly",
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  stripePriceBasic: process.env.STRIPE_PRICE_BASIC || "",
+  stripePricePro: process.env.STRIPE_PRICE_PRO || "",
+  stripePricePremium: process.env.STRIPE_PRICE_PREMIUM || "",
+  authRateLimitWindowMs: toInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000),
+  authRateLimitMax: toInt(process.env.AUTH_RATE_LIMIT_MAX, 15),
+  writeRateLimitWindowMs: toInt(process.env.WRITE_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+  writeRateLimitMax: toInt(process.env.WRITE_RATE_LIMIT_MAX, 120),
   reminderPollIntervalMs: toInt(process.env.REMINDER_POLL_INTERVAL_MS, 15000),
   maxConversationMessages: toInt(process.env.MAX_CONVERSATION_MESSAGES, 40)
 };

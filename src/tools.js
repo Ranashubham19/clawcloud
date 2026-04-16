@@ -13,7 +13,7 @@ import {
   appendConversationMessage
 } from "./store.js";
 import { normalizePhone } from "./lib/phones.js";
-import { sendWhatsAppTextChunked, outboundDedupKey } from "./whatsapp.js";
+import { sendTextMessageChunked, outboundDedupKey } from "./messaging.js";
 import { webSearch } from "./search.js";
 
 export const toolDefinitions = [
@@ -257,15 +257,17 @@ function result(data) {
 }
 
 async function resolveTarget(target, context) {
-  return resolveContact(target || "current_chat", context.currentUserPhone);
+  return resolveContact(target || "current_chat", context.currentUserPhone, {
+    businessId: context.businessId || ""
+  });
 }
 
 async function runTool(name, args, context) {
   switch (name) {
     case "get_whatsapp_overview": {
       const [allContacts, allThreads] = await Promise.all([
-        listContacts(""),
-        listConversationThreads({ limit: 200 })
+        listContacts("", { businessId: context.businessId || "" }),
+        listConversationThreads({ limit: 200, businessId: context.businessId || "" })
       ]);
       return result({
         totalContacts: allContacts.length,
@@ -285,7 +287,9 @@ async function runTool(name, args, context) {
     }
 
     case "list_contacts": {
-      const contacts = await listContacts(args.query || "");
+      const contacts = await listContacts(args.query || "", {
+        businessId: context.businessId || ""
+      });
       const limit = Math.min(Math.max(Number(args.limit) || 25, 1), 100);
       return result({
         count: contacts.length,
@@ -296,7 +300,8 @@ async function runTool(name, args, context) {
     case "list_chat_threads": {
       const threads = await listConversationThreads({
         query: args.query || "",
-        limit: args.limit
+        limit: args.limit,
+        businessId: context.businessId || ""
       });
       return result({
         count: threads.length,
@@ -305,7 +310,9 @@ async function runTool(name, args, context) {
     }
 
     case "lookup_contact": {
-      const matches = await listContacts(args.query || "");
+      const matches = await listContacts(args.query || "", {
+        businessId: context.businessId || ""
+      });
       return result({
         count: matches.length,
         matches
@@ -315,6 +322,7 @@ async function runTool(name, args, context) {
     case "save_contact": {
       const savedPhone = normalizePhone(args.phone);
       await upsertContact({
+        businessId: context.businessId || "",
         name: args.name,
         phone: savedPhone,
         aliases: args.aliases || []
@@ -335,7 +343,8 @@ async function runTool(name, args, context) {
       }
       const messages = await getConversation(
         resolved.contact.phone,
-        Math.min(Math.max(Number(args.limit) || 12, 1), 30)
+        Math.min(Math.max(Number(args.limit) || 12, 1), 30),
+        { businessId: context.businessId || "" }
       );
       return result({
         target: resolved.contact,
@@ -347,7 +356,8 @@ async function runTool(name, args, context) {
       const matches = await searchConversationHistory({
         query: args.query,
         target: args.target || "",
-        limit: args.limit
+        limit: args.limit,
+        businessId: context.businessId || ""
       });
       return result({
         count: matches.length,
@@ -367,11 +377,13 @@ async function runTool(name, args, context) {
       }
 
       const reminders = await createReminder({
+        businessId: context.businessId || "",
         targetPhone: resolved.contact.phone,
         text: args.message,
         dueAt: dueAt.toISOString(),
         sourceChatId: context.currentUserPhone,
-        createdBy: context.currentUserPhone
+        createdBy: context.currentUserPhone,
+        integration: context.whatsappIntegration || {}
       });
       const reminder = reminders[reminders.length - 1];
       return result({
@@ -385,7 +397,9 @@ async function runTool(name, args, context) {
       if (resolved.status !== "resolved") {
         return result(resolved);
       }
-      const reminders = await listReminders(resolved.contact.phone);
+      const reminders = await listReminders(resolved.contact.phone, {
+        businessId: context.businessId || ""
+      });
       return result({
         target: resolved.contact,
         reminders
@@ -429,9 +443,10 @@ async function runTool(name, args, context) {
 
       let delivery;
       try {
-        delivery = await sendWhatsAppTextChunked({
+        delivery = await sendTextMessageChunked({
           to: toNumber,
-          body: args.message
+          body: args.message,
+          integration: context.whatsappIntegration || {}
         });
       } catch (sendError) {
         if (sendError.message === "RECIPIENT_NOT_ALLOWED") {
@@ -473,6 +488,8 @@ async function runTool(name, args, context) {
           source: "tool-send",
           requestedBy: context.currentUserPhone
         }
+      }, {
+        businessId: context.businessId || ""
       });
 
       await rememberOutboundDedup(dedupeKey, {

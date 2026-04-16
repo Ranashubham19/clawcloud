@@ -2,6 +2,33 @@ import crypto from "node:crypto";
 import { config, requireConfig } from "./config.js";
 import { hashText } from "./lib/text.js";
 
+const MEDIA_TYPES = ["image", "audio", "video", "document", "sticker", "voice"];
+
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function resolveIntegration(overrides = {}) {
+  return {
+    provider: cleanText(overrides.provider || config.whatsappProvider || "meta").toLowerCase(),
+    accessToken: cleanText(overrides.accessToken || config.whatsappAccessToken),
+    phoneNumberId: cleanText(overrides.phoneNumberId || config.whatsappPhoneNumberId),
+    businessAccountId: cleanText(
+      overrides.businessAccountId || config.whatsappBusinessAccountId
+    ),
+    graphVersion: cleanText(overrides.graphVersion || config.whatsappGraphVersion),
+    aisensyApiKey: cleanText(overrides.aisensyApiKey || config.aisensyApiKey),
+    aisensyCampaignName: cleanText(
+      overrides.aisensyCampaignName || config.aisensyCampaignName
+    ),
+    aisensyApiUrl: cleanText(overrides.aisensyApiUrl || config.aisensyApiUrl),
+    aisensySource: cleanText(overrides.aisensySource || config.aisensySource),
+    aisensyDefaultUserName: cleanText(
+      overrides.aisensyDefaultUserName || config.aisensyDefaultUserName
+    )
+  };
+}
+
 export function verifyWhatsAppSignature(rawBody, signatureHeader) {
   if (!config.whatsappAppSecret) {
     return true;
@@ -22,18 +49,16 @@ export function verifyWhatsAppSignature(rawBody, signatureHeader) {
   );
 }
 
-const MEDIA_TYPES = ["image", "audio", "video", "document", "sticker", "voice"];
-
 function extractMedia(message) {
   for (const kind of MEDIA_TYPES) {
     if (message.type === kind && message[kind]) {
-      const m = message[kind];
+      const media = message[kind];
       return {
-        mediaId: m.id || "",
+        mediaId: media.id || "",
         mediaType: kind,
-        mimeType: m.mime_type || "",
-        caption: m.caption || "",
-        filename: m.filename || ""
+        mimeType: media.mime_type || "",
+        caption: media.caption || "",
+        filename: media.filename || ""
       };
     }
   }
@@ -49,6 +74,7 @@ export function extractIncomingMessages(payload) {
       const value = change.value || {};
       const contacts = value.contacts || [];
       const messages = value.messages || [];
+      const metadata = value.metadata || {};
 
       for (const message of messages) {
         const profileName = contacts[0]?.profile?.name || "";
@@ -72,7 +98,9 @@ export function extractIncomingMessages(payload) {
           mediaType: media?.mediaType || "",
           mimeType: media?.mimeType || "",
           caption: media?.caption || "",
-          filename: media?.filename || ""
+          filename: media?.filename || "",
+          phoneNumberId: metadata.phone_number_id || "",
+          displayPhoneNumber: metadata.display_phone_number || ""
         });
       }
     }
@@ -81,13 +109,17 @@ export function extractIncomingMessages(payload) {
   return found;
 }
 
-export async function downloadWhatsAppMedia(mediaId) {
-  requireConfig("WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken);
+export async function downloadWhatsAppMedia(mediaId, integration = {}) {
+  const runtime = resolveIntegration(integration);
+  if (runtime.provider !== "meta") {
+    throw new Error("MEDIA_DOWNLOAD_UNSUPPORTED");
+  }
+  requireConfig("WHATSAPP_ACCESS_TOKEN", runtime.accessToken);
 
   const infoRes = await fetch(
-    `https://graph.facebook.com/${config.whatsappGraphVersion}/${mediaId}`,
+    `https://graph.facebook.com/${runtime.graphVersion}/${mediaId}`,
     {
-      headers: { Authorization: `Bearer ${config.whatsappAccessToken}` }
+      headers: { Authorization: `Bearer ${runtime.accessToken}` }
     }
   );
 
@@ -99,7 +131,7 @@ export async function downloadWhatsAppMedia(mediaId) {
   const info = await infoRes.json();
 
   const dataRes = await fetch(info.url, {
-    headers: { Authorization: `Bearer ${config.whatsappAccessToken}` }
+    headers: { Authorization: `Bearer ${runtime.accessToken}` }
   });
 
   if (!dataRes.ok) {
@@ -113,82 +145,20 @@ export async function downloadWhatsAppMedia(mediaId) {
   };
 }
 
-export async function sendWhatsAppText({
-  to,
-  body,
-  replyToMessageId = "",
-  previewUrl = false
-}) {
-  if (config.whatsappProvider === "aisensy") {
-    return sendAiSensyText({ to, body });
-  }
-
-  requireConfig("WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken);
-  requireConfig("WHATSAPP_PHONE_NUMBER_ID", config.whatsappPhoneNumberId);
-
-  const payload = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: {
-      preview_url: previewUrl,
-      body
-    }
-  };
-
-  if (replyToMessageId) {
-    payload.context = { message_id: replyToMessageId };
-  }
-
-  const response = await fetch(
-    `https://graph.facebook.com/${config.whatsappGraphVersion}/${config.whatsappPhoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.whatsappAccessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    }
-  );
-
-  if (!response.ok) {
-    const details = await response.text();
-    let reason = `WhatsApp API error ${response.status}: ${details}`;
-
-    // Translate common API errors into plain English
-    let parsed = {};
-    try { parsed = JSON.parse(details); } catch { /* ignore */ }
-    const code = parsed?.error?.code;
-
-    if (code === 131030 || details.includes("not in allowed list")) {
-      reason = "RECIPIENT_NOT_ALLOWED";
-    } else if (details.includes("invalid_parameter") || details.includes("Invalid parameter")) {
-      reason = "INVALID_PHONE";
-    } else if (response.status === 429) {
-      reason = "RATE_LIMITED";
-    }
-
-    throw new Error(reason);
-  }
-
-  return response.json();
-}
-
 function asAiSensyDestination(to) {
-  const value = String(to || "").trim();
+  const value = cleanText(to);
   const digits = value.replace(/\D/g, "");
   return digits || value;
 }
 
-export function buildAiSensyCampaignPayload({ to, body, userName = "" }) {
+export function buildAiSensyCampaignPayload({ to, body, userName = "", integration = {} }) {
+  const runtime = resolveIntegration(integration);
   return {
-    apiKey: config.aisensyApiKey,
-    campaignName: config.aisensyCampaignName,
+    apiKey: runtime.aisensyApiKey,
+    campaignName: runtime.aisensyCampaignName,
     destination: asAiSensyDestination(to),
-    userName: userName || config.aisensyDefaultUserName,
-    source: config.aisensySource,
+    userName: userName || runtime.aisensyDefaultUserName,
+    source: runtime.aisensySource,
     templateParams: [String(body || "")],
     tags: ["claw-cloud-ai"],
     attributes: {
@@ -198,16 +168,17 @@ export function buildAiSensyCampaignPayload({ to, body, userName = "" }) {
   };
 }
 
-async function sendAiSensyText({ to, body }) {
-  requireConfig("AISENSY_API_KEY", config.aisensyApiKey);
-  requireConfig("AISENSY_CAMPAIGN_NAME", config.aisensyCampaignName);
+async function sendAiSensyText({ to, body, integration = {} }) {
+  const runtime = resolveIntegration(integration);
+  requireConfig("AISENSY_API_KEY", runtime.aisensyApiKey);
+  requireConfig("AISENSY_CAMPAIGN_NAME", runtime.aisensyCampaignName);
 
-  const response = await fetch(config.aisensyApiUrl, {
+  const response = await fetch(runtime.aisensyApiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(buildAiSensyCampaignPayload({ to, body }))
+    body: JSON.stringify(buildAiSensyCampaignPayload({ to, body, integration: runtime }))
   });
 
   const details = await response.text();
@@ -231,6 +202,78 @@ async function sendAiSensyText({ to, body }) {
   };
 }
 
+export async function sendWhatsAppText({
+  to,
+  body,
+  replyToMessageId = "",
+  previewUrl = false,
+  integration = {}
+}) {
+  const runtime = resolveIntegration(integration);
+
+  if (runtime.provider === "aisensy") {
+    return sendAiSensyText({ to, body, integration: runtime });
+  }
+
+  requireConfig("WHATSAPP_ACCESS_TOKEN", runtime.accessToken);
+  requireConfig("WHATSAPP_PHONE_NUMBER_ID", runtime.phoneNumberId);
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: {
+      preview_url: previewUrl,
+      body
+    }
+  };
+
+  if (replyToMessageId) {
+    payload.context = { message_id: replyToMessageId };
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${runtime.graphVersion}/${runtime.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runtime.accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text();
+    let reason = `WhatsApp API error ${response.status}: ${details}`;
+
+    let parsed = {};
+    try {
+      parsed = JSON.parse(details);
+    } catch {
+      parsed = {};
+    }
+    const code = parsed?.error?.code;
+
+    if (code === 131030 || details.includes("not in allowed list")) {
+      reason = "RECIPIENT_NOT_ALLOWED";
+    } else if (
+      details.includes("invalid_parameter") ||
+      details.includes("Invalid parameter")
+    ) {
+      reason = "INVALID_PHONE";
+    } else if (response.status === 429) {
+      reason = "RATE_LIMITED";
+    }
+
+    throw new Error(reason);
+  }
+
+  return response.json();
+}
+
 function splitByLength(text, maxLen) {
   if (text.length <= maxLen) {
     return [text];
@@ -240,8 +283,8 @@ function splitByLength(text, maxLen) {
   const chunks = [];
   let buffer = "";
 
-  for (const para of paragraphs) {
-    const candidate = buffer ? `${buffer}\n\n${para}` : para;
+  for (const paragraph of paragraphs) {
+    const candidate = buffer ? `${buffer}\n\n${paragraph}` : paragraph;
     if (candidate.length <= maxLen) {
       buffer = candidate;
       continue;
@@ -252,13 +295,14 @@ function splitByLength(text, maxLen) {
       buffer = "";
     }
 
-    if (para.length <= maxLen) {
-      buffer = para;
+    if (paragraph.length <= maxLen) {
+      buffer = paragraph;
       continue;
     }
 
-    const sentences = para.split(/(?<=[.!?])\s+/);
+    const sentences = paragraph.split(/(?<=[.!?])\s+/);
     let sentenceBuffer = "";
+
     for (const sentence of sentences) {
       const sentenceCandidate = sentenceBuffer
         ? `${sentenceBuffer} ${sentence}`
@@ -280,14 +324,16 @@ function splitByLength(text, maxLen) {
 
       const words = sentence.split(/\s+/);
       let wordBuffer = "";
+
       for (const word of words) {
         if (word.length > maxLen) {
           if (wordBuffer) {
             chunks.push(wordBuffer);
             wordBuffer = "";
           }
-          for (let i = 0; i < word.length; i += maxLen) {
-            chunks.push(word.slice(i, i + maxLen));
+
+          for (let index = 0; index < word.length; index += maxLen) {
+            chunks.push(word.slice(index, index + maxLen));
           }
           continue;
         }
@@ -297,11 +343,13 @@ function splitByLength(text, maxLen) {
           wordBuffer = wordCandidate;
           continue;
         }
+
         if (wordBuffer) {
           chunks.push(wordBuffer);
         }
         wordBuffer = word;
       }
+
       if (wordBuffer) {
         chunks.push(wordBuffer);
       }
@@ -320,7 +368,7 @@ function splitByLength(text, maxLen) {
 }
 
 export function splitWhatsAppMessage(body, maxLen = 3800) {
-  const text = String(body || "").trim();
+  const text = cleanText(body);
   if (!text) {
     return [];
   }
@@ -332,7 +380,8 @@ export async function sendWhatsAppTextChunked({
   body,
   replyToMessageId = "",
   previewUrl = false,
-  maxLen = 3800
+  maxLen = 3800,
+  integration = {}
 }) {
   const chunks = splitWhatsAppMessage(body, maxLen);
   if (!chunks.length) {
@@ -340,12 +389,13 @@ export async function sendWhatsAppTextChunked({
   }
 
   const deliveries = [];
-  for (let i = 0; i < chunks.length; i += 1) {
+  for (let index = 0; index < chunks.length; index += 1) {
     const delivery = await sendWhatsAppText({
       to,
-      body: chunks[i],
-      replyToMessageId: i === 0 ? replyToMessageId : "",
-      previewUrl: i === 0 ? previewUrl : false
+      body: chunks[index],
+      replyToMessageId: index === 0 ? replyToMessageId : "",
+      previewUrl: index === 0 ? previewUrl : false,
+      integration
     });
     deliveries.push(delivery);
   }
@@ -353,11 +403,17 @@ export async function sendWhatsAppTextChunked({
   return deliveries;
 }
 
-export async function sendTypingIndicator(inboundMessageId) {
+export async function sendTypingIndicator(inboundMessageId, integration = {}) {
   if (!inboundMessageId) {
     return null;
   }
-  if (!config.whatsappAccessToken || !config.whatsappPhoneNumberId) {
+
+  const runtime = resolveIntegration(integration);
+  if (runtime.provider !== "meta") {
+    return null;
+  }
+
+  if (!runtime.accessToken || !runtime.phoneNumberId) {
     return null;
   }
 
@@ -370,11 +426,11 @@ export async function sendTypingIndicator(inboundMessageId) {
 
   try {
     const response = await fetch(
-      `https://graph.facebook.com/${config.whatsappGraphVersion}/${config.whatsappPhoneNumberId}/messages`,
+      `https://graph.facebook.com/${runtime.graphVersion}/${runtime.phoneNumberId}/messages`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${config.whatsappAccessToken}`,
+          Authorization: `Bearer ${runtime.accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -398,11 +454,6 @@ export function outboundDedupKey(prefix, to, body, inboundMessageId = "") {
   return `${prefix}:${to}:${inboundMessageId}:${hashText(body)}`;
 }
 
-/**
- * No-op: Meta's WhatsApp test numbers require recipients to be added manually
- * through the Developer Console UI. There is no API endpoint for this.
- * On production/live numbers there is no restriction at all.
- */
 export function autoWhitelistPhone(_phone) {
   return Promise.resolve({ ok: false, reason: "manual_only" });
 }

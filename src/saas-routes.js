@@ -1,0 +1,506 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { createStripeCheckoutSession, createStripePortalSession, hasStripeBilling } from "./billing.js";
+import { getConversation, listConversationThreads } from "./store.js";
+import {
+  authenticateSaasUser,
+  createBookingForBusiness,
+  createBusinessForUser,
+  createSaasSession,
+  createSaasUser,
+  deleteSaasSession,
+  getBusinessForUser,
+  getSaasSession,
+  listBusinessesForUser,
+  listBookingsForBusiness,
+  listLeadsForBusiness,
+  updateBusinessForUser,
+  updateLeadForBusiness
+} from "./saas-store.js";
+import { getBusinessDashboardData, saasPlans } from "./saas.js";
+import {
+  authRateLimit,
+  defaultSecurityHeaders,
+  getClientIp,
+  hasTrustedOrigin,
+  isSecureRequest,
+  requestOrigin,
+  writeRateLimit
+} from "./security.js";
+
+const SESSION_COOKIE_NAME = "swift_saas_session";
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function publicFilePath(name) {
+  return path.resolve(process.cwd(), "public", name);
+}
+
+function parseCookies(cookieHeader = "") {
+  return String(cookieHeader || "")
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .reduce((accumulator, pair) => {
+      const separatorIndex = pair.indexOf("=");
+      if (separatorIndex === -1) {
+        return accumulator;
+      }
+
+      const key = pair.slice(0, separatorIndex).trim();
+      const value = pair.slice(separatorIndex + 1).trim();
+      accumulator[key] = decodeURIComponent(value);
+      return accumulator;
+    }, {});
+}
+
+function securityHeaders(extra = {}) {
+  return {
+    ...defaultSecurityHeaders(),
+    ...extra
+  };
+}
+
+function sendJson(response, statusCode, payload, headers = {}) {
+  response.writeHead(
+    statusCode,
+    securityHeaders({
+      "Content-Type": "application/json; charset=utf-8",
+      ...headers
+    })
+  );
+  response.end(`${JSON.stringify(payload)}\n`);
+}
+
+function sendFile(response, statusCode, contentType, body) {
+  response.writeHead(
+    statusCode,
+    securityHeaders({
+      "Content-Type": contentType
+    })
+  );
+  response.end(body);
+}
+
+async function readJsonBody(request, readRawBody) {
+  const raw = await readRawBody(request);
+  if (!raw.length) {
+    return {};
+  }
+
+  return JSON.parse(raw.toString("utf8"));
+}
+
+async function sessionContextFromRequest(request) {
+  const cookies = parseCookies(request.headers.cookie || "");
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token) {
+    return null;
+  }
+
+  const session = await getSaasSession(token);
+  if (!session) {
+    return null;
+  }
+
+  return {
+    token,
+    user: session.user,
+    session: session.session
+  };
+}
+
+function sessionCookie(request, token) {
+  const secure = isSecureRequest(request) ? "; Secure" : "";
+  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${secure}`;
+}
+
+function clearedSessionCookie(request) {
+  const secure = isSecureRequest(request) ? "; Secure" : "";
+  return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function routeParts(pathname) {
+  return pathname.split("/").filter(Boolean);
+}
+
+function rejectIfUntrustedOrigin(request, response) {
+  if (!MUTATING_METHODS.has(request.method)) {
+    return false;
+  }
+  if (hasTrustedOrigin(request)) {
+    return false;
+  }
+  sendJson(response, 403, { error: "Blocked by origin policy." });
+  return true;
+}
+
+function rejectIfRateLimited(request, response, kind) {
+  const verdict =
+    kind === "auth"
+      ? authRateLimit(request)
+      : writeRateLimit(request, kind);
+
+  if (verdict.ok) {
+    return false;
+  }
+
+  sendJson(response, 429, {
+    error: "Too many requests. Please slow down and try again."
+  });
+  return true;
+}
+
+async function serveStaticApp(pathname, response) {
+  const map = {
+    "/": { file: "index.html", type: "text/html; charset=utf-8" },
+    "/app": { file: "index.html", type: "text/html; charset=utf-8" },
+    "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
+    "/app.css": { file: "app.css", type: "text/css; charset=utf-8" }
+  };
+
+  const target = map[pathname];
+  if (!target) {
+    return false;
+  }
+
+  const content = await readFile(publicFilePath(target.file), "utf8");
+  sendFile(response, 200, target.type, content);
+  return true;
+}
+
+function billingSummary(business) {
+  return {
+    enabled: hasStripeBilling(),
+    provider: business.billing?.provider || "stripe",
+    status: business.billing?.status || "inactive",
+    plan: business.billing?.plan || business.plan || "basic",
+    stripeCustomerId: business.billing?.stripeCustomerId || "",
+    stripeSubscriptionId: business.billing?.stripeSubscriptionId || "",
+    currentPeriodStart: business.billing?.currentPeriodStart || "",
+    currentPeriodEnd: business.billing?.currentPeriodEnd || "",
+    cancelAtPeriodEnd: business.billing?.cancelAtPeriodEnd === true
+  };
+}
+
+export async function handleSaasRoute({ request, response, url, readRawBody }) {
+  if (request.method === "GET" && (await serveStaticApp(url.pathname, response))) {
+    return true;
+  }
+
+  if (!url.pathname.startsWith("/api/")) {
+    return false;
+  }
+
+  if (rejectIfUntrustedOrigin(request, response)) {
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/plans") {
+    sendJson(response, 200, { plans: saasPlans, billingEnabled: hasStripeBilling() });
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/signup") {
+    if (rejectIfRateLimited(request, response, "auth")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const user = await createSaasUser({
+        name: body.name,
+        email: body.email,
+        password: body.password
+      });
+      const business = await createBusinessForUser(user.id, {
+        name: body.businessName || `${user.name} Institute`
+      });
+      const session = await createSaasSession({
+        userId: user.id,
+        userAgent: request.headers["user-agent"] || "",
+        ipAddress: getClientIp(request)
+      });
+
+      sendJson(
+        response,
+        201,
+        {
+          ok: true,
+          user,
+          business
+        },
+        {
+          "Set-Cookie": sessionCookie(request, session.token)
+        }
+      );
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/login") {
+    if (rejectIfRateLimited(request, response, "auth")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const user = await authenticateSaasUser({
+        email: body.email,
+        password: body.password
+      });
+      if (!user) {
+        sendJson(response, 401, { error: "Invalid email or password." });
+        return true;
+      }
+
+      const session = await createSaasSession({
+        userId: user.id,
+        userAgent: request.headers["user-agent"] || "",
+        ipAddress: getClientIp(request)
+      });
+
+      sendJson(
+        response,
+        200,
+        { ok: true, user },
+        { "Set-Cookie": sessionCookie(request, session.token) }
+      );
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+    const auth = await sessionContextFromRequest(request);
+    if (auth?.token) {
+      await deleteSaasSession(auth.token);
+    }
+    sendJson(
+      response,
+      200,
+      { ok: true },
+      { "Set-Cookie": clearedSessionCookie(request) }
+    );
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/auth/me") {
+    const auth = await sessionContextFromRequest(request);
+    if (!auth) {
+      sendJson(response, 200, { authenticated: false, user: null, businesses: [] });
+      return true;
+    }
+
+    const businesses = await listBusinessesForUser(auth.user.id);
+    sendJson(response, 200, {
+      authenticated: true,
+      user: auth.user,
+      businesses
+    });
+    return true;
+  }
+
+  const auth = await sessionContextFromRequest(request);
+  if (!auth) {
+    sendJson(response, 401, { error: "Authentication required." });
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/app/bootstrap") {
+    const payload = await getBusinessDashboardData(
+      auth.user.id,
+      url.searchParams.get("businessId") || ""
+    );
+    sendJson(response, 200, {
+      ok: true,
+      user: auth.user,
+      plans: saasPlans,
+      billingEnabled: hasStripeBilling(),
+      ...payload
+    });
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/businesses") {
+    const businesses = await listBusinessesForUser(auth.user.id);
+    sendJson(response, 200, { businesses, billingEnabled: hasStripeBilling() });
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/businesses") {
+    if (rejectIfRateLimited(request, response, "business-create")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const business = await createBusinessForUser(auth.user.id, body);
+      sendJson(response, 201, { ok: true, business });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  const parts = routeParts(url.pathname);
+  if (parts[0] !== "api" || parts[1] !== "businesses" || !parts[2]) {
+    sendJson(response, 404, { error: "Not found" });
+    return true;
+  }
+
+  const businessId = parts[2];
+  const business = await getBusinessForUser(auth.user.id, businessId);
+  if (!business) {
+    sendJson(response, 404, { error: "Business not found." });
+    return true;
+  }
+
+  if (parts.length === 3 && request.method === "GET") {
+    sendJson(response, 200, { business, billing: billingSummary(business) });
+    return true;
+  }
+
+  if (parts.length === 3 && (request.method === "PATCH" || request.method === "PUT")) {
+    if (rejectIfRateLimited(request, response, "business-update")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const updated = await updateBusinessForUser(auth.user.id, businessId, body);
+      sendJson(response, 200, { ok: true, business: updated });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "dashboard" && request.method === "GET") {
+    const payload = await getBusinessDashboardData(auth.user.id, businessId);
+    sendJson(response, 200, { ok: true, billingEnabled: hasStripeBilling(), ...payload });
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "billing" && request.method === "GET") {
+    sendJson(response, 200, {
+      billing: billingSummary(business),
+      billingEnabled: hasStripeBilling()
+    });
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "billing" && parts[4] === "checkout" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "billing-checkout")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const session = await createStripeCheckoutSession({
+        business,
+        user: auth.user,
+        plan: body.plan || business.plan,
+        origin: requestOrigin(request)
+      });
+      sendJson(response, 200, {
+        ok: true,
+        url: session.url,
+        id: session.id
+      });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "billing" && parts[4] === "portal" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "billing-portal")) {
+      return true;
+    }
+
+    try {
+      const session = await createStripePortalSession({
+        business,
+        origin: requestOrigin(request)
+      });
+      sendJson(response, 200, {
+        ok: true,
+        url: session.url
+      });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "leads" && request.method === "GET") {
+    const leads = await listLeadsForBusiness(businessId);
+    sendJson(response, 200, { leads });
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "leads" && request.method === "PATCH") {
+    if (rejectIfRateLimited(request, response, "lead-update")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const lead = await updateLeadForBusiness(businessId, parts[4], body);
+      sendJson(response, 200, { ok: true, lead });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "bookings" && request.method === "GET") {
+    const bookings = await listBookingsForBusiness(businessId);
+    sendJson(response, 200, { bookings });
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "bookings" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "booking-create")) {
+      return true;
+    }
+
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const booking = await createBookingForBusiness({
+        businessId,
+        phone: body.phone,
+        name: body.name,
+        courseInterest: body.courseInterest,
+        preferredTiming: body.preferredTiming,
+        status: body.status || "requested"
+      });
+      sendJson(response, 201, { ok: true, booking });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "chats" && request.method === "GET") {
+    const chats = await listConversationThreads({ businessId, limit: 100 });
+    sendJson(response, 200, { chats });
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "chats" && request.method === "GET") {
+    const chatId = decodeURIComponent(parts[4]);
+    const messages = await getConversation(chatId, 120, { businessId });
+    sendJson(response, 200, {
+      chatId,
+      messages
+    });
+    return true;
+  }
+
+  sendJson(response, 404, { error: "Not found" });
+  return true;
+}

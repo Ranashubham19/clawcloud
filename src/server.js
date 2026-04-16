@@ -3,19 +3,24 @@ import { config } from "./config.js";
 import {
   beginInboundProcessing,
   completeInboundProcessing,
+  getInboundProcessingResult,
   hasRecentOutboundDedup,
   initStore,
   rememberOutboundDedup
 } from "./store.js";
 import { handleIncomingText, handleIncomingMedia } from "./agent.js";
-import { extractAiSensyFlowInput } from "./aisensy-flow.js";
 import {
-  extractIncomingMessages,
+  buildMessagingWebhookSuccessResponse,
+  describeIgnoredInbound,
+  detectMessagingProvider,
+  extractInboundMessages,
   outboundDedupKey,
-  sendTypingIndicator,
-  sendWhatsAppTextChunked,
-  verifyWhatsAppSignature
-} from "./whatsapp.js";
+  sendTextMessageChunked,
+  sendTypingPresence,
+  usesInlineReply,
+  verifyMessagingWebhookGet,
+  verifyMessagingWebhookPost
+} from "./messaging.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
 import {
@@ -29,12 +34,17 @@ import {
   getGoogleContactsStatus,
   syncGoogleContacts
 } from "./google-contacts.js";
+import { initSaasStore } from "./saas-store.js";
+import { resolveBusinessContextForMessage } from "./saas.js";
+import { handleSaasRoute } from "./saas-routes.js";
+import { handleStripeWebhookEvent } from "./billing.js";
+import { verifyStripeSignature } from "./security.js";
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8"
+    "Content-Type": "application/json"
   });
-  response.end(`${JSON.stringify(payload)}\n`);
+  response.end(JSON.stringify(payload));
 }
 
 function sendText(response, statusCode, payload) {
@@ -42,6 +52,19 @@ function sendText(response, statusCode, payload) {
     "Content-Type": "text/plain; charset=utf-8"
   });
   response.end(payload);
+}
+
+function sendFormatted(response, result) {
+  if (!result) {
+    return;
+  }
+
+  if (result.format === "json") {
+    sendJson(response, result.statusCode, result.body);
+    return;
+  }
+
+  sendText(response, result.statusCode, result.body || "");
 }
 
 function sendHtml(response, statusCode, payload) {
@@ -224,8 +247,23 @@ function integrationResultHtml({ title, message, detail = "" }) {
 </html>`;
 }
 
-async function processInboundMessage(message) {
-  if (!config.whatsappAutoReply) {
+async function processInboundMessage(message, options = {}) {
+  const replyMode = options.replyMode || "provider-send";
+  const businessContext = await resolveBusinessContextForMessage(message);
+  const replyIntegration =
+    replyMode === "provider-send"
+      ? {
+          ...(businessContext?.messagingConfig ||
+            businessContext?.whatsappConfig ||
+            {}),
+          provider: message.provider || config.messagingProvider
+        }
+      : businessContext?.messagingConfig || businessContext?.whatsappConfig || {};
+  const autoReplyEnabled = businessContext
+    ? businessContext.settings?.autoReplyEnabled !== false
+    : config.whatsappAutoReply;
+
+  if (!autoReplyEnabled) {
     console.log(
       `Skipping webhook auto-reply for ${message.messageId} from ${message.from}`
     );
@@ -237,21 +275,31 @@ async function processInboundMessage(message) {
     console.log(
       `Skipping duplicate inbound message ${message.messageId} from ${message.from}`
     );
+
+    if (replyMode === "inline-reply") {
+      const previous = await getInboundProcessingResult(message.messageId);
+      return String(previous?.reply || "");
+    }
+
     return;
   }
-
-  sendTypingIndicator(message.messageId).catch(() => {});
 
   let assistantReply = "";
   try {
     if (message.mediaId) {
-      assistantReply = await handleIncomingMedia(message);
+      assistantReply = await handleIncomingMedia({
+        ...message,
+        businessContext
+      });
     } else {
-      assistantReply = await handleIncomingText(message);
+      assistantReply = await handleIncomingText({
+        ...message,
+        businessContext
+      });
     }
 
     const dedupeKey = outboundDedupKey(
-      "assistant-reply",
+      `assistant-reply:${businessContext?.id || "default"}`,
       message.from,
       assistantReply,
       message.messageId
@@ -259,12 +307,16 @@ async function processInboundMessage(message) {
 
     if (
       assistantReply &&
+      replyMode === "provider-send" &&
       !(await hasRecentOutboundDedup(dedupeKey, 24 * 60 * 60 * 1000))
     ) {
-      const delivery = await sendWhatsAppTextChunked({
+      const delivery = await sendTextMessageChunked({
         to: message.from,
         body: assistantReply,
-        replyToMessageId: message.messageId
+        // Plain outbound messages are more reliable than reply-context sends for
+        // the user's live Meta number, and they avoid template-like rendering.
+        replyToMessageId: "",
+        integration: replyIntegration
       });
 
       await rememberOutboundDedup(dedupeKey, {
@@ -273,13 +325,16 @@ async function processInboundMessage(message) {
       });
 
       console.log(
-        `Answered inbound message ${message.messageId} for ${message.from}`
+        `Answered inbound message ${message.messageId} for ${message.from} via ${
+          replyIntegration.provider || "unknown"
+        } with ${Array.isArray(delivery) ? delivery.length : 0} message(s)`
       );
     }
 
     await completeInboundProcessing(message.messageId, {
       reply: assistantReply,
-      outcome: assistantReply ? "answered" : "empty_reply"
+      outcome: assistantReply ? "answered" : "empty_reply",
+      businessId: businessContext?.id || ""
     });
   } catch (error) {
     console.error(
@@ -288,117 +343,202 @@ async function processInboundMessage(message) {
 
     await completeInboundProcessing(message.messageId, {
       error: error.message,
-      outcome: "model_error_no_reply"
+      outcome: "model_error_no_reply",
+      businessId: businessContext?.id || ""
     });
   }
+
+  return assistantReply;
 }
 
-async function handleWebhookGet(request, response) {
+function routeProviderHint(url) {
+  if (url.pathname === "/webhooks/whatsapp") {
+    return "meta";
+  }
+
+  if (
+    url.pathname === "/webhooks/aisensy" ||
+    url.pathname === "/integrations/aisensy/answer"
+  ) {
+    return "aisensy";
+  }
+
+  return "";
+}
+
+async function handleMessagingWebhookGet(request, response, providerHint = "") {
   const url = parseUrl(request);
-  const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
-  const challenge = url.searchParams.get("hub.challenge");
+  const provider = detectMessagingProvider({ url, providerHint });
+  const verification = verifyMessagingWebhookGet({
+    provider,
+    headers: request.headers,
+    url
+  });
 
-  if (mode === "subscribe" && token === config.whatsappVerifyToken) {
-    sendText(response, 200, challenge || "");
+  if (!verification.ok) {
+    sendFormatted(response, verification);
     return;
   }
 
-  sendText(response, 403, "Forbidden");
+  if (usesInlineReply(provider)) {
+    const rawBody = await readRawBody(request);
+    let payload = {};
+    if (rawBody.length) {
+      try {
+        payload = JSON.parse(rawBody.toString("utf8"));
+      } catch {
+        sendText(response, 400, "Invalid JSON");
+        return;
+      }
+    }
+
+    const extracted = extractInboundMessages({ provider, payload, url });
+    const incoming = extracted.filter((message) => message.text || message.mediaId);
+
+    if (!incoming.length) {
+      sendJson(response, 400, { error: "Missing required field: text" });
+      return;
+    }
+
+    console.log(
+      `AiSensy inbound GET request from ${incoming[0].from || "missing-from"} with text: ${String(
+        incoming[0].text || ""
+      ).slice(0, 80)}`
+    );
+
+    const answer = await processInboundMessage(incoming[0], {
+      replyMode: "inline-reply"
+    });
+    console.log(
+      `AiSensy inline GET reply length for ${incoming[0].from || "missing-from"}: ${
+        String(answer || "").length
+      }`
+    );
+
+    sendFormatted(
+      response,
+      buildMessagingWebhookSuccessResponse({
+        provider,
+        reply: answer,
+        messageCount: incoming.length
+      })
+    );
+    return;
+  }
+
+  sendFormatted(
+    response,
+    verification
+  );
 }
 
-async function handleWebhookPost(request, response) {
+async function handleMessagingWebhookPost(request, response, providerHint = "") {
+  const url = parseUrl(request);
   const rawBody = await readRawBody(request);
-  const signatureHeader = request.headers["x-hub-signature-256"];
-
-  if (!verifyWhatsAppSignature(rawBody, signatureHeader)) {
-    sendText(response, 401, "Invalid signature");
-    return;
-  }
-
-  let payload;
+  let payload = {};
   try {
-    payload = JSON.parse(rawBody.toString("utf8"));
+    payload = rawBody.length ? JSON.parse(rawBody.toString("utf8")) : {};
   } catch {
     sendText(response, 400, "Invalid JSON");
     return;
   }
 
-  const extracted = extractIncomingMessages(payload);
+  const provider = detectMessagingProvider({ url, payload, providerHint });
+  const verification = verifyMessagingWebhookPost({
+    provider,
+    rawBody,
+    headers: request.headers,
+    url
+  });
+  if (!verification.ok) {
+    sendFormatted(response, verification);
+    return;
+  }
+
+  const extracted = extractInboundMessages({ provider, payload, url });
   const incoming = extracted.filter((message) => message.text || message.mediaId);
   const ignored = extracted.filter((message) => !message.text && !message.mediaId);
 
-  sendJson(response, 200, { received: true, messages: incoming.length });
+  if (usesInlineReply(provider)) {
+    if (!incoming.length) {
+      sendJson(response, 400, { error: "Missing required field: text" });
+      return;
+    }
+
+    console.log(
+      `AiSensy inbound request from ${incoming[0].from || "missing-from"} with text: ${String(
+        incoming[0].text || ""
+      ).slice(0, 80)}`
+    );
+
+    const answer = await processInboundMessage(incoming[0], {
+      replyMode: "inline-reply"
+    });
+    console.log(
+      `AiSensy inline reply length for ${incoming[0].from || "missing-from"}: ${
+        String(answer || "").length
+      }`
+    );
+
+    sendFormatted(
+      response,
+      buildMessagingWebhookSuccessResponse({
+        provider,
+        reply: answer,
+        messageCount: incoming.length
+      })
+    );
+    return;
+  }
+
+  sendFormatted(
+    response,
+    buildMessagingWebhookSuccessResponse({
+      provider,
+      messageCount: incoming.length
+    })
+  );
 
   if (ignored.length) {
     console.log(
-      `Ignored ${ignored.length} inbound WhatsApp messages without readable text: ${ignored
-        .map((message) => message.type || "unknown")
-        .join(", ")}`
+      `Ignored ${ignored.length} inbound messages without readable text for ${provider}: ${describeIgnoredInbound(
+        ignored
+      )}`
     );
   }
 
   for (const message of incoming) {
-    await processInboundMessage(message);
+    await processInboundMessage(message, {
+      replyMode: "provider-send"
+    });
   }
 }
 
-async function handleAiSensyFlowAnswer(request, response) {
-  const url = parseUrl(request);
-
-  if (!config.aisensyFlowToken) {
+async function handleStripeWebhook(request, response) {
+  if (!config.stripeWebhookSecret) {
     sendJson(response, 503, {
-      error: "AiSensy Flow answer endpoint is disabled. Set AISENSY_FLOW_TOKEN first."
+      error: "Stripe webhook is disabled. Set STRIPE_WEBHOOK_SECRET first."
     });
     return;
   }
 
-  if (getAdminToken(request, url) !== config.aisensyFlowToken) {
-    sendText(response, 403, "Forbidden");
-    return;
-  }
-
   const rawBody = await readRawBody(request);
-  let payload = {};
-  if (rawBody.length) {
-    try {
-      payload = JSON.parse(rawBody.toString("utf8"));
-    } catch {
-      sendJson(response, 400, { error: "Invalid JSON" });
-      return;
-    }
-  }
-
-  const input = extractAiSensyFlowInput(payload, url.searchParams);
-  console.log(
-    `AiSensy flow answer request from ${input.from || "missing-from"} with text: ${String(
-      input.text || ""
-    ).slice(0, 80)}`
-  );
-
-  if (!input.text) {
-    sendJson(response, 400, { error: "Missing required field: text" });
+  const signatureHeader = request.headers["stripe-signature"];
+  if (!verifyStripeSignature(rawBody, signatureHeader, config.stripeWebhookSecret)) {
+    sendText(response, 400, "Invalid Stripe signature");
     return;
   }
 
-  const from = input.from || "0000000000";
-  const messageId =
-    input.messageId ||
-    `aisensy-flow:${from}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    sendText(response, 400, "Invalid JSON");
+    return;
+  }
 
-  const answer = await handleIncomingText({
-    messageId,
-    from,
-    profileName: input.profileName,
-    text: input.text
-  });
-
-  sendJson(response, 200, {
-    data: answer,
-    answer,
-    reply: answer,
-    text: answer
-  });
+  await handleStripeWebhookEvent(event);
+  sendJson(response, 200, { received: true });
 }
 
 async function requestListener(request, response) {
@@ -546,18 +686,47 @@ async function requestListener(request, response) {
     return;
   }
 
+  if (url.pathname === "/webhooks/messaging" && request.method === "GET") {
+    await handleMessagingWebhookGet(request, response, routeProviderHint(url));
+    return;
+  }
+
+  if (url.pathname === "/webhooks/messaging" && request.method === "POST") {
+    await handleMessagingWebhookPost(request, response, routeProviderHint(url));
+    return;
+  }
+
   if (url.pathname === "/webhooks/whatsapp" && request.method === "GET") {
-    await handleWebhookGet(request, response);
+    await handleMessagingWebhookGet(request, response, "meta");
     return;
   }
 
   if (url.pathname === "/webhooks/whatsapp" && request.method === "POST") {
-    await handleWebhookPost(request, response);
+    await handleMessagingWebhookPost(request, response, "meta");
+    return;
+  }
+
+  if (url.pathname === "/webhooks/aisensy" && request.method === "POST") {
+    await handleMessagingWebhookPost(request, response, "aisensy");
+    return;
+  }
+
+  if (url.pathname === "/integrations/aisensy/answer" && request.method === "GET") {
+    await handleMessagingWebhookGet(request, response, "aisensy");
     return;
   }
 
   if (url.pathname === "/integrations/aisensy/answer" && request.method === "POST") {
-    await handleAiSensyFlowAnswer(request, response);
+    await handleMessagingWebhookPost(request, response, "aisensy");
+    return;
+  }
+
+  if (url.pathname === "/webhooks/stripe" && request.method === "POST") {
+    await handleStripeWebhook(request, response);
+    return;
+  }
+
+  if (await handleSaasRoute({ request, response, url, readRawBody })) {
     return;
   }
 
@@ -574,6 +743,7 @@ process.on("uncaughtException", (error) => {
 });
 
 await initStore();
+await initSaasStore();
 const stopReminderLoop = startReminderLoop();
 
 const server = http.createServer((request, response) => {

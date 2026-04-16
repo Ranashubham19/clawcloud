@@ -8,14 +8,14 @@ import {
   rememberOutboundDedup
 } from "./store.js";
 import { comparablePhone } from "./lib/phones.js";
-import { outboundDedupKey, sendWhatsAppTextChunked } from "./whatsapp.js";
+import { outboundDedupKey, sendTextMessageChunked } from "./messaging.js";
 
 export function startReminderLoop() {
   const timer = setInterval(async () => {
     const due = await claimDueReminders();
     for (const reminder of due) {
       const dedupeKey = outboundDedupKey(
-        "reminder",
+        `reminder:${reminder.businessId || "default"}`,
         reminder.targetPhone,
         reminder.text,
         reminder.id
@@ -32,9 +32,10 @@ export function startReminderLoop() {
           throw new Error("INVALID_PHONE");
         }
 
-        const delivery = await sendWhatsAppTextChunked({
+        const delivery = await sendTextMessageChunked({
           to,
-          body: reminder.text
+          body: reminder.text,
+          integration: reminder.integration || {}
         });
         await appendConversationMessage(reminder.targetPhone, {
           role: "assistant",
@@ -43,6 +44,8 @@ export function startReminderLoop() {
             source: "reminder",
             reminderId: reminder.id
           }
+        }, {
+          businessId: reminder.businessId || ""
         });
         await rememberOutboundDedup(dedupeKey, {
           reminderId: reminder.id,
