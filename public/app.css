@@ -354,15 +354,28 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
 
 .sidebar-biz-switcher {
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background: #1e2235;
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  color: var(--ink);
+  color: #ffffff;
   font-size: 0.82rem;
-  padding: 5px 8px;
+  padding: 6px 8px;
   cursor: pointer;
   outline: none;
   margin-bottom: 8px;
+}
+
+.sidebar-biz-switcher option {
+  background: #1e2235;
+  color: #9ca3af;
+  padding: 6px 8px;
+}
+
+.sidebar-biz-switcher option:checked,
+.sidebar-biz-switcher option[selected] {
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .sidebar-business-card {
