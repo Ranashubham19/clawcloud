@@ -645,6 +645,12 @@ export async function handleIncomingText({
         if (!isLanguageCompatible(cleanedAssistantText, languageStyle) && assistant.model) {
           rejectedModels.add(assistant.model);
           if (rejectedModels.size < maxRejectedModels) {
+            // Push a hard correction into the conversation before retrying
+            messages.push({ role: "assistant", content: cleanedAssistantText });
+            messages.push({
+              role: "user",
+              content: `WRONG LANGUAGE. You must reply ONLY in ${languageLabel(languageStyle)}. Rewrite your entire previous response now in ${languageLabel(languageStyle)} — same content, correct language, no English mixed in.`
+            });
             rejectAndRetry = true;
           }
         }
@@ -702,7 +708,37 @@ export async function handleIncomingText({
   if (!String(assistantText || "").trim()) {
     const errMsg = modelError ? modelError.message : "no usable model answer";
     console.error(`[agent] All models failed for ${from}: ${errMsg}`);
-    assistantText = "Sorry, I couldn't generate a response right now. Please try again in a moment.";
+    const fallbacks = {
+      hindi: "क्षमा करें, अभी जवाब देने में समस्या हो रही है। कृपया एक पल बाद फिर से कोशिश करें। 🙏",
+      hinglish: "Sorry yaar, abhi response nahi aa raha. Ek minute baad phir try karo! 🙏",
+      bengali: "দুঃখিত, এই মুহূর্তে উত্তর দিতে পারছি না। একটু পরে আবার চেষ্টা করুন। 🙏",
+      gujarati: "માફ કરશો, અત્યારે જવાબ આપવામાં સમસ્યા છે. કૃપા કરીને થોડી વાર પછી ફરી પ્રયાસ કરો. 🙏",
+      punjabi: "ਮਾਫ਼ ਕਰਨਾ, ਹੁਣੇ ਜਵਾਬ ਦੇਣ ਵਿੱਚ ਸਮੱਸਿਆ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਥੋੜੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ। 🙏",
+      tamil: "மன்னிக்கவும், இப்போது பதில் அளிக்க இயலவில்லை. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும். 🙏",
+      telugu: "క్షమించండి, ప్రస్తుతం సమాధానం ఇవ్వడంలో సమస్య ఉంది. కొంత సేపటి తర్వాత మళ్ళీ ప్రయత్నించండి. 🙏",
+      kannada: "ಕ್ಷಮಿಸಿ, ಈಗ ಉತ್ತರಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. 🙏",
+      malayalam: "ക്ഷമിക്കണം, ഇപ്പോൾ മറുപടി നൽകുന്നതിൽ പ്രശ്‌നമുണ്ട്. കുറച്ചു സമയം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കൂ. 🙏",
+      arabic: "آسف، لا أستطيع الرد الآن. يرجى المحاولة مرة أخرى بعد لحظة. 🙏",
+      urdu: "معذرت، ابھی جواب دینے میں مشکل ہے۔ براہ کرم ایک لمحے بعد دوبارہ کوشش کریں۔ 🙏",
+      french: "Désolé, je ne peux pas répondre en ce moment. Veuillez réessayer dans un instant. 🙏",
+      spanish: "Lo siento, no puedo responder ahora mismo. Por favor, inténtalo de nuevo en un momento. 🙏",
+      portuguese: "Desculpe, não consigo responder agora. Por favor, tente novamente em um momento. 🙏",
+      german: "Entschuldigung, ich kann gerade nicht antworten. Bitte versuche es gleich noch einmal. 🙏",
+      italian: "Scusa, non riesco a rispondere in questo momento. Per favore riprova tra un attimo. 🙏",
+      russian: "Извините, сейчас не могу ответить. Пожалуйста, попробуйте ещё раз через мгновение. 🙏",
+      chinese: "抱歉，暂时无法回复。请稍后再试。🙏",
+      japanese: "申し訳ありません、今は返答できません。少し後でもう一度お試しください。🙏",
+      korean: "죄송합니다, 지금은 응답할 수 없습니다. 잠시 후 다시 시도해 주세요. 🙏",
+      thai: "ขออภัย ไม่สามารถตอบได้ในขณะนี้ กรุณาลองอีกครั้งในอีกสักครู่ 🙏",
+      turkish: "Üzgünüm, şu anda yanıt veremiyorum. Lütfen bir an sonra tekrar deneyin. 🙏",
+      indonesian: "Maaf, saya tidak bisa membalas sekarang. Silakan coba lagi sebentar lagi. 🙏",
+      malay: "Maaf, saya tidak dapat membalas sekarang. Sila cuba lagi sebentar lagi. 🙏",
+      vietnamese: "Xin lỗi, tôi không thể trả lời ngay bây giờ. Vui lòng thử lại sau một lúc. 🙏",
+      filipino: "Paumanhin, hindi ako makasagot ngayon. Pakisubukan muli pagkatapos ng ilang sandali. 🙏",
+      swahili: "Samahani, siwezi kujibu sasa. Tafadhali jaribu tena baada ya muda. 🙏",
+      polish: "Przepraszam, nie mogę teraz odpowiedzieć. Spróbuj ponownie za chwilę. 🙏"
+    };
+    assistantText = fallbacks[languageStyle] || "Sorry, I couldn't generate a response right now. Please try again in a moment.";
   }
 
   assistantText = sanitizeForWhatsApp(assistantText);
