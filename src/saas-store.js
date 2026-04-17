@@ -453,6 +453,33 @@ export async function createSaasUser({ name, email, password }) {
   return sanitizeUser(created);
 }
 
+export async function findOrCreateGoogleUser({ googleId, email, name }) {
+  const cleanEmail = normalizeEmail(email);
+  let found = null;
+
+  await withWriteLock("users", (users) => {
+    found = users.find((u) => u.googleId === googleId || u.email === cleanEmail);
+    if (found) {
+      if (!found.googleId) {
+        found.googleId = googleId;
+      }
+      return users;
+    }
+    found = {
+      id: crypto.randomUUID(),
+      name: cleanText(name) || cleanEmail,
+      email: cleanEmail,
+      googleId,
+      passwordHash: "",
+      createdAt: nowIso()
+    };
+    users.push(found);
+    return users;
+  });
+
+  return { user: sanitizeUser(found), isNew: !found.passwordHash && found.googleId === googleId };
+}
+
 export async function authenticateSaasUser({ email, password }) {
   const users = await readJson("users");
   const user = users.find((entry) => entry.email === normalizeEmail(email));

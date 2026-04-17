@@ -9,6 +9,7 @@ import {
   createSaasSession,
   createSaasUser,
   deleteSaasSession,
+  findOrCreateGoogleUser,
   getBusinessForUser,
   getSaasSession,
   listBusinessesForUser,
@@ -338,6 +339,92 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       { ok: true },
       { "Set-Cookie": clearedSessionCookie(request) }
     );
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/auth/google") {
+    const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    if (!googleClientId || !googleClientSecret) {
+      sendJson(response, 503, { error: "Google OAuth not configured." });
+      return true;
+    }
+    const redirectUri = `${appBaseUrl}/api/auth/google/callback`;
+    const params = new URLSearchParams({
+      client_id: googleClientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      access_type: "offline",
+      prompt: "select_account"
+    });
+    response.writeHead(302, { Location: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+    response.end();
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/auth/google/callback") {
+    const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    const code = url.searchParams.get("code");
+    const error = url.searchParams.get("error");
+
+    if (error || !code) {
+      response.writeHead(302, { Location: `${appBaseUrl}/app?error=google_auth_failed` });
+      response.end();
+      return true;
+    }
+
+    try {
+      const redirectUri = `${appBaseUrl}/api/auth/google/callback`;
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: googleClientId,
+          client_secret: googleClientSecret,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code"
+        })
+      });
+
+      const tokens = await tokenRes.json();
+      if (!tokens.access_token) throw new Error("No access token from Google");
+
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokens.access_token}` }
+      });
+      const profile = await profileRes.json();
+      if (!profile.email) throw new Error("No email from Google");
+
+      const { user, isNew } = await findOrCreateGoogleUser({
+        googleId: profile.id,
+        email: profile.email,
+        name: profile.name || profile.email
+      });
+
+      if (isNew) {
+        await createBusinessForUser(user.id, { name: `${user.name}'s Business` });
+        sendWelcomeEmail({ name: user.name, email: user.email }).catch(() => {});
+      }
+
+      const session = await createSaasSession({
+        userId: user.id,
+        userAgent: request.headers["user-agent"] || "",
+        ipAddress: getClientIp(request)
+      });
+
+      await appendAuditLog({ userId: user.id, action: "auth.google_login", details: { ip: getClientIp(request) } });
+
+      response.writeHead(302, {
+        Location: `${appBaseUrl}/app`,
+        "Set-Cookie": sessionCookie(request, session.token)
+      });
+      response.end();
+    } catch (err) {
+      console.error("[google-oauth]", err.message);
+      response.writeHead(302, { Location: `${appBaseUrl}/app?error=google_auth_failed` });
+      response.end();
+    }
     return true;
   }
 
