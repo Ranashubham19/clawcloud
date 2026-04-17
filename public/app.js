@@ -134,10 +134,8 @@ function serializeCourses(items = []) {
 
 function formatPlanPrice(value) {
   const amount = Number(value || 0);
-  if (!amount) {
-    return "Custom";
-  }
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  if (!amount) return "Custom";
+  return `₹${amount.toLocaleString("en-IN", { useGrouping: true })}`;
 }
 
 function syncDashboardUrl() {
@@ -271,85 +269,164 @@ async function openChat(chatId) {
 
 function renderLanding() {
   app.innerHTML = `
-    <main class="hero">
-      <div class="shell">
-        <div class="hero-topbar">
-          <div class="logo">
-            <span class="logo-mark"></span>
-            <span>Claw Cloud</span>
-          </div>
-          <div class="inline-actions">
-            <a class="ghost-button" href="/app?mode=login">Log in</a>
-            <a class="button" href="/app?mode=signup">Launch dashboard</a>
+    <div class="landing">
+
+      <!-- NAV -->
+      <nav class="landing-nav">
+        <div class="shell">
+          <div class="nav-inner">
+            <div class="logo">
+              <span class="logo-mark"></span>
+              <span>Claw Cloud</span>
+            </div>
+            <div class="nav-links">
+              <a href="#features">Features</a>
+              <a href="#pricing">Pricing</a>
+              <a href="/privacy">Privacy</a>
+            </div>
+            <div class="nav-actions">
+              <a class="ghost-button" href="/app?mode=login">Log in</a>
+              <a class="button" href="/app?mode=signup">Get started free</a>
+            </div>
           </div>
         </div>
+      </nav>
 
-        <section class="hero-grid">
-          <article class="hero-card">
-            <span class="eyebrow">WhatsApp AI for coaching institutes</span>
-            <h1>Turn WhatsApp inquiries into booked demos and qualified leads.</h1>
-            <p class="hero-copy">
-              This SaaS sits on top of your existing WhatsApp AI engine and gives every institute
-              its own prompt, own number, own lead pipeline, own demo-booking flow, and a clean operator dashboard.
-            </p>
-            <div class="hero-actions">
-              <a class="button" href="/app?mode=signup">Create your institute workspace</a>
-              <a class="ghost-button" href="/app?mode=login">Sign in</a>
+      <!-- HERO -->
+      <section class="lp-hero">
+        <div class="shell">
+          <div class="lp-hero-inner">
+            <span class="eyebrow">WhatsApp AI Platform for Businesses</span>
+            <h1 class="lp-h1">Convert every WhatsApp inquiry<br>into a qualified lead — automatically.</h1>
+            <p class="lp-sub">Claw Cloud gives your business an AI-powered WhatsApp assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — all from one clean dashboard.</p>
+            <div class="lp-cta">
+              <a class="button lp-cta-btn" href="/app?mode=signup">Start for free →</a>
+              <a class="ghost-button" href="/app?mode=login">Sign in to dashboard</a>
             </div>
-            <div class="section hero-stats">
-              <div class="metric">
-                <div class="muted">Faster replies</div>
-                <div class="metric-value">&lt; 1 min</div>
+            <div class="lp-stats">
+              <div class="lp-stat">
+                <div class="lp-stat-value">&lt; 1 min</div>
+                <div class="lp-stat-label">Average reply time</div>
               </div>
-              <div class="metric">
-                <div class="muted">Lead fields tracked</div>
-                <div class="metric-value">4 core</div>
+              <div class="lp-stat-div"></div>
+              <div class="lp-stat">
+                <div class="lp-stat-value">24 / 7</div>
+                <div class="lp-stat-label">Always-on AI assistant</div>
               </div>
-              <div class="metric">
-                <div class="muted">Institutes per owner</div>
-                <div class="metric-value">Multi</div>
+              <div class="lp-stat-div"></div>
+              <div class="lp-stat">
+                <div class="lp-stat-value">Multi</div>
+                <div class="lp-stat-label">Workspaces per account</div>
               </div>
-              <div class="metric">
-                <div class="muted">MVP modules</div>
-                <div class="metric-value">5</div>
+              <div class="lp-stat-div"></div>
+              <div class="lp-stat">
+                <div class="lp-stat-value">100%</div>
+                <div class="lp-stat-label">WhatsApp native</div>
               </div>
             </div>
-          </article>
+          </div>
+        </div>
+      </section>
 
-          <aside class="hero-card">
-            <h3 class="section-title">Built for the exact coaching flow</h3>
-            <div class="feature-grid">
-              <div class="feature">
-                <h3>Lead capture</h3>
-                <p class="muted">Name, phone, course interest, and timing are tracked automatically from WhatsApp.</p>
-              </div>
-              <div class="feature">
-                <h3>Demo booking</h3>
-                <p class="muted">When a student asks for a demo, the system records the intent and stores the requested slot.</p>
-              </div>
-              <div class="feature">
-                <h3>Institute AI</h3>
-                <p class="muted">Each business keeps its own FAQs, courses, prompt, and WhatsApp number.</p>
-              </div>
+      <!-- FEATURES -->
+      <section class="lp-section" id="features">
+        <div class="shell">
+          <div class="lp-section-header">
+            <span class="eyebrow">Platform Features</span>
+            <h2 class="lp-h2">Everything your team needs,<br>nothing you don't.</h2>
+            <p class="lp-section-sub">Built for businesses that rely on WhatsApp to drive sales, bookings, and customer conversations.</p>
+          </div>
+          <div class="lp-features">
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">⚡</div>
+              <h3>Instant Lead Capture</h3>
+              <p>Name, phone, course interest, and preferred timing — captured automatically the moment a customer messages you on WhatsApp.</p>
             </div>
-            <section class="section">
-              <h3 class="section-title">Plans</h3>
-              <div class="plan-grid">
-                ${state.plans.map((plan) => `
-                  <div class="plan">
-                    <span class="pill">${escapeHtml(plan.name)}</span>
-                    <h3>${escapeHtml(plan.name)}</h3>
-                    <div class="metric-value">${escapeHtml(formatPlanPrice(plan.priceInr))}</div>
-                    <p class="muted">${escapeHtml(plan.summary)}</p>
-                  </div>
-                `).join("")}
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">📅</div>
+              <h3>Demo Booking Flow</h3>
+              <p>The AI handles the full booking conversation, records the slot, and stores it in your dashboard — zero manual effort.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">🤖</div>
+              <h3>Custom AI per Workspace</h3>
+              <p>Each business gets its own AI prompt, FAQ library, WhatsApp number, and brand voice — fully isolated and configurable.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">📊</div>
+              <h3>Real-time Analytics</h3>
+              <p>Track leads, conversations, demo requests, and conversion rates from a single premium dashboard updated in real time.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">👥</div>
+              <h3>Team Collaboration</h3>
+              <p>Invite team members, assign roles, and manage permissions — everyone works from the same live data without stepping on each other.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon">🔒</div>
+              <h3>Secure & Compliant</h3>
+              <p>End-to-end encrypted sessions, rate limiting, audit logs, and GDPR-ready data deletion — enterprise-grade security out of the box.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRICING -->
+      <section class="lp-section lp-pricing-section" id="pricing">
+        <div class="shell">
+          <div class="lp-section-header">
+            <span class="eyebrow">Simple Pricing</span>
+            <h2 class="lp-h2">Transparent plans.<br>No hidden fees.</h2>
+            <p class="lp-section-sub">Pay in INR or USD. Cancel anytime. Upgrade or downgrade as you grow.</p>
+          </div>
+          <div class="lp-pricing-grid">
+            ${state.plans.map((plan, i) => `
+              <div class="lp-pricing-card ${i === 1 ? "lp-pricing-card--featured" : ""}">
+                ${i === 1 ? `<div class="lp-pricing-badge">Most Popular</div>` : ""}
+                <div class="lp-pricing-name">${escapeHtml(plan.name)}</div>
+                <div class="lp-pricing-amount">
+                  <span class="lp-pricing-inr">₹${escapeHtml(String(plan.priceInr))}</span>
+                  <span class="lp-pricing-period">/month</span>
+                </div>
+                <div class="lp-pricing-usd">or $${escapeHtml(String(plan.priceUsd || ""))}/mo for international</div>
+                <p class="lp-pricing-desc">${escapeHtml(plan.summary)}</p>
+                <a class="button ${i === 1 ? "" : "ghost-button"}" href="/app?mode=signup" style="width:100%;text-align:center;display:block;">Get started</a>
               </div>
-            </section>
-          </aside>
-        </section>
-        <div class="footer">Professional WhatsApp automation for admissions, follow-ups, and demo conversion.</div>
-      </div>
-    </main>
+            `).join("")}
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA BANNER -->
+      <section class="lp-cta-banner">
+        <div class="shell">
+          <div class="lp-cta-banner-inner">
+            <h2 class="lp-h2" style="color:#fff;">Ready to automate your WhatsApp?</h2>
+            <p style="color:rgba(255,255,255,0.65);margin:12px 0 28px;font-size:1rem;">Set up your AI assistant in under 5 minutes. No technical skills required.</p>
+            <a class="button lp-cta-btn" href="/app?mode=signup">Create your free workspace →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="lp-footer">
+        <div class="shell">
+          <div class="lp-footer-inner">
+            <div class="logo">
+              <span class="logo-mark"></span>
+              <span>Claw Cloud</span>
+            </div>
+            <div class="lp-footer-links">
+              <a href="/privacy">Privacy Policy</a>
+              <a href="/terms">Terms of Service</a>
+              <a href="/data-deletion">Data Deletion</a>
+              <a href="/app?mode=login">Dashboard</a>
+            </div>
+            <div class="lp-footer-copy">© 2026 Claw Cloud. All rights reserved.</div>
+          </div>
+        </div>
+      </footer>
+    </div>
   `;
 }
 
