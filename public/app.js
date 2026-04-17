@@ -1125,12 +1125,11 @@ function dashboardSection() {
 }
 
 function needsOnboarding() {
+  if (state.onboardingDone) return false;
   const biz = state.selectedBusiness;
   if (!biz) return false;
   const hasCourses = (biz.courseItems || []).length > 0;
   const hasFaqs = (biz.faqItems || []).length > 0;
-  // aiPrompt is auto-set by default on signup — not a signal the user has onboarded.
-  // Onboarding is needed as long as no courses AND no FAQs have been added.
   return !hasCourses && !hasFaqs;
 }
 
@@ -1395,6 +1394,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
       await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: { faqItems } });
       await loadBootstrap(biz.id);
       state.onboardingStep = 4;
+      state.onboardingDone = true;
       renderOnboarding();
     } catch (err) { alert(err.message); btn.disabled = false; btn.innerHTML = orig; }
   });
@@ -1403,6 +1403,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
   document.querySelector("#ob-goto-dashboard")?.addEventListener("click", () => {
     state.onboardingStep = 0;
     state.showOnboarding = false;
+    state.onboardingDone = true;
     render();
   });
 }
