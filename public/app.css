@@ -80,20 +80,22 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-weight: 800;
+  gap: 9px;
+  font-weight: 700;
   font-size: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  text-transform: none;
   color: var(--ink);
+  text-decoration: none;
+  flex-shrink: 0;
 }
 
 .logo-img {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(79,70,229,0.4);
+  display: block;
 }
 
 /* ── HERO ── */
@@ -861,8 +863,9 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 14px 0;
+  gap: 16px;
+  padding: 12px 0;
+  min-width: 0;
 }
 
 .nav-links {
@@ -1169,9 +1172,10 @@ code {
 }
 
 .auth-left .logo-img {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 7px;
+  display: block;
 }
 
 .auth-left-content {
