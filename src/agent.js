@@ -559,6 +559,18 @@ export async function handleIncomingText({
 
   const preResult = useTools ? await preExecuteWhatsAppQuery(text, businessId) : null;
 
+  if (preResult) {
+    const directReply = preResult
+      .replace(/^TOOL RESULT — /, "")
+      .trim();
+    await appendConversationMessage(
+      from,
+      { role: "assistant", text: directReply, meta: { source: "pre-execute-direct" } },
+      { businessId }
+    );
+    return directReply;
+  }
+
   const messages = [
     {
       role: "system",
