@@ -287,7 +287,7 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   width: 220px;
 }
 
-.sidebar-business-card {
+.sidebar-biz-card {
   padding: 14px 12px;
   border-radius: var(--radius-lg);
   background: var(--brand-soft);
@@ -295,21 +295,54 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   margin-bottom: 8px;
 }
 
-.sidebar-business-card select,
-#business-switcher.select {
-  width: 100%;
-  max-width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--ink);
+.sidebar-biz-label {
+  font-size: 0.65rem;
   font-weight: 700;
-  font-size: 0.88rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.sidebar-biz-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+
+.sidebar-biz-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.sidebar-biz-readiness {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.sidebar-biz-switcher {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  padding: 5px 8px;
   cursor: pointer;
   outline: none;
-  padding: 0;
-  white-space: nowrap;
-  overflow: visible;
-  text-overflow: unset;
+  margin-bottom: 8px;
+}
+
+.sidebar-business-card {
+  display: none;
 }
 
 .sidebar-section-label {
