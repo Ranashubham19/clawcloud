@@ -276,8 +276,8 @@ function renderLanding() {
         <div class="shell">
           <div class="nav-inner">
             <div class="logo">
-              <span class="logo-mark"></span>
-              <span>Claw Cloud</span>
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
+              <span>ClawCloud</span>
             </div>
             <div class="nav-links">
               <a href="#features">Features</a>
@@ -298,7 +298,7 @@ function renderLanding() {
           <div class="lp-hero-inner">
             <span class="eyebrow">WhatsApp AI Platform for Businesses</span>
             <h1 class="lp-h1">Convert every WhatsApp inquiry<br>into a qualified lead — automatically.</h1>
-            <p class="lp-sub">Claw Cloud gives your business an AI-powered WhatsApp assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — all from one clean dashboard.</p>
+            <p class="lp-sub">ClawCloud gives your business an AI-powered WhatsApp assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — all from one clean dashboard.</p>
             <div class="lp-cta">
               <a class="button lp-cta-btn" href="/app?mode=signup">Start for free →</a>
               <a class="ghost-button" href="/app?mode=login">Sign in to dashboard</a>
@@ -413,8 +413,8 @@ function renderLanding() {
         <div class="shell">
           <div class="lp-footer-inner">
             <div class="logo">
-              <span class="logo-mark"></span>
-              <span>Claw Cloud</span>
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
+              <span>ClawCloud</span>
             </div>
             <div class="lp-footer-links">
               <a href="/privacy">Privacy Policy</a>
@@ -422,7 +422,7 @@ function renderLanding() {
               <a href="/data-deletion">Data Deletion</a>
               <a href="/app?mode=login">Dashboard</a>
             </div>
-            <div class="lp-footer-copy">© 2026 Claw Cloud. All rights reserved.</div>
+            <div class="lp-footer-copy">© 2026 ClawCloud. All rights reserved.</div>
           </div>
         </div>
       </footer>
@@ -436,8 +436,8 @@ function renderAuth() {
     <div class="auth-page">
       <div class="auth-left">
         <a class="logo" href="/">
-          <span class="logo-mark"></span>
-          <span>SwiftDeploy</span>
+          <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
+          <span>ClawCloud</span>
         </a>
         <div class="auth-left-content">
           <h2 class="auth-left-title">The smartest way to handle WhatsApp at scale.</h2>
@@ -457,14 +457,14 @@ function renderAuth() {
             </div>
           </div>
         </div>
-        <div class="auth-left-footer">© 2026 SwiftDeploy · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
+        <div class="auth-left-footer">© 2026 ClawCloud · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
       </div>
 
       <div class="auth-right">
         <div class="auth-form-wrap">
           <div class="auth-form-header">
             <h1 class="auth-form-title">${isSignup ? "Create your account" : "Welcome back"}</h1>
-            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your Claw Cloud dashboard."}</p>
+            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your ClawCloud dashboard."}</p>
           </div>
 
           <a class="google-button" href="/api/auth/google">
@@ -487,7 +487,7 @@ function renderAuth() {
               </div>
               <div class="field">
                 <label>Business name</label>
-                <input class="input" name="businessName" placeholder="Claw Cloud Inc." required />
+                <input class="input" name="businessName" placeholder="ClawCloud Inc." required />
               </div>
               <div class="field">
                 <label>Email</label>
@@ -1130,8 +1130,8 @@ function renderDashboard() {
       <div class="shell">
         <div class="app-topbar">
           <div class="logo">
-            <span class="logo-mark"></span>
-            <span>${escapeHtml(state.selectedBusiness?.name || "Claw Cloud")}</span>
+            <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
+            <span>${escapeHtml(state.selectedBusiness?.name || "ClawCloud")}</span>
           </div>
           <div class="inline-actions">
             <button class="ghost-button" id="create-business">Add institute</button>
@@ -1375,7 +1375,7 @@ function renderDashboard() {
             const rzp = new window.Razorpay({
               key: payload.keyId,
               subscription_id: payload.subscriptionId,
-              name: payload.businessName || "Claw Cloud",
+              name: payload.businessName || "ClawCloud",
               description: `${plan} Plan Subscription`,
               prefill: { email: payload.userEmail, name: payload.userName },
               theme: { color: "#7c6fff" },

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Cloud -->
+  <path d="M47 37c0 3.3-2.7 6-6 6H23c-3.68 0-6.67-2.99-6.67-6.67 0-3.2 2.27-5.87 5.33-6.47V29.3c0-4.42 3.58-8 8-8 3.27 0 6.07 1.97 7.37 4.8 1.1-.5 2.33-.8 3.63-.8 3.68 0 6.34 2.66 6.34 6.34 0 .22-.02.44-.05.66C48.97 32.7 47 34.7 47 37z" fill="white" opacity="0.95"/>
+  <!-- Eyes -->
+  <circle cx="27.5" cy="37" r="2.2" fill="#4f46e5"/>
+  <circle cx="36.5" cy="37" r="2.2" fill="#4f46e5"/>
+  <!-- Smile -->
+  <path d="M28.5 41.5 Q32 44 35.5 41.5" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <!-- Antenna -->
+  <line x1="32" y1="29" x2="32" y2="25" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="32" cy="24" r="1.5" fill="#4f46e5"/>
+</svg>
