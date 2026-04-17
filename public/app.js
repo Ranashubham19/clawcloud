@@ -1294,6 +1294,10 @@ function renderDashboard() {
             body: { plan }
           });
           if (payload.subscriptionId && payload.keyId) {
+            if (!window.Razorpay) {
+              alert("Razorpay is still loading, please try again in a moment.");
+              return;
+            }
             const rzp = new window.Razorpay({
               key: payload.keyId,
               subscription_id: payload.subscriptionId,
