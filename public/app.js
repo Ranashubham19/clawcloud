@@ -582,114 +582,84 @@ function dashboardSection() {
     case "billing":
       return `
         <section class="card">
-          <h2 class="section-title">Billing</h2>
+          <div class="section-header">
+            <div>
+              <div class="page-title">Billing & Subscription</div>
+              <div class="muted">Manage your plan and payment method</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="ghost-button" type="button" id="billing-refresh">Refresh</button>
+              ${state.billingEnabled && billing.stripeCustomerId
+                ? `<button class="button" type="button" id="billing-portal">Billing portal</button>`
+                : ""}
+            </div>
+          </div>
           ${state.billingNotice ? `
             <div class="notice ${escapeHtml(state.billingNotice.tone)}">${escapeHtml(state.billingNotice.message)}</div>
           ` : ""}
-          <div class="metrics-grid">
-            <div class="metric">
-              <div class="muted">Current plan</div>
-              <div class="metric-value">${escapeHtml(String(currentPlan).toUpperCase())}</div>
+          <div class="info-grid">
+            <div class="info-tile">
+              <div class="info-tile-label">Current Plan</div>
+              <div class="info-tile-value">${escapeHtml(String(currentPlan).charAt(0).toUpperCase() + String(currentPlan).slice(1))}</div>
             </div>
-            <div class="metric">
-              <div class="muted">Billing status</div>
-              <div class="metric-value">${escapeHtml(billing.status || "inactive")}</div>
+            <div class="info-tile">
+              <div class="info-tile-label">Billing Status</div>
+              <div class="info-tile-value">
+                <span class="status-badge ${activeBilling ? "ok" : "warn"}">${escapeHtml(billing.status || "Inactive")}</span>
+              </div>
             </div>
-            <div class="metric">
-              <div class="muted">Period end</div>
-              <div class="metric-value">${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "-")}</div>
+            <div class="info-tile">
+              <div class="info-tile-label">Period Ends</div>
+              <div class="info-tile-value">${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "—")}</div>
             </div>
-            <div class="metric">
-              <div class="muted">Stripe customer</div>
-              <div class="metric-value">${escapeHtml(billing.stripeCustomerId || "Not created")}</div>
+            <div class="info-tile">
+              <div class="info-tile-label">Customer ID</div>
+              <div class="info-tile-value">${escapeHtml(billing.stripeCustomerId || billing.razorpaySubscriptionId || "Not created")}</div>
             </div>
           </div>
-          <div class="section plan-stack">
-            ${state.plans.map((plan) => {
-              const isCurrentPlan = String(plan.id) === String(currentPlan);
-              let actionMarkup = `<button class="ghost-button" type="button" disabled>Billing not configured</button>`;
 
-              if (state.billingEnabled) {
-                if (isCurrentPlan && activeBilling) {
-                  actionMarkup = `<button class="ghost-button" type="button" disabled>Current subscription</button>`;
-                } else {
-                  actionMarkup = `
-                    <div class="payment-buttons">
-                      <button class="button razorpay-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="razorpay">
-                        Pay ₹${escapeHtml(String(plan.priceInr))}/mo
-                      </button>
-                      <button class="button stripe-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="stripe">
-                        Pay $${escapeHtml(String(plan.priceUsd || ""))}/mo
-                      </button>
-                    </div>
-                  `;
+          <div class="section">
+            <div class="section-title">Choose a Plan</div>
+            <div class="plan-stack">
+              ${state.plans.map((plan) => {
+                const isCurrentPlan = String(plan.id) === String(currentPlan);
+                let actionMarkup = `<button class="ghost-button" type="button" disabled>Billing not configured</button>`;
+
+                if (state.billingEnabled) {
+                  if (isCurrentPlan && activeBilling) {
+                    actionMarkup = `<span class="status-badge ok">Active subscription</span>`;
+                  } else {
+                    actionMarkup = `
+                      <div class="payment-buttons">
+                        <button class="button razorpay-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="razorpay">
+                          🇮🇳 Pay ₹${escapeHtml(String(plan.priceInr))}/mo
+                        </button>
+                        <button class="button stripe-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="stripe">
+                          🌍 Pay $${escapeHtml(String(plan.priceUsd || ""))}/mo
+                        </button>
+                      </div>
+                    `;
+                  }
                 }
-              }
 
-              return `
-                <article class="plan-card">
-                  <div class="status-row">
-                    <div>
-                      <h3>${escapeHtml(plan.name)}</h3>
-                      <div class="muted">${escapeHtml(plan.summary)}</div>
+                return `
+                  <article class="plan-card">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:10px;">
+                      <div style="flex:1;min-width:0;">
+                        <h3>${escapeHtml(plan.name)}${isCurrentPlan ? ` <span class="pill" style="margin-left:8px;">Current</span>` : ""}</h3>
+                        <p class="plan-summary">${escapeHtml(plan.summary)}</p>
+                      </div>
+                      <div style="text-align:right;flex-shrink:0;">
+                        <div class="plan-price-inr">₹${escapeHtml(String(plan.priceInr))}<span>/mo</span></div>
+                        <div class="plan-price-usd">$${escapeHtml(String(plan.priceUsd || ""))}/mo</div>
+                      </div>
                     </div>
-                    <div>
-                      <div class="metric-value">₹${escapeHtml(String(plan.priceInr))}<span class="muted">/mo</span></div>
-                      <div class="muted" style="text-align:right">$${escapeHtml(String(plan.priceUsd || ""))}/mo</div>
+                    <div class="plan-actions">
+                      ${actionMarkup}
                     </div>
-                  </div>
-                  <div class="plan-actions">
-                    ${isCurrentPlan ? `<span class="pill">Current plan</span>` : `<span class="pill">${escapeHtml(plan.id)}</span>`}
-                    ${actionMarkup}
-                  </div>
-                </article>
-              `;
-            }).join("")}
-          </div>
-          <div class="section split">
-            <div class="card">
-              <h3 class="section-title">Subscription controls</h3>
-              <div class="status-list">
-                <div class="status-row">
-                  <span class="muted">Stripe enabled</span>
-                  <span class="status-badge ${state.billingEnabled ? "ok" : "warn"}">${state.billingEnabled ? "Ready" : "Disabled"}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Portal access</span>
-                  <span class="status-badge ${billing.stripeCustomerId ? "ok" : "warn"}">${billing.stripeCustomerId ? "Available" : "Needs checkout first"}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Cancel at period end</span>
-                  <span>${escapeHtml(billing.cancelAtPeriodEnd === true ? "Yes" : "No")}</span>
-                </div>
-              </div>
-              <div class="form-actions">
-                <button class="ghost-button" type="button" id="billing-refresh">Refresh billing</button>
-                ${state.billingEnabled && billing.stripeCustomerId
-                  ? `<button class="button" type="button" id="billing-portal">Open billing portal</button>`
-                  : ""}
-              </div>
-            </div>
-            <div class="card">
-              <h3 class="section-title">Commercial notes</h3>
-              <div class="status-list">
-                <div class="status-row">
-                  <span class="muted">Plan stored on workspace</span>
-                  <span>${escapeHtml(state.selectedBusiness?.plan || "basic")}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Billing provider</span>
-                  <span>${escapeHtml(billing.provider || "stripe")}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Last checkout</span>
-                  <span>${escapeHtml(billing.lastCheckoutAt ? formatDate(billing.lastCheckoutAt) : "-")}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Last webhook</span>
-                  <span>${escapeHtml(billing.lastWebhookAt ? formatDate(billing.lastWebhookAt) : "-")}</span>
-                </div>
-              </div>
+                  </article>
+                `;
+              }).join("")}
             </div>
           </div>
         </section>
@@ -969,23 +939,28 @@ function dashboardSection() {
     default:
       return `
         <section class="card">
-          <h2 class="section-title">Overview</h2>
+          <div class="section-header">
+            <div>
+              <div class="page-title">Overview</div>
+              <div class="muted">Your workspace at a glance</div>
+            </div>
+          </div>
           <div class="metrics-grid">
             <div class="metric">
-              <div class="muted">Total leads</div>
-              <div class="metric-value">${escapeHtml(state.analytics?.totalLeads || 0)}</div>
+              <div class="metric-label">Total Leads</div>
+              <div class="metric-value">${escapeHtml(String(state.analytics?.totalLeads || 0))}</div>
             </div>
             <div class="metric">
-              <div class="muted">Qualified leads</div>
-              <div class="metric-value">${escapeHtml(state.analytics?.qualifiedLeads || 0)}</div>
+              <div class="metric-label">Qualified</div>
+              <div class="metric-value">${escapeHtml(String(state.analytics?.qualifiedLeads || 0))}</div>
             </div>
             <div class="metric">
-              <div class="muted">Demo requested</div>
-              <div class="metric-value">${escapeHtml(state.analytics?.demoRequested || 0)}</div>
+              <div class="metric-label">Demo Requests</div>
+              <div class="metric-value">${escapeHtml(String(state.analytics?.demoRequested || 0))}</div>
             </div>
             <div class="metric">
-              <div class="muted">Chats tracked</div>
-              <div class="metric-value">${escapeHtml(state.analytics?.totalChats || 0)}</div>
+              <div class="metric-label">Chats</div>
+              <div class="metric-value">${escapeHtml(String(state.analytics?.totalChats || 0))}</div>
             </div>
           </div>
           <div class="section split">
