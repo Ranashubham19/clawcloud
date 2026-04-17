@@ -613,8 +613,16 @@ function dashboardSection() {
                 if (isCurrentPlan && activeBilling) {
                   actionMarkup = `<button class="ghost-button" type="button" disabled>Current subscription</button>`;
                 } else {
-                  const label = isCurrentPlan ? "Restart billing" : `Choose ${escapeHtml(plan.name)}`;
-                  actionMarkup = `<button class="button" type="button" data-upgrade-plan="${escapeHtml(plan.id)}">${label}</button>`;
+                  actionMarkup = `
+                    <div class="payment-buttons">
+                      <button class="button razorpay-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="razorpay">
+                        Pay ₹${escapeHtml(String(plan.priceInr))}/mo
+                      </button>
+                      <button class="button stripe-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="stripe">
+                        Pay $${escapeHtml(String(plan.priceUsd || ""))}/mo
+                      </button>
+                    </div>
+                  `;
                 }
               }
 
@@ -625,7 +633,10 @@ function dashboardSection() {
                       <h3>${escapeHtml(plan.name)}</h3>
                       <div class="muted">${escapeHtml(plan.summary)}</div>
                     </div>
-                    <div class="metric-value">${escapeHtml(formatPlanPrice(plan.priceInr))}</div>
+                    <div>
+                      <div class="metric-value">₹${escapeHtml(String(plan.priceInr))}<span class="muted">/mo</span></div>
+                      <div class="muted" style="text-align:right">$${escapeHtml(String(plan.priceUsd || ""))}/mo</div>
+                    </div>
                   </div>
                   <div class="plan-actions">
                     ${isCurrentPlan ? `<span class="pill">Current plan</span>` : `<span class="pill">${escapeHtml(plan.id)}</span>`}
@@ -1268,26 +1279,34 @@ function renderDashboard() {
 
   document.querySelectorAll("[data-upgrade-plan]").forEach((button) => {
     button.addEventListener("click", async () => {
+      const plan = button.dataset.upgradePlan;
+      const provider = button.dataset.provider || "razorpay";
       try {
-        const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/razorpay`, {
-          method: "POST",
-          body: { plan: button.dataset.upgradePlan }
-        });
-        if (payload.subscriptionId && payload.keyId) {
-          const rzp = new window.Razorpay({
-            key: payload.keyId,
-            subscription_id: payload.subscriptionId,
-            name: payload.businessName || "Claw Cloud",
-            description: `${button.dataset.upgradePlan} Plan Subscription`,
-            prefill: { email: payload.userEmail, name: payload.userName },
-            theme: { color: "#7c6fff" },
-            handler: function() {
-              window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
-            }
+        if (provider === "stripe") {
+          const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/checkout`, {
+            method: "POST",
+            body: { plan }
           });
-          rzp.open();
-        } else if (payload.url) {
-          window.location.href = payload.url;
+          if (payload.url) window.location.href = payload.url;
+        } else {
+          const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/razorpay`, {
+            method: "POST",
+            body: { plan }
+          });
+          if (payload.subscriptionId && payload.keyId) {
+            const rzp = new window.Razorpay({
+              key: payload.keyId,
+              subscription_id: payload.subscriptionId,
+              name: payload.businessName || "Claw Cloud",
+              description: `${plan} Plan Subscription`,
+              prefill: { email: payload.userEmail, name: payload.userName },
+              theme: { color: "#7c6fff" },
+              handler: function() {
+                window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
+              }
+            });
+            rzp.open();
+          }
         }
       } catch (error) {
         alert(error.message);

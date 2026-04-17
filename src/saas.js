@@ -17,18 +17,21 @@ export const saasPlans = [
     id: "basic",
     name: "Basic",
     priceInr: 999,
+    priceUsd: 29,
     summary: "One WhatsApp number, lead capture, FAQs, and a lightweight dashboard."
   },
   {
     id: "pro",
     name: "Pro",
     priceInr: 2999,
+    priceUsd: 59,
     summary: "Everything in Basic plus demo booking workflows, analytics, and richer AI controls."
   },
   {
     id: "premium",
     name: "Premium",
     priceInr: 5999,
+    priceUsd: 99,
     summary: "Multi-institute workflows, premium onboarding help, and room for custom automations."
   }
 ];

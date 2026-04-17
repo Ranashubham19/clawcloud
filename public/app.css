@@ -471,6 +471,11 @@ td { color: var(--ink); }
 
 .plan-card:hover { border-color: rgba(124, 111, 255, 0.25); }
 
+/* ── PAYMENT BUTTONS ── */
+.payment-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.razorpay-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7) !important; }
+.stripe-btn { background: linear-gradient(135deg, #635bff, #4f46e5) !important; }
+
 /* ── MESSAGES ── */
 .messages { display: grid; gap: 12px; }
 
