@@ -1137,153 +1137,242 @@ function needsOnboarding() {
 function renderOnboarding() {
   const step = state.onboardingStep || 1;
   const biz = state.selectedBusiness;
+  const bizName = escapeHtml(biz?.name || "your institute");
 
   const steps = [
-    { num: 1, label: "Institute" },
-    { num: 2, label: "Courses" },
-    { num: 3, label: "FAQs" },
-    { num: 4, label: "Go live" }
+    { num: 1, label: "Setup",   desc: "Institute profile"  },
+    { num: 2, label: "Courses", desc: "Programs & batches" },
+    { num: 3, label: "FAQs",    desc: "Common questions"   },
+    { num: 4, label: "Live",    desc: "Bot is active"      }
   ];
 
-  const stepDots = steps.map(s => `
-    <div class="ob-step ${step === s.num ? "ob-step-active" : step > s.num ? "ob-step-done" : ""}">
-      <div class="ob-step-dot">${step > s.num ? "✓" : s.num}</div>
-      <span>${s.label}</span>
+  const stepper = steps.map((s, i) => `
+    <div class="ob2-step ${step === s.num ? "ob2-step--active" : step > s.num ? "ob2-step--done" : "ob2-step--pending"}">
+      <div class="ob2-step-circle">
+        ${step > s.num
+          ? `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+          : s.num}
+      </div>
+      <div class="ob2-step-meta">
+        <span class="ob2-step-label">${s.label}</span>
+        <span class="ob2-step-desc">${s.desc}</span>
+      </div>
+      ${i < steps.length - 1 ? '<div class="ob2-step-connector"></div>' : ""}
     </div>
-  `).join('<div class="ob-step-line"></div>');
+  `).join("");
 
-  let content = "";
+  let panel = "";
 
   if (step === 1) {
-    content = `
-      <div class="ob-step-header">
-        <div class="ob-step-icon">🏫</div>
-        <h2 class="ob-title">Tell us about your institute</h2>
-        <p class="ob-sub">This helps your AI bot introduce itself correctly to students.</p>
+    panel = `
+      <div class="ob2-panel-head">
+        <div class="ob2-badge">Step 1 of 3</div>
+        <h2 class="ob2-title">Set up your institute profile</h2>
+        <p class="ob2-sub">This is the identity your AI bot will use when talking to students on WhatsApp. Make it specific — the more context you give, the smarter the bot replies.</p>
       </div>
-      <form id="ob-form-1" class="ob-form">
-        <div class="field">
-          <label>Institute name</label>
-          <input class="input" name="name" value="${escapeHtml(biz?.name || "")}" placeholder="e.g. Sunshine Academy" required />
+      <form id="ob-form-1" class="ob2-form">
+        <div class="ob2-field">
+          <label class="ob2-label">Institute name <span class="ob2-req">*</span></label>
+          <input class="ob2-input" name="name" value="${escapeHtml(biz?.name || "")}" placeholder="e.g. Apex Coaching Centre" required autocomplete="off" />
+          <span class="ob2-hint">This is how your bot will introduce your institute to every student.</span>
         </div>
-        <div class="field">
-          <label>Short description <span class="ob-optional">(shown to students)</span></label>
-          <textarea class="textarea ob-textarea" name="description" placeholder="e.g. We offer JEE, NEET and Foundation coaching for Class 8-12 students.">${escapeHtml(biz?.description || "")}</textarea>
+        <div class="ob2-field">
+          <label class="ob2-label">What do you offer? <span class="ob2-hint-inline">optional</span></label>
+          <textarea class="ob2-textarea" name="description" rows="2" placeholder="e.g. Premium JEE & NEET coaching for Class 9–12. 15 years of results, expert faculty, small batches.">${escapeHtml(biz?.description || "")}</textarea>
+          <span class="ob2-hint">Students see this when they ask "What is this institute about?"</span>
         </div>
-        <div class="field">
-          <label>AI assistant personality <span class="ob-optional">(how should the bot talk?)</span></label>
-          <textarea class="textarea ob-textarea" name="aiPrompt" placeholder="e.g. You are a friendly admissions assistant. Be warm, concise, and always guide students toward booking a demo class.">${escapeHtml(biz?.aiPrompt || "")}</textarea>
+        <div class="ob2-field">
+          <label class="ob2-label">Bot personality <span class="ob2-hint-inline">how should it talk?</span></label>
+          <textarea class="ob2-textarea" name="aiPrompt" rows="3" placeholder="e.g. You are a warm and professional admissions counselor. Answer clearly, keep replies concise, and always guide students toward booking a free demo class.">${escapeHtml(biz?.aiPrompt || "")}</textarea>
+          <span class="ob2-hint">Think of this as the tone of voice — friendly, formal, Hinglish-mix, etc.</span>
         </div>
-        <div class="field">
-          <label>Welcome message <span class="ob-optional">(first thing bot says)</span></label>
-          <input class="input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. Hi! Welcome to Sunshine Academy. How can I help you today? 😊" />
+        <div class="ob2-field">
+          <label class="ob2-label">Welcome message <span class="ob2-hint-inline">first thing bot says</span></label>
+          <input class="ob2-input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. 👋 Hi! Welcome to Apex Coaching. I'm your AI admissions assistant. How can I help you today?" />
+          <span class="ob2-hint">Sent the moment a student first messages your WhatsApp number.</span>
         </div>
-        <div class="ob-actions">
-          <button class="button ob-btn-next" type="submit">Next: Add courses →</button>
+        <div class="ob2-actions">
+          <button class="ob2-btn-primary" type="submit">
+            Continue to Courses
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </form>
     `;
   } else if (step === 2) {
-    content = `
-      <div class="ob-step-header">
-        <div class="ob-step-icon">📚</div>
-        <h2 class="ob-title">Add your courses</h2>
-        <p class="ob-sub">Your bot will use this to answer student questions about available programs.</p>
+    panel = `
+      <div class="ob2-panel-head">
+        <div class="ob2-badge">Step 2 of 3</div>
+        <h2 class="ob2-title">Add your courses & batches</h2>
+        <p class="ob2-sub">When a student asks "What courses do you offer?" or "What is the fee for JEE?", your bot will answer directly from this list. The more detail you add, the better it answers.</p>
       </div>
-      <form id="ob-form-2" class="ob-form">
-        <div class="field">
-          <label>Courses <span class="ob-optional">— one per line: Course Name | Timings | Fee | Keywords | Description</span></label>
-          <textarea class="textarea ob-textarea-lg" name="courseText" placeholder="JEE Main | Mon Wed Fri 5-7pm | ₹8,000/month | jee,iit,engineering | Comprehensive JEE preparation
-NEET Foundation | Tue Thu Sat 4-6pm | ₹7,500/month | neet,medical,biology | NEET coaching for Class 11-12
-Foundation Class 8-10 | Daily 4-5pm | ₹5,000/month | foundation,school | School subject coaching">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
+      <form id="ob-form-2" class="ob2-form">
+        <div class="ob2-field">
+          <label class="ob2-label">Course catalog</label>
+          <div class="ob2-format-pill">Format: <code>Course Name | Timings | Fee | Keywords | Description</code></div>
+          <textarea class="ob2-textarea ob2-textarea--code" name="courseText" rows="8" placeholder="JEE Main & Advanced | Mon Wed Fri 5–7 pm | ₹8,000/month | jee,iit,engineering | Comprehensive 2-year JEE prep with test series
+NEET | Tue Thu Sat 4–6 pm | ₹7,500/month | neet,medical,biology | NEET coaching for Class 11–12 with biology focus
+Foundation (Class 8–10) | Daily 4–5 pm | ₹5,000/month | foundation,school,cbse | School subject coaching with competitive exam base">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
+          <span class="ob2-hint">One course per line. Keywords help the bot match student questions to the right course.</span>
         </div>
-        <div class="ob-actions">
-          <button class="ob-btn-back ghost-button" type="button" id="ob-back-2">← Back</button>
-          <button class="button ob-btn-next" type="submit">Next: Add FAQs →</button>
+        <div class="ob2-actions">
+          <button class="ob2-btn-ghost" type="button" id="ob-back-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back
+          </button>
+          <button class="ob2-btn-primary" type="submit">
+            Continue to FAQs
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </form>
     `;
   } else if (step === 3) {
-    content = `
-      <div class="ob-step-header">
-        <div class="ob-step-icon">💬</div>
-        <h2 class="ob-title">Add common FAQs</h2>
-        <p class="ob-sub">Students ask the same questions every day. Let the bot answer them instantly.</p>
+    panel = `
+      <div class="ob2-panel-head">
+        <div class="ob2-badge">Step 3 of 3</div>
+        <h2 class="ob2-title">Add your FAQs</h2>
+        <p class="ob2-sub">Every institute gets the same 20 questions asked 100 times. Add them once — your bot handles them forever, at any hour, in any language.</p>
       </div>
-      <form id="ob-form-3" class="ob-form">
-        <div class="field">
-          <label>FAQs <span class="ob-optional">— one per line: Question | Answer</span></label>
-          <textarea class="textarea ob-textarea-lg" name="faqText" placeholder="What is the fee for JEE? | The JEE batch fee is ₹8,000 per month with flexible EMI options.
-Do you offer demo classes? | Yes! We offer a free demo class. Just share your name and preferred timing.
-What are the batch timings? | We have morning (6-8am), afternoon (2-4pm), and evening (5-7pm) batches.
-Is there a hostel facility? | Yes, we have hostel accommodation available for outstation students.">${escapeHtml(serializeFaqs(biz?.faqItems || []))}</textarea>
+      <form id="ob-form-3" class="ob2-form">
+        <div class="ob2-field">
+          <label class="ob2-label">Frequently asked questions</label>
+          <div class="ob2-format-pill">Format: <code>Question | Answer</code></div>
+          <textarea class="ob2-textarea ob2-textarea--code" name="faqText" rows="9" placeholder="What is the fee for JEE? | The JEE batch fee is ₹8,000/month with flexible EMI options available.
+Do you offer demo classes? | Yes! We offer a free 1-hour demo class. Just share your name and preferred timing.
+What are the batch timings? | Morning 6–8 am, Afternoon 2–4 pm, Evening 5–7 pm batches available.
+Is there a hostel facility? | Yes, hostel accommodation is available for outstation students.
+How many students per batch? | We maintain small batches of max 20 students for personal attention.
+What is the success rate? | Our students have a 94% selection rate in JEE & NEET over the last 5 years.">${escapeHtml(serializeFaqs(biz?.faqItems || []))}</textarea>
+          <span class="ob2-hint">One FAQ per line. These are answered instantly — no human needed, 24/7.</span>
         </div>
-        <div class="ob-actions">
-          <button class="ob-btn-back ghost-button" type="button" id="ob-back-3">← Back</button>
-          <button class="button ob-btn-next" type="submit">Finish setup →</button>
+        <div class="ob2-actions">
+          <button class="ob2-btn-ghost" type="button" id="ob-back-3">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back
+          </button>
+          <button class="ob2-btn-primary" type="submit">
+            Launch my AI bot
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </form>
     `;
   } else {
-    content = `
-      <div class="ob-done">
-        <div class="ob-done-icon">🎉</div>
-        <h2 class="ob-title">Your AI bot is live!</h2>
-        <p class="ob-sub">Students who message your WhatsApp number will now get instant AI-powered replies from your bot.</p>
-        <div class="ob-live-box">
-          <div class="ob-live-row">
-            <span class="ob-live-label">Platform WhatsApp</span>
-            <span class="ob-live-value">Managed by ClawCloud</span>
+    panel = `
+      <div class="ob2-done">
+        <div class="ob2-done-glow"></div>
+        <div class="ob2-done-check">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#22c55e" opacity="0.15"/><path d="M9 16.5L13.5 21L23 11" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h2 class="ob2-done-title">${bizName} is live on WhatsApp</h2>
+        <p class="ob2-done-sub">Your AI admissions bot is now active. Students who message your WhatsApp number will get instant, intelligent replies — 24 hours a day, in any language.</p>
+
+        <div class="ob2-live-grid">
+          <div class="ob2-live-card">
+            <div class="ob2-live-icon">🤖</div>
+            <div class="ob2-live-card-body">
+              <div class="ob2-live-card-title">AI Bot</div>
+              <div class="ob2-live-card-val ob2-green">Active</div>
+            </div>
           </div>
-          <div class="ob-live-row">
-            <span class="ob-live-label">AI bot status</span>
-            <span class="ob-live-value ob-status-live">● Active</span>
+          <div class="ob2-live-card">
+            <div class="ob2-live-icon">📲</div>
+            <div class="ob2-live-card-body">
+              <div class="ob2-live-card-title">WhatsApp</div>
+              <div class="ob2-live-card-val ob2-green">Connected</div>
+            </div>
           </div>
-          <div class="ob-live-row">
-            <span class="ob-live-label">Lead capture</span>
-            <span class="ob-live-value ob-status-live">● On</span>
+          <div class="ob2-live-card">
+            <div class="ob2-live-icon">🎯</div>
+            <div class="ob2-live-card-body">
+              <div class="ob2-live-card-title">Lead Capture</div>
+              <div class="ob2-live-card-val ob2-green">On</div>
+            </div>
           </div>
-          <div class="ob-live-row">
-            <span class="ob-live-label">Demo booking</span>
-            <span class="ob-live-value ob-status-live">● On</span>
+          <div class="ob2-live-card">
+            <div class="ob2-live-icon">📅</div>
+            <div class="ob2-live-card-body">
+              <div class="ob2-live-card-title">Demo Booking</div>
+              <div class="ob2-live-card-val ob2-green">On</div>
+            </div>
           </div>
         </div>
-        <p class="ob-sub" style="margin-top:16px;">You can refine courses, FAQs, and the AI prompt anytime from <strong>Settings</strong>.</p>
-        <button class="button" id="ob-goto-dashboard" style="margin-top:20px;width:100%;justify-content:center;">Go to dashboard →</button>
+
+        <div class="ob2-next-steps">
+          <div class="ob2-next-title">What's next</div>
+          <div class="ob2-next-item">
+            <span class="ob2-next-num">1</span>
+            <span>Share your WhatsApp number with students — the bot handles all replies automatically.</span>
+          </div>
+          <div class="ob2-next-item">
+            <span class="ob2-next-num">2</span>
+            <span>Monitor leads, bookings, and chats from your dashboard in real time.</span>
+          </div>
+          <div class="ob2-next-item">
+            <span class="ob2-next-num">3</span>
+            <span>Refine courses, FAQs, and the AI tone anytime from <strong>Settings</strong>.</span>
+          </div>
+        </div>
+
+        <button class="ob2-btn-primary ob2-btn-full" id="ob-goto-dashboard">
+          Go to dashboard
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     `;
   }
 
   app.innerHTML = `
-    <div class="ob-shell">
-      <div class="ob-card">
-        <div class="ob-brand">
+    <div class="ob2-shell">
+      <aside class="ob2-sidebar">
+        <div class="ob2-sidebar-brand">
           <img src="/logo.svg" width="28" height="28" class="logo-img" alt="ClawCloud" />
           <span class="logo-name">ClawCloud</span>
         </div>
-        <div class="ob-stepper">${stepDots}</div>
-        ${content}
-      </div>
+        <div class="ob2-sidebar-intro">
+          <div class="ob2-sidebar-title">Set up your AI bot</div>
+          <div class="ob2-sidebar-sub">Takes about 3 minutes. No technical knowledge needed.</div>
+        </div>
+        <nav class="ob2-stepper">${stepper}</nav>
+        <div class="ob2-sidebar-footer">
+          <div class="ob2-trust-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.8 5H13L9.6 7.6L10.9 12L7 9.4L3.1 12L4.4 7.6L1 5H5.2L7 1Z" fill="#6366f1"/></svg>
+            <span>Used by 500+ institutes</span>
+          </div>
+          <div class="ob2-trust-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5C4 1.5 1.5 4 1.5 7S4 12.5 7 12.5 12.5 10 12.5 7 10 1.5 7 1.5zm0 4v3M7 10h.01" stroke="#6366f1" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <span>24/7 AI support in 30+ languages</span>
+          </div>
+        </div>
+      </aside>
+      <main class="ob2-main">
+        <div class="ob2-panel">
+          ${panel}
+        </div>
+      </main>
     </div>
   `;
 
   document.querySelector("#ob-form-1")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector(".ob-btn-next");
-    btn.disabled = true; btn.textContent = "Saving…";
+    const btn = e.target.querySelector(".ob2-btn-primary");
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
     try {
       const data = formToObject(e.target);
       await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
       await loadBootstrap(biz.id);
       state.onboardingStep = 2;
       renderOnboarding();
-    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Next: Add courses →"; }
+    } catch (err) { alert(err.message); btn.disabled = false; btn.innerHTML = orig; }
   });
 
   document.querySelector("#ob-form-2")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector(".ob-btn-next");
-    btn.disabled = true; btn.textContent = "Saving…";
+    const btn = e.target.querySelector(".ob2-btn-primary");
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
     try {
       const data = formToObject(e.target);
       const courseItems = parseCourseText(data.courseText);
@@ -1291,14 +1380,15 @@ Is there a hostel facility? | Yes, we have hostel accommodation available for ou
       await loadBootstrap(biz.id);
       state.onboardingStep = 3;
       renderOnboarding();
-    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Next: Add FAQs →"; }
+    } catch (err) { alert(err.message); btn.disabled = false; btn.innerHTML = orig; }
   });
   document.querySelector("#ob-back-2")?.addEventListener("click", () => { state.onboardingStep = 1; renderOnboarding(); });
 
   document.querySelector("#ob-form-3")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector(".ob-btn-next");
-    btn.disabled = true; btn.textContent = "Finishing…";
+    const btn = e.target.querySelector(".ob2-btn-primary");
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Launching…';
     try {
       const data = formToObject(e.target);
       const faqItems = parseFaqText(data.faqText);
@@ -1306,7 +1396,7 @@ Is there a hostel facility? | Yes, we have hostel accommodation available for ou
       await loadBootstrap(biz.id);
       state.onboardingStep = 4;
       renderOnboarding();
-    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Finish setup →"; }
+    } catch (err) { alert(err.message); btn.disabled = false; btn.innerHTML = orig; }
   });
   document.querySelector("#ob-back-3")?.addEventListener("click", () => { state.onboardingStep = 2; renderOnboarding(); });
 
