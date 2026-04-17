@@ -1124,6 +1124,198 @@ function dashboardSection() {
   }
 }
 
+function needsOnboarding() {
+  const biz = state.selectedBusiness;
+  if (!biz) return false;
+  const hasCourses = (biz.courseItems || []).length > 0;
+  const hasFaqs = (biz.faqItems || []).length > 0;
+  const hasPrompt = String(biz.aiPrompt || "").trim().length > 0;
+  return !hasCourses && !hasFaqs && !hasPrompt;
+}
+
+function renderOnboarding() {
+  const step = state.onboardingStep || 1;
+  const biz = state.selectedBusiness;
+
+  const steps = [
+    { num: 1, label: "Institute" },
+    { num: 2, label: "Courses" },
+    { num: 3, label: "FAQs" },
+    { num: 4, label: "Go live" }
+  ];
+
+  const stepDots = steps.map(s => `
+    <div class="ob-step ${step === s.num ? "ob-step-active" : step > s.num ? "ob-step-done" : ""}">
+      <div class="ob-step-dot">${step > s.num ? "✓" : s.num}</div>
+      <span>${s.label}</span>
+    </div>
+  `).join('<div class="ob-step-line"></div>');
+
+  let content = "";
+
+  if (step === 1) {
+    content = `
+      <div class="ob-step-header">
+        <div class="ob-step-icon">🏫</div>
+        <h2 class="ob-title">Tell us about your institute</h2>
+        <p class="ob-sub">This helps your AI bot introduce itself correctly to students.</p>
+      </div>
+      <form id="ob-form-1" class="ob-form">
+        <div class="field">
+          <label>Institute name</label>
+          <input class="input" name="name" value="${escapeHtml(biz?.name || "")}" placeholder="e.g. Sunshine Academy" required />
+        </div>
+        <div class="field">
+          <label>Short description <span class="ob-optional">(shown to students)</span></label>
+          <textarea class="textarea ob-textarea" name="description" placeholder="e.g. We offer JEE, NEET and Foundation coaching for Class 8-12 students.">${escapeHtml(biz?.description || "")}</textarea>
+        </div>
+        <div class="field">
+          <label>AI assistant personality <span class="ob-optional">(how should the bot talk?)</span></label>
+          <textarea class="textarea ob-textarea" name="aiPrompt" placeholder="e.g. You are a friendly admissions assistant. Be warm, concise, and always guide students toward booking a demo class.">${escapeHtml(biz?.aiPrompt || "")}</textarea>
+        </div>
+        <div class="field">
+          <label>Welcome message <span class="ob-optional">(first thing bot says)</span></label>
+          <input class="input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. Hi! Welcome to Sunshine Academy. How can I help you today? 😊" />
+        </div>
+        <div class="ob-actions">
+          <button class="button ob-btn-next" type="submit">Next: Add courses →</button>
+        </div>
+      </form>
+    `;
+  } else if (step === 2) {
+    content = `
+      <div class="ob-step-header">
+        <div class="ob-step-icon">📚</div>
+        <h2 class="ob-title">Add your courses</h2>
+        <p class="ob-sub">Your bot will use this to answer student questions about available programs.</p>
+      </div>
+      <form id="ob-form-2" class="ob-form">
+        <div class="field">
+          <label>Courses <span class="ob-optional">— one per line: Course Name | Timings | Fee | Keywords | Description</span></label>
+          <textarea class="textarea ob-textarea-lg" name="courseText" placeholder="JEE Main | Mon Wed Fri 5-7pm | ₹8,000/month | jee,iit,engineering | Comprehensive JEE preparation
+NEET Foundation | Tue Thu Sat 4-6pm | ₹7,500/month | neet,medical,biology | NEET coaching for Class 11-12
+Foundation Class 8-10 | Daily 4-5pm | ₹5,000/month | foundation,school | School subject coaching">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
+        </div>
+        <div class="ob-actions">
+          <button class="ob-btn-back ghost-button" type="button" id="ob-back-2">← Back</button>
+          <button class="button ob-btn-next" type="submit">Next: Add FAQs →</button>
+        </div>
+      </form>
+    `;
+  } else if (step === 3) {
+    content = `
+      <div class="ob-step-header">
+        <div class="ob-step-icon">💬</div>
+        <h2 class="ob-title">Add common FAQs</h2>
+        <p class="ob-sub">Students ask the same questions every day. Let the bot answer them instantly.</p>
+      </div>
+      <form id="ob-form-3" class="ob-form">
+        <div class="field">
+          <label>FAQs <span class="ob-optional">— one per line: Question | Answer</span></label>
+          <textarea class="textarea ob-textarea-lg" name="faqText" placeholder="What is the fee for JEE? | The JEE batch fee is ₹8,000 per month with flexible EMI options.
+Do you offer demo classes? | Yes! We offer a free demo class. Just share your name and preferred timing.
+What are the batch timings? | We have morning (6-8am), afternoon (2-4pm), and evening (5-7pm) batches.
+Is there a hostel facility? | Yes, we have hostel accommodation available for outstation students.">${escapeHtml(serializeFaqs(biz?.faqItems || []))}</textarea>
+        </div>
+        <div class="ob-actions">
+          <button class="ob-btn-back ghost-button" type="button" id="ob-back-3">← Back</button>
+          <button class="button ob-btn-next" type="submit">Finish setup →</button>
+        </div>
+      </form>
+    `;
+  } else {
+    content = `
+      <div class="ob-done">
+        <div class="ob-done-icon">🎉</div>
+        <h2 class="ob-title">Your AI bot is live!</h2>
+        <p class="ob-sub">Students who message your WhatsApp number will now get instant AI-powered replies from your bot.</p>
+        <div class="ob-live-box">
+          <div class="ob-live-row">
+            <span class="ob-live-label">Platform WhatsApp</span>
+            <span class="ob-live-value">Managed by ClawCloud</span>
+          </div>
+          <div class="ob-live-row">
+            <span class="ob-live-label">AI bot status</span>
+            <span class="ob-live-value ob-status-live">● Active</span>
+          </div>
+          <div class="ob-live-row">
+            <span class="ob-live-label">Lead capture</span>
+            <span class="ob-live-value ob-status-live">● On</span>
+          </div>
+          <div class="ob-live-row">
+            <span class="ob-live-label">Demo booking</span>
+            <span class="ob-live-value ob-status-live">● On</span>
+          </div>
+        </div>
+        <p class="ob-sub" style="margin-top:16px;">You can refine courses, FAQs, and the AI prompt anytime from <strong>Settings</strong>.</p>
+        <button class="button" id="ob-goto-dashboard" style="margin-top:20px;width:100%;justify-content:center;">Go to dashboard →</button>
+      </div>
+    `;
+  }
+
+  app.innerHTML = `
+    <div class="ob-shell">
+      <div class="ob-card">
+        <div class="ob-brand">
+          <img src="/logo.svg" width="28" height="28" class="logo-img" alt="ClawCloud" />
+          <span class="logo-name">ClawCloud</span>
+        </div>
+        <div class="ob-stepper">${stepDots}</div>
+        ${content}
+      </div>
+    </div>
+  `;
+
+  document.querySelector("#ob-form-1")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector(".ob-btn-next");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const data = formToObject(e.target);
+      await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
+      await loadBootstrap(biz.id);
+      state.onboardingStep = 2;
+      renderOnboarding();
+    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Next: Add courses →"; }
+  });
+
+  document.querySelector("#ob-form-2")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector(".ob-btn-next");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const data = formToObject(e.target);
+      const courseItems = parseCourseText(data.courseText);
+      await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: { courseItems } });
+      await loadBootstrap(biz.id);
+      state.onboardingStep = 3;
+      renderOnboarding();
+    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Next: Add FAQs →"; }
+  });
+  document.querySelector("#ob-back-2")?.addEventListener("click", () => { state.onboardingStep = 1; renderOnboarding(); });
+
+  document.querySelector("#ob-form-3")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector(".ob-btn-next");
+    btn.disabled = true; btn.textContent = "Finishing…";
+    try {
+      const data = formToObject(e.target);
+      const faqItems = parseFaqText(data.faqText);
+      await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: { faqItems } });
+      await loadBootstrap(biz.id);
+      state.onboardingStep = 4;
+      renderOnboarding();
+    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Finish setup →"; }
+  });
+  document.querySelector("#ob-back-3")?.addEventListener("click", () => { state.onboardingStep = 2; renderOnboarding(); });
+
+  document.querySelector("#ob-goto-dashboard")?.addEventListener("click", () => {
+    state.onboardingStep = 0;
+    state.showOnboarding = false;
+    render();
+  });
+}
+
 function renderDashboard() {
   app.innerHTML = `
     <main class="app-shell">
@@ -1437,6 +1629,12 @@ function render() {
 
   if (!state.user) {
     renderAuth();
+    return;
+  }
+
+  if (needsOnboarding() || (state.showOnboarding && state.onboardingStep > 0)) {
+    if (!state.onboardingStep) state.onboardingStep = 1;
+    renderOnboarding();
     return;
   }
 
