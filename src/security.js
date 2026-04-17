@@ -52,7 +52,7 @@ export function defaultSecurityHeaders() {
     "Referrer-Policy": "same-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Content-Security-Policy":
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://js.stripe.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com; img-src 'self' data: https://*.razorpay.com; font-src 'self'; frame-src https://api.razorpay.com https://js.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   };
 }
 
