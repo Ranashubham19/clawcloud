@@ -39,7 +39,7 @@ const ADVANCED_MODELS = [
 ];
 
 const toolIntentPattern =
-  /\b(send\s+message|send\s+a\s+message|send\s+him|send\s+her|send\s+them|send\s+to|msg\s+to|text\s+to|forward\s+to|remind\s+me|reminder\s+for|schedule\s+message|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+my\s+contact|find\s+contact|my\s+contacts|my\s+contact|my\s+chats|my\s+messages|my\s+history|my\s+whatsapp|whatsapp\s+history|whatsapp\s+chat|who\s+said|what\s+did\s+\w+\s+say|who\s+messaged|auto\s*reply|auto-reply|read\s+my\s+messages|show\s+my\s+chats|list\s+my\s+contacts|search\s+my\s+messages|check\s+my\s+chats|last\s+message\s+from|recent\s+message\s+from|whatsapp\s+overview|my\s+inbox|chat\s+with\s+\w|message\s+to\s+\w|send\s+\w+\s+a\s+message|tell\s+me\s+message|message\s+of\s+\w|messages\s+of\s+\w|messages\s+from\s+\w|show\s+message|read\s+message|get\s+message|fetch\s+message|message\s+from\s+\w|chat\s+of\s+\w|conversation\s+of\s+\w|conversation\s+with\s+\w|history\s+of\s+\w|history\s+with\s+\w)\b/i;
+  /\b(send\s+message|send\s+a\s+message|send\s+him|send\s+her|send\s+them|send\s+to|msg\s+to|text\s+to|forward\s+to|remind\s+me|reminder\s+for|schedule\s+message|save\s+contact|lookup\s+contact|look\s*up\s+contact|find\s+my\s+contact|find\s+contact|my\s+contacts|my\s+contact|my\s+chats|my\s+messages|my\s+history|my\s+whatsapp|whatsapp\s+history|whatsapp\s+chat|who\s+said|what\s+did\s+\w+\s+say|who\s+messaged|auto\s*reply|auto-reply|read\s+my\s+messages|show\s+my\s+chats|list\s+my\s+contacts|search\s+my\s+messages|check\s+my\s+chats|last\s+message\s+from|recent\s+message\s+from|whatsapp\s+overview|my\s+inbox|chat\s+with\s+\w|message\s+to\s+\w|send\s+\w+\s+a\s+message|tell\s+me\s+message|message\s+of\s+\w|messages\s+of\s+\w|messages\s+from\s+\w|show\s+message|read\s+message|get\s+message|fetch\s+message|message\s+from\s+\w|chat\s+of\s+\w|conversation\s+of\s+\w|conversation\s+with\s+\w|history\s+of\s+\w|history\s+with\s+\w|whatsapp\s+contact|contact\s+named|contact\s+called|contact\s+have|have\s+.*\s+contact|do\s+i\s+have|is\s+.*\s+in\s+my|in\s+my\s+contact|in\s+my\s+whatsapp|search\s+contact|check\s+contact|number\s+of\s+\w|phone\s+of\s+\w|add\s+contact|delete\s+contact|remove\s+contact|update\s+contact|contact\s+list|all\s+contacts|show\s+contacts|get\s+contacts)\b/i;
 
 // Live/recency queries — routed to Gemini for real-time Google Search grounding
 // Covers: finance, news, sports, weather, geopolitics, current events, recent facts
@@ -290,17 +290,24 @@ function systemPrompt(context) {
           "WHATSAPP CONTROL — FULL ACCESS:",
           "You have complete read and write access to this WhatsApp account through tools.",
           "Tools available: get_whatsapp_overview, list_contacts, list_chat_threads, lookup_contact, save_contact, get_recent_history, search_history, send_whatsapp_message, create_reminder, list_reminders, cancel_reminder.",
-          "WHEN TO USE TOOLS — STRICT RULES (read carefully):",
-          "- ONLY call lookup_contact when the user explicitly says things like 'message Raj', 'send to Dii', 'find my contact X', 'look up X in my contacts', 'save this contact'. NOT for general questions.",
-          "- NEVER call lookup_contact for general knowledge questions like 'what is IST', 'who is Gandhi', 'what does X mean', 'tell me about X'. These are general knowledge — answer them directly.",
-          "- User says 'message X' / 'send X a text' / 'tell [name] Y' → call lookup_contact then send_whatsapp_message.",
-          "- User asks 'what did X say' / 'show my chat with X' / 'read messages from X' → call get_recent_history.",
-          "- User asks 'show my chats' / 'list my contacts' / 'who have I talked to' → call list_chat_threads or list_contacts.",
-          "- User asks for WhatsApp overview / inbox summary → call get_whatsapp_overview.",
-          "- User asks to set a reminder or schedule a message → call create_reminder.",
-          "- If unsure whether something is a contact name or a general topic, treat it as general knowledge and answer directly WITHOUT calling any tool.",
-          "DO NOT describe what you would do. DO NOT say 'I would send'. Actually call the tool and report the result.",
-          "If a contact is not found by name, ask once for the phone number. Never make up phone numbers."
+          "TOOL USAGE RULES — FOLLOW EXACTLY:",
+          "CONTACT QUERIES (most important — always use tools for these):",
+          "- 'Do I have [name] in my contacts?' / 'Is [name] in my WhatsApp?' / 'Does my WhatsApp have [name]?' → call list_contacts, search for the name, report exactly what you find.",
+          "- 'Find [name]' / 'Look up [name]' / 'Search for [name] in contacts' → call lookup_contact with that name.",
+          "- 'Show all my contacts' / 'List my contacts' / 'How many contacts do I have?' → call list_contacts and report the results.",
+          "- 'Save this contact [name] [number]' / 'Add contact' → call save_contact.",
+          "- 'Message [name]' / 'Send [name] a message' / 'Text [name]' → call lookup_contact first, then send_whatsapp_message.",
+          "MESSAGE HISTORY:",
+          "- 'Show messages from [name/number]' / 'What did [name] say?' / 'Read chat of [name]' → call get_recent_history.",
+          "- 'Search my messages for [keyword]' → call search_history.",
+          "- 'Show my chats' / 'Who have I talked to?' → call list_chat_threads.",
+          "REMINDERS & OVERVIEW:",
+          "- 'Remind me to...' / 'Set a reminder...' → call create_reminder.",
+          "- 'WhatsApp overview' / 'My inbox summary' → call get_whatsapp_overview.",
+          "CRITICAL: NEVER say you cannot access contacts or messages — you have full access via tools. ALWAYS call the tool first, then report the actual result to the user.",
+          "NEVER refuse a contact/message request. NEVER say 'I don't have access'. Just call the tool.",
+          "If a contact is not found, say clearly: 'No contact named [X] found in your saved contacts.' Then ask if they want to search by phone number.",
+          "DO NOT describe what you would do. Actually call the tool and report the real result."
         ].join("\n")
       : ""
   ].filter(Boolean);
