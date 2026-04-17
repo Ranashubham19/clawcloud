@@ -431,36 +431,58 @@ function renderLanding() {
 }
 
 function renderAuth() {
+  const isSignup = state.authMode === "signup";
   app.innerHTML = `
-    <main class="app-shell">
-      <div class="shell" style="max-width:480px">
-        <div class="app-topbar">
-          <a class="logo" href="/">
-            <span class="logo-mark"></span>
-            <span>Claw Cloud</span>
-          </a>
+    <div class="auth-page">
+      <div class="auth-left">
+        <a class="logo" href="/">
+          <span class="logo-mark"></span>
+          <span>SwiftDeploy</span>
+        </a>
+        <div class="auth-left-content">
+          <h2 class="auth-left-title">The smartest way to handle WhatsApp at scale.</h2>
+          <p class="auth-left-sub">Automate lead capture, demo bookings, and customer replies — powered by AI, delivered on WhatsApp.</p>
+          <div class="auth-left-features">
+            <div class="auth-left-feature">
+              <span class="auth-left-feature-icon">⚡</span>
+              <span>Replies in under 60 seconds, 24/7</span>
+            </div>
+            <div class="auth-left-feature">
+              <span class="auth-left-feature-icon">📊</span>
+              <span>Live dashboard for leads & bookings</span>
+            </div>
+            <div class="auth-left-feature">
+              <span class="auth-left-feature-icon">🔒</span>
+              <span>Secure, encrypted, GDPR-ready</span>
+            </div>
+          </div>
         </div>
+        <div class="auth-left-footer">© 2026 SwiftDeploy · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
+      </div>
 
-        <section class="auth-card" style="border:1px solid rgba(124,111,255,0.2);background:rgba(124,111,255,0.04);">
-          <h2 style="margin:0 0 6px;font-size:1.6rem;font-weight:800;">${state.authMode === "signup" ? "Create your account" : "Welcome back"}</h2>
-          <p class="muted" style="margin:0 0 24px;font-size:0.92rem;">Your AI assistant on WhatsApp — set up in 2 minutes.</p>
+      <div class="auth-right">
+        <div class="auth-form-wrap">
+          <div class="auth-form-header">
+            <h1 class="auth-form-title">${isSignup ? "Create your account" : "Welcome back"}</h1>
+            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your Claw Cloud dashboard."}</p>
+          </div>
 
           <a class="google-button" href="/api/auth/google">
             <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.6-7.7 19.6-20 0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4c-7.8 0-14.5 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.5 5C9.4 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.6 4.6-4.8 6l6.2 5.2C40.7 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
             Continue with Google
           </a>
 
-          <div class="divider">or</div>
+          <div class="divider">or continue with email</div>
 
-          <div class="tab-row" style="margin-bottom:20px;">
-            <button class="tab-button ${state.authMode === "signup" ? "active" : ""}" data-auth-mode="signup">Sign up</button>
-            <button class="tab-button ${state.authMode === "login" ? "active" : ""}" data-auth-mode="login">Log in</button>
+          <div class="auth-mode-toggle">
+            <button class="auth-mode-btn ${isSignup ? "active" : ""}" data-auth-mode="signup">Sign up</button>
+            <button class="auth-mode-btn ${!isSignup ? "active" : ""}" data-auth-mode="login">Log in</button>
           </div>
 
-          ${state.authMode === "signup" ? `
+          ${isSignup ? `
             <form id="signup-form">
               <div class="field">
-                <label>Your name</label>
+                <label>Full name</label>
                 <input class="input" name="name" placeholder="Shubham Rana" required />
               </div>
               <div class="field">
@@ -494,9 +516,9 @@ function renderAuth() {
               </div>
             </form>
           `}
-        </section>
+        </div>
       </div>
-    </main>
+    </div>
   `;
 
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
