@@ -268,7 +268,7 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -283,6 +283,8 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   padding: 16px 12px;
+  min-width: 220px;
+  width: 220px;
 }
 
 .sidebar-business-card {
@@ -293,8 +295,10 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   margin-bottom: 8px;
 }
 
-.sidebar-business-card select {
+.sidebar-business-card select,
+#business-switcher.select {
   width: 100%;
+  max-width: 100%;
   background: transparent;
   border: none;
   color: var(--ink);
@@ -303,6 +307,9 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   cursor: pointer;
   outline: none;
   padding: 0;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .sidebar-section-label {
