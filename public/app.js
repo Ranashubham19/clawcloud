@@ -276,8 +276,8 @@ function renderLanding() {
         <div class="shell">
           <div class="nav-inner">
             <div class="logo">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
-              <span>ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
+              <span class="logo-name">ClawCloud</span>
             </div>
             <div class="nav-links">
               <a href="#features">Features</a>
@@ -413,8 +413,8 @@ function renderLanding() {
         <div class="shell">
           <div class="lp-footer-inner">
             <div class="logo">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
-              <span>ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
+              <span class="logo-name">ClawCloud</span>
             </div>
             <div class="lp-footer-links">
               <a href="/privacy">Privacy Policy</a>
@@ -436,8 +436,8 @@ function renderAuth() {
     <div class="auth-page">
       <div class="auth-left">
         <a class="logo" href="/">
-          <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
-          <span>ClawCloud</span>
+          <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="28" height="28" />
+          <span class="logo-name">ClawCloud</span>
         </a>
         <div class="auth-left-content">
           <h2 class="auth-left-title">The smartest way to handle WhatsApp at scale.</h2>
@@ -1129,9 +1129,12 @@ function renderDashboard() {
     <main class="app-shell">
       <div class="shell">
         <div class="app-topbar">
-          <div class="logo">
-            <img src="/logo.svg" class="logo-img" alt="ClawCloud" />
-            <span>${escapeHtml(state.selectedBusiness?.name || "ClawCloud")}</span>
+          <div class="topbar-left">
+            <div class="logo">
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
+              <span class="logo-name">ClawCloud</span>
+            </div>
+            ${state.selectedBusiness?.name ? `<span class="topbar-biz-name">${escapeHtml(state.selectedBusiness.name)}</span>` : ""}
           </div>
           <div class="inline-actions">
             <button class="ghost-button" id="create-business">Add institute</button>
