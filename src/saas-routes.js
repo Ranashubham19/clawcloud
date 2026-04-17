@@ -37,6 +37,7 @@ import {
   getAdvancedAnalytics
 } from "./saas-store.js";
 import { getBusinessDashboardData, saasPlans } from "./saas.js";
+import { sendWelcomeEmail, sendPasswordResetEmail, sendTeamInviteEmail } from "./mailer.js";
 import {
   authRateLimit,
   defaultSecurityHeaders,
@@ -225,7 +226,9 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
     try {
       const body = await readJsonBody(request, readRawBody);
       const result = await createPasswordResetToken(body.email || "");
-      // In production send email; for now return token in response for testing
+      if (result) {
+        sendPasswordResetEmail({ email: result.user.email, resetToken: result.token, appBaseUrl: requestOrigin(request) }).catch(() => {});
+      }
       sendJson(response, 200, {
         ok: true,
         message: "If this email exists, a reset link has been sent.",
@@ -270,6 +273,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         ipAddress: getClientIp(request)
       });
 
+      sendWelcomeEmail({ name: user.name, email: user.email }).catch(() => {});
       sendJson(
         response,
         201,
@@ -592,6 +596,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         role: body.role || "member"
       });
       await appendAuditLog({ businessId, userId: auth.user.id, action: "team.invite", details: { email: body.email, role: body.role } });
+      sendTeamInviteEmail({ inviterName: auth.user.name, email: body.email, businessName: business.name, inviteToken: member.inviteToken, appBaseUrl: requestOrigin(request) }).catch(() => {});
       sendJson(response, 201, { ok: true, member });
     } catch (error) {
       sendJson(response, 400, { error: error.message });

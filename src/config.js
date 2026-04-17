@@ -110,7 +110,13 @@ export const config = {
   writeRateLimitWindowMs: toInt(process.env.WRITE_RATE_LIMIT_WINDOW_MS, 60 * 1000),
   writeRateLimitMax: toInt(process.env.WRITE_RATE_LIMIT_MAX, 120),
   reminderPollIntervalMs: toInt(process.env.REMINDER_POLL_INTERVAL_MS, 15000),
-  maxConversationMessages: toInt(process.env.MAX_CONVERSATION_MESSAGES, 40)
+  maxConversationMessages: toInt(process.env.MAX_CONVERSATION_MESSAGES, 40),
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: toInt(process.env.SMTP_PORT, 587),
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || "",
+  smtpSecure: process.env.SMTP_SECURE === "true"
 };
 
 export function requireConfig(name, value) {
