@@ -111,6 +111,8 @@ export const config = {
   writeRateLimitMax: toInt(process.env.WRITE_RATE_LIMIT_MAX, 120),
   reminderPollIntervalMs: toInt(process.env.REMINDER_POLL_INTERVAL_MS, 15000),
   maxConversationMessages: toInt(process.env.MAX_CONVERSATION_MESSAGES, 40),
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  resendFrom: process.env.RESEND_FROM || "",
   smtpHost: process.env.SMTP_HOST || "",
   smtpPort: toInt(process.env.SMTP_PORT, 587),
   smtpUser: process.env.SMTP_USER || "",
