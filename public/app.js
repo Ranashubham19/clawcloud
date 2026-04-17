@@ -276,7 +276,7 @@ function renderLanding() {
         <div class="hero-topbar">
           <div class="logo">
             <span class="logo-mark"></span>
-            <span>SwiftDeploy SaaS</span>
+            <span>Claw Cloud</span>
           </div>
           <div class="inline-actions">
             <a class="ghost-button" href="/app?mode=login">Log in</a>
@@ -356,65 +356,64 @@ function renderLanding() {
 function renderAuth() {
   app.innerHTML = `
     <main class="app-shell">
-      <div class="shell">
+      <div class="shell" style="max-width:480px">
         <div class="app-topbar">
           <a class="logo" href="/">
             <span class="logo-mark"></span>
-            <span>SwiftDeploy SaaS</span>
+            <span>Claw Cloud</span>
           </a>
-          <a class="ghost-button" href="/">Back to overview</a>
         </div>
 
-        <section class="auth-card">
-          <span class="eyebrow">Institute onboarding</span>
-          <h2 class="section-title">${state.authMode === "signup" ? "Create your SaaS workspace" : "Welcome back"}</h2>
-          <p class="muted">Connect your institute, configure your WhatsApp number, and start automating demo conversations.</p>
+        <section class="auth-card" style="border:1px solid rgba(124,111,255,0.2);background:rgba(124,111,255,0.04);">
+          <h2 style="margin:0 0 6px;font-size:1.6rem;font-weight:800;">${state.authMode === "signup" ? "Create your account" : "Welcome back"}</h2>
+          <p class="muted" style="margin:0 0 24px;font-size:0.92rem;">Your AI assistant on WhatsApp — set up in 2 minutes.</p>
 
-          <div class="tab-row section">
+          <a class="google-button" href="/api/auth/google">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.6-7.7 19.6-20 0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4c-7.8 0-14.5 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.5 5C9.4 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.6 4.6-4.8 6l6.2 5.2C40.7 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+            Continue with Google
+          </a>
+
+          <div class="divider">or</div>
+
+          <div class="tab-row" style="margin-bottom:20px;">
             <button class="tab-button ${state.authMode === "signup" ? "active" : ""}" data-auth-mode="signup">Sign up</button>
             <button class="tab-button ${state.authMode === "login" ? "active" : ""}" data-auth-mode="login">Log in</button>
           </div>
 
           ${state.authMode === "signup" ? `
-            <form id="signup-form" class="section">
-              <div class="split">
-                <div class="field">
-                  <label>Your name</label>
-                  <input class="input" name="name" placeholder="Shubham Rana" required />
-                </div>
-                <div class="field">
-                  <label>Institute name</label>
-                  <input class="input" name="businessName" placeholder="OpenClaw Academy" required />
-                </div>
+            <form id="signup-form">
+              <div class="field">
+                <label>Your name</label>
+                <input class="input" name="name" placeholder="Shubham Rana" required />
               </div>
-              <div class="split">
-                <div class="field">
-                  <label>Email</label>
-                  <input class="input" type="email" name="email" placeholder="you@example.com" required />
-                </div>
-                <div class="field">
-                  <label>Password</label>
-                  <input class="input" type="password" name="password" placeholder="Minimum 8 characters" required />
-                </div>
+              <div class="field">
+                <label>Business name</label>
+                <input class="input" name="businessName" placeholder="Claw Cloud Inc." required />
+              </div>
+              <div class="field">
+                <label>Email</label>
+                <input class="input" type="email" name="email" placeholder="you@example.com" required />
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input class="input" type="password" name="password" placeholder="Minimum 8 characters" required />
               </div>
               <div class="form-actions">
-                <button class="button" type="submit">Create workspace</button>
+                <button class="button" type="submit" style="width:100%;justify-content:center;">Create account →</button>
               </div>
             </form>
           ` : `
-            <form id="login-form" class="section">
-              <div class="split">
-                <div class="field">
-                  <label>Email</label>
-                  <input class="input" type="email" name="email" placeholder="you@example.com" required />
-                </div>
-                <div class="field">
-                  <label>Password</label>
-                  <input class="input" type="password" name="password" placeholder="Your password" required />
-                </div>
+            <form id="login-form">
+              <div class="field">
+                <label>Email</label>
+                <input class="input" type="email" name="email" placeholder="you@example.com" required />
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input class="input" type="password" name="password" placeholder="Your password" required />
               </div>
               <div class="form-actions">
-                <button class="button" type="submit">Log in</button>
+                <button class="button" type="submit" style="width:100%;justify-content:center;">Log in →</button>
               </div>
             </form>
           `}
@@ -1047,7 +1046,7 @@ function renderDashboard() {
         <div class="app-topbar">
           <div class="logo">
             <span class="logo-mark"></span>
-            <span>${escapeHtml(state.selectedBusiness?.name || "SwiftDeploy SaaS")}</span>
+            <span>${escapeHtml(state.selectedBusiness?.name || "Claw Cloud")}</span>
           </div>
           <div class="inline-actions">
             <button class="ghost-button" id="create-business">Add institute</button>
