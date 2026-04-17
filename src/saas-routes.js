@@ -15,7 +15,26 @@ import {
   listBookingsForBusiness,
   listLeadsForBusiness,
   updateBusinessForUser,
-  updateLeadForBusiness
+  updateLeadForBusiness,
+  createPasswordResetToken,
+  consumePasswordResetToken,
+  inviteTeamMember,
+  listTeamMembers,
+  removeTeamMember,
+  acceptTeamInvite,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  appendAuditLog,
+  listAuditLogs,
+  getUsageForBusiness,
+  PLAN_LIMITS,
+  isAdminUser,
+  getAdminStats,
+  adminListAllUsers,
+  adminListAllBusinesses,
+  adminSuspendBusiness,
+  getAdvancedAnalytics
 } from "./saas-store.js";
 import { getBusinessDashboardData, saasPlans } from "./saas.js";
 import {
@@ -200,6 +219,36 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
     return true;
   }
 
+  // ── Password Reset ──────────────────────────────────────────────────────
+  if (request.method === "POST" && url.pathname === "/api/auth/forgot-password") {
+    if (rejectIfRateLimited(request, response, "auth")) return true;
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const result = await createPasswordResetToken(body.email || "");
+      // In production send email; for now return token in response for testing
+      sendJson(response, 200, {
+        ok: true,
+        message: "If this email exists, a reset link has been sent.",
+        ...(result ? { resetToken: result.token } : {})
+      });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/reset-password") {
+    if (rejectIfRateLimited(request, response, "auth")) return true;
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      await consumePasswordResetToken(body.token || "", body.password || "");
+      sendJson(response, 200, { ok: true, message: "Password updated successfully." });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/auth/signup") {
     if (rejectIfRateLimited(request, response, "auth")) {
       return true;
@@ -261,6 +310,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         ipAddress: getClientIp(request)
       });
 
+      await appendAuditLog({ userId: user.id, action: "auth.login", details: { ip: getClientIp(request) } });
       sendJson(
         response,
         200,
@@ -498,6 +548,142 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       chatId,
       messages
     });
+    return true;
+  }
+
+  // ── Usage ────────────────────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "usage" && request.method === "GET") {
+    const usage = await getUsageForBusiness(businessId);
+    const plan = business.billing?.plan || business.plan || "basic";
+    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.basic;
+    sendJson(response, 200, { usage, limits, plan });
+    return true;
+  }
+
+  // ── Advanced Analytics ───────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "analytics" && request.method === "GET") {
+    const analytics = await getAdvancedAnalytics(businessId);
+    sendJson(response, 200, { ok: true, ...analytics });
+    return true;
+  }
+
+  // ── Audit Logs ───────────────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "audit" && request.method === "GET") {
+    const logs = await listAuditLogs(businessId, 100);
+    sendJson(response, 200, { logs });
+    return true;
+  }
+
+  // ── Team Management ──────────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "team" && request.method === "GET") {
+    const members = await listTeamMembers(businessId);
+    sendJson(response, 200, { members });
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "team" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "write")) return true;
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const member = await inviteTeamMember({
+        businessId,
+        invitedByUserId: auth.user.id,
+        email: body.email,
+        role: body.role || "member"
+      });
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "team.invite", details: { email: body.email, role: body.role } });
+      sendJson(response, 201, { ok: true, member });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "team" && request.method === "DELETE") {
+    try {
+      await removeTeamMember(businessId, parts[4]);
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "team.remove", details: { memberId: parts[4] } });
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  // ── API Keys ─────────────────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "api-keys" && request.method === "GET") {
+    const keys = await listApiKeys(businessId);
+    sendJson(response, 200, { keys });
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "api-keys" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "write")) return true;
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const result = await createApiKey({ businessId, userId: auth.user.id, label: body.label });
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "apikey.create", details: { label: body.label } });
+      sendJson(response, 201, { ok: true, key: result.key, apiKey: result });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "api-keys" && request.method === "DELETE") {
+    try {
+      await revokeApiKey(businessId, parts[4]);
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "apikey.revoke", details: { keyId: parts[4] } });
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  // ── Admin Routes (SaaS owner only) ───────────────────────────────────────
+  if (url.pathname.startsWith("/api/admin/")) {
+    const isAdmin = await isAdminUser(auth.user.id);
+    if (!isAdmin) {
+      sendJson(response, 403, { error: "Admin access required." });
+      return true;
+    }
+
+    if (url.pathname === "/api/admin/stats" && request.method === "GET") {
+      const stats = await getAdminStats();
+      sendJson(response, 200, { ok: true, stats });
+      return true;
+    }
+
+    if (url.pathname === "/api/admin/users" && request.method === "GET") {
+      const users = await adminListAllUsers();
+      sendJson(response, 200, { ok: true, users });
+      return true;
+    }
+
+    if (url.pathname === "/api/admin/businesses" && request.method === "GET") {
+      const businesses = await adminListAllBusinesses();
+      sendJson(response, 200, { ok: true, businesses });
+      return true;
+    }
+
+    if (url.pathname.startsWith("/api/admin/businesses/") && request.method === "POST") {
+      const adminParts = url.pathname.split("/").filter(Boolean);
+      const bizId = adminParts[3];
+      const action = adminParts[4];
+      if (action === "suspend") {
+        await adminSuspendBusiness(bizId, true);
+        sendJson(response, 200, { ok: true });
+        return true;
+      }
+      if (action === "unsuspend") {
+        await adminSuspendBusiness(bizId, false);
+        sendJson(response, 200, { ok: true });
+        return true;
+      }
+    }
+
+    sendJson(response, 404, { error: "Admin route not found." });
     return true;
   }
 

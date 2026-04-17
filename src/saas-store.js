@@ -10,7 +10,12 @@ const defaults = {
   businesses: [],
   leads: [],
   bookings: [],
-  sessions: []
+  sessions: [],
+  tokens: [],
+  team: [],
+  apikeys: [],
+  audit: [],
+  usage: []
 };
 
 const fileNames = {
@@ -18,7 +23,18 @@ const fileNames = {
   businesses: "saas-businesses.json",
   leads: "saas-leads.json",
   bookings: "saas-bookings.json",
-  sessions: "saas-sessions.json"
+  sessions: "saas-sessions.json",
+  tokens: "saas-tokens.json",
+  team: "saas-team.json",
+  apikeys: "saas-apikeys.json",
+  audit: "saas-audit.json",
+  usage: "saas-usage.json"
+};
+
+export const PLAN_LIMITS = {
+  basic:   { messagesPerMonth: 500,  leadsMax: 100, businessesMax: 1, teamMax: 1 },
+  pro:     { messagesPerMonth: 2000, leadsMax: 500, businessesMax: 3, teamMax: 5 },
+  premium: { messagesPerMonth: 99999, leadsMax: 99999, businessesMax: 10, teamMax: 20 }
 };
 
 const writeQueues = new Map();
@@ -860,4 +876,329 @@ export async function getBusinessAnalyticsSummary(businessId) {
     recentLeads: leads.slice(0, 5),
     recentBookings: bookings.slice(0, 5)
   };
+}
+
+// ─── ADVANCED ANALYTICS ────────────────────────────────────────────────────
+
+export async function getAdvancedAnalytics(businessId) {
+  const [leads, bookings] = await Promise.all([
+    listLeadsForBusiness(businessId),
+    listBookingsForBusiness(businessId)
+  ]);
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+
+  // leads per day last 30 days
+  const leadsPerDay = [];
+  for (let i = 29; i >= 0; i--) {
+    const dayStart = now - i * day;
+    const dayEnd = dayStart + day;
+    const dateStr = new Date(dayStart).toISOString().slice(0, 10);
+    leadsPerDay.push({
+      date: dateStr,
+      count: leads.filter((l) => {
+        const t = new Date(l.createdAt || 0).getTime();
+        return t >= dayStart && t < dayEnd;
+      }).length
+    });
+  }
+
+  // conversion funnel
+  const funnel = [
+    { stage: "New", count: leads.filter((l) => l.status === "new").length },
+    { stage: "Engaged", count: leads.filter((l) => l.status === "engaged").length },
+    { stage: "Qualified", count: leads.filter((l) => l.status === "qualified").length },
+    { stage: "Demo Requested", count: leads.filter((l) => l.status === "demo_requested").length },
+    { stage: "Demo Booked", count: bookings.filter((b) => b.status === "confirmed").length },
+    { stage: "Won", count: leads.filter((l) => l.status === "won").length }
+  ];
+
+  const conversionRate = leads.length > 0
+    ? Math.round((leads.filter((l) => l.status === "won").length / leads.length) * 100)
+    : 0;
+
+  return { leadsPerDay, funnel, conversionRate };
+}
+
+// ─── PASSWORD RESET TOKENS ─────────────────────────────────────────────────
+
+export async function createPasswordResetToken(email) {
+  const users = await readJson("users");
+  const user = users.find((u) => u.email === normalizeEmail(email));
+  if (!user) return null;
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+  await withWriteLock("tokens", (tokens) => {
+    const filtered = tokens.filter(
+      (t) => !(t.userId === user.id && t.type === "password-reset")
+    );
+    filtered.push({ id: crypto.randomUUID(), userId: user.id, email: user.email, type: "password-reset", token, expiresAt, createdAt: nowIso() });
+    return filtered;
+  });
+
+  return { token, user: sanitizeUser(user) };
+}
+
+export async function consumePasswordResetToken(token, newPassword) {
+  if (!token || !newPassword || newPassword.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+
+  const tokens = await readJson("tokens");
+  const entry = tokens.find((t) => t.token === token && t.type === "password-reset");
+  if (!entry || new Date(entry.expiresAt).getTime() < Date.now()) {
+    throw new Error("Reset link is invalid or has expired.");
+  }
+
+  await withWriteLock("users", (users) => {
+    const user = users.find((u) => u.id === entry.userId);
+    if (!user) throw new Error("User not found.");
+    user.passwordHash = hashPassword(newPassword);
+    user.updatedAt = nowIso();
+    return users;
+  });
+
+  await withWriteLock("tokens", (tokens) =>
+    tokens.filter((t) => t.token !== token)
+  );
+
+  return true;
+}
+
+// ─── TEAM MANAGEMENT ──────────────────────────────────────────────────────
+
+export async function inviteTeamMember({ businessId, invitedByUserId, email, role = "member" }) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail || !cleanEmail.includes("@")) throw new Error("Valid email required.");
+
+  const validRoles = ["admin", "member", "viewer"];
+  const cleanRole = validRoles.includes(role) ? role : "member";
+
+  let created = null;
+  await withWriteLock("team", (team) => {
+    const existing = team.find((m) => m.businessId === businessId && m.email === cleanEmail);
+    if (existing) throw new Error("This email is already a team member.");
+
+    created = {
+      id: crypto.randomUUID(),
+      businessId,
+      invitedByUserId,
+      email: cleanEmail,
+      role: cleanRole,
+      status: "invited",
+      inviteToken: crypto.randomBytes(16).toString("hex"),
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    team.push(created);
+    return team;
+  });
+
+  return created;
+}
+
+export async function listTeamMembers(businessId) {
+  const team = await readJson("team");
+  return team.filter((m) => m.businessId === businessId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function removeTeamMember(businessId, memberId) {
+  await withWriteLock("team", (team) =>
+    team.filter((m) => !(m.id === memberId && m.businessId === businessId))
+  );
+  return true;
+}
+
+export async function acceptTeamInvite(inviteToken) {
+  let member = null;
+  await withWriteLock("team", (team) => {
+    const entry = team.find((m) => m.inviteToken === inviteToken && m.status === "invited");
+    if (!entry) throw new Error("Invalid or expired invite.");
+    entry.status = "active";
+    entry.acceptedAt = nowIso();
+    entry.updatedAt = nowIso();
+    member = { ...entry };
+    return team;
+  });
+  return member;
+}
+
+// ─── API KEY MANAGEMENT ────────────────────────────────────────────────────
+
+export async function createApiKey({ businessId, userId, label = "Default" }) {
+  const key = `sk_${crypto.randomBytes(24).toString("hex")}`;
+  let created = null;
+  await withWriteLock("apikeys", (keys) => {
+    created = {
+      id: crypto.randomUUID(),
+      businessId,
+      userId,
+      label: String(label || "Default").slice(0, 60),
+      keyHash: hashText(key),
+      keyPreview: `sk_...${key.slice(-8)}`,
+      createdAt: nowIso(),
+      lastUsedAt: ""
+    };
+    keys.push(created);
+    return keys;
+  });
+  return { ...created, key };
+}
+
+export async function listApiKeys(businessId) {
+  const keys = await readJson("apikeys");
+  return keys
+    .filter((k) => k.businessId === businessId)
+    .map(({ keyHash, ...rest }) => rest)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function revokeApiKey(businessId, keyId) {
+  await withWriteLock("apikeys", (keys) =>
+    keys.filter((k) => !(k.id === keyId && k.businessId === businessId))
+  );
+  return true;
+}
+
+export async function validateApiKey(rawKey) {
+  if (!rawKey || !rawKey.startsWith("sk_")) return null;
+  const keyHash = hashText(rawKey);
+  const keys = await readJson("apikeys");
+  const entry = keys.find((k) => k.keyHash === keyHash);
+  if (!entry) return null;
+
+  await withWriteLock("apikeys", (keys) =>
+    keys.map((k) => k.id === entry.id ? { ...k, lastUsedAt: nowIso() } : k)
+  );
+  return entry;
+}
+
+// ─── AUDIT LOGS ────────────────────────────────────────────────────────────
+
+export async function appendAuditLog({ businessId = "", userId = "", action = "", details = {} }) {
+  await withWriteLock("audit", (logs) => {
+    logs.push({
+      id: crypto.randomUUID(),
+      businessId,
+      userId,
+      action: String(action).slice(0, 100),
+      details,
+      createdAt: nowIso()
+    });
+    if (logs.length > 5000) logs.splice(0, logs.length - 5000);
+    return logs;
+  });
+}
+
+export async function listAuditLogs(businessId, limit = 50) {
+  const logs = await readJson("audit");
+  return logs
+    .filter((l) => l.businessId === businessId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, Math.min(limit, 200));
+}
+
+// ─── USAGE TRACKING ────────────────────────────────────────────────────────
+
+export async function trackUsage(businessId, type = "message") {
+  const monthKey = new Date().toISOString().slice(0, 7);
+  await withWriteLock("usage", (usage) => {
+    let entry = usage.find((u) => u.businessId === businessId && u.monthKey === monthKey);
+    if (!entry) {
+      entry = { id: crypto.randomUUID(), businessId, monthKey, messages: 0, leads: 0 };
+      usage.push(entry);
+    }
+    if (type === "message") entry.messages = (entry.messages || 0) + 1;
+    if (type === "lead") entry.leads = (entry.leads || 0) + 1;
+    return usage;
+  });
+}
+
+export async function getUsageForBusiness(businessId) {
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const usage = await readJson("usage");
+  const current = usage.find((u) => u.businessId === businessId && u.monthKey === monthKey);
+  return { monthKey, messages: current?.messages || 0, leads: current?.leads || 0 };
+}
+
+export async function checkPlanLimit(businessId, plan, type) {
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.basic;
+  const usage = await getUsageForBusiness(businessId);
+  if (type === "message") return usage.messages < limits.messagesPerMonth;
+  if (type === "lead") return usage.leads < limits.leadsMax;
+  return true;
+}
+
+// ─── ADMIN FUNCTIONS ───────────────────────────────────────────────────────
+
+export async function isAdminUser(userId) {
+  const users = await readJson("users");
+  const user = users.find((u) => u.id === userId);
+  return user?.isAdmin === true;
+}
+
+export async function setAdminUser(email, isAdmin = true) {
+  await withWriteLock("users", (users) => {
+    const user = users.find((u) => u.email === normalizeEmail(email));
+    if (!user) throw new Error("User not found.");
+    user.isAdmin = isAdmin;
+    user.updatedAt = nowIso();
+    return users;
+  });
+}
+
+export async function getAdminStats() {
+  const [users, businesses, leads, bookings] = await Promise.all([
+    readJson("users"),
+    readJson("businesses"),
+    readJson("leads"),
+    readJson("bookings")
+  ]);
+
+  const now = Date.now();
+  const day7 = now - 7 * 24 * 60 * 60 * 1000;
+  const day30 = now - 30 * 24 * 60 * 60 * 1000;
+
+  return {
+    totalUsers: users.length,
+    newUsersLast7Days: users.filter((u) => new Date(u.createdAt || 0).getTime() > day7).length,
+    totalBusinesses: businesses.length,
+    activeBusinesses: businesses.filter((b) => b.status === "active").length,
+    totalLeads: leads.length,
+    leadsLast30Days: leads.filter((l) => new Date(l.createdAt || 0).getTime() > day30).length,
+    totalBookings: bookings.length,
+    planBreakdown: {
+      basic: businesses.filter((b) => (b.plan || "basic") === "basic").length,
+      pro: businesses.filter((b) => b.plan === "pro").length,
+      premium: businesses.filter((b) => b.plan === "premium").length
+    }
+  };
+}
+
+export async function adminListAllUsers() {
+  const users = await readJson("users");
+  return users.map(sanitizeUser).sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+}
+
+export async function adminListAllBusinesses() {
+  const businesses = await readJson("businesses");
+  return businesses.map(sanitizeBusiness).sort(
+    (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+  );
+}
+
+export async function adminSuspendBusiness(businessId, suspended = true) {
+  await withWriteLock("businesses", (businesses) => {
+    const b = businesses.find((entry) => entry.id === businessId);
+    if (!b) throw new Error("Business not found.");
+    b.status = suspended ? "suspended" : "active";
+    b.updatedAt = nowIso();
+    return businesses;
+  });
 }
