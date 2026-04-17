@@ -345,9 +345,9 @@ export function buildMessagingWebhookSuccessResponse({
       .replace(/\n{3,}/g, "\n\n")
       .trim();
     const safeReply =
-      inlineReply.length <= 1200
+      inlineReply.length <= 4000
         ? inlineReply
-        : `${inlineReply.slice(0, 1197).trimEnd()}...`;
+        : `${inlineReply.slice(0, 3997).trimEnd()}...`;
     const compactReply = safeReply
       .replace(/\n+/g, " ")
       .replace(/\s+/g, " ")

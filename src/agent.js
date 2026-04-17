@@ -68,7 +68,7 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
 function pickMaxTokens(text) {
   const value = String(text || "");
   const long = longAnswerPattern.test(value) || value.length > 100;
-  return long ? 1500 : 800;
+  return long ? 2500 : 1200;
 }
 
 async function loadWhatsAppContext(options = {}) {
