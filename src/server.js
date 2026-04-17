@@ -38,6 +38,7 @@ import { initSaasStore } from "./saas-store.js";
 import { resolveBusinessContextForMessage } from "./saas.js";
 import { handleSaasRoute } from "./saas-routes.js";
 import { handleStripeWebhookEvent } from "./billing.js";
+import { handleRazorpayWebhookEvent, verifyRazorpayWebhookSignature } from "./razorpay-billing.js";
 import { verifyStripeSignature } from "./security.js";
 
 function sendJson(response, statusCode, payload) {
@@ -541,6 +542,24 @@ async function handleStripeWebhook(request, response) {
   sendJson(response, 200, { received: true });
 }
 
+async function handleRazorpayWebhook(request, response) {
+  const rawBody = await readRawBody(request);
+  const signatureHeader = request.headers["x-razorpay-signature"] || "";
+  if (config.razorpayWebhookSecret && !verifyRazorpayWebhookSignature(rawBody, signatureHeader)) {
+    sendText(response, 400, "Invalid Razorpay signature");
+    return;
+  }
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    sendText(response, 400, "Invalid JSON");
+    return;
+  }
+  await handleRazorpayWebhookEvent(event);
+  sendJson(response, 200, { received: true });
+}
+
 async function requestListener(request, response) {
   const url = parseUrl(request);
 
@@ -723,6 +742,11 @@ async function requestListener(request, response) {
 
   if (url.pathname === "/webhooks/stripe" && request.method === "POST") {
     await handleStripeWebhook(request, response);
+    return;
+  }
+
+  if (url.pathname === "/webhooks/razorpay" && request.method === "POST") {
+    await handleRazorpayWebhook(request, response);
     return;
   }
 

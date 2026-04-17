@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createStripeCheckoutSession, createStripePortalSession, hasStripeBilling } from "./billing.js";
+import { createRazorpaySubscription, hasRazorpayBilling } from "./razorpay-billing.js";
 import { getConversation, listConversationThreads } from "./store.js";
 import {
   authenticateSaasUser,
@@ -217,7 +218,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/plans") {
-    sendJson(response, 200, { plans: saasPlans, billingEnabled: hasStripeBilling() });
+    sendJson(response, 200, { plans: saasPlans, billingEnabled: hasStripeBilling() || hasRazorpayBilling() });
     return true;
   }
 
@@ -459,7 +460,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       ok: true,
       user: auth.user,
       plans: saasPlans,
-      billingEnabled: hasStripeBilling(),
+      billingEnabled: hasStripeBilling() || hasRazorpayBilling(),
       ...payload
     });
     return true;
@@ -467,7 +468,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (request.method === "GET" && url.pathname === "/api/businesses") {
     const businesses = await listBusinessesForUser(auth.user.id);
-    sendJson(response, 200, { businesses, billingEnabled: hasStripeBilling() });
+    sendJson(response, 200, { businesses, billingEnabled: hasStripeBilling() || hasRazorpayBilling() });
     return true;
   }
 
@@ -521,14 +522,14 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (parts.length === 4 && parts[3] === "dashboard" && request.method === "GET") {
     const payload = await getBusinessDashboardData(auth.user.id, businessId);
-    sendJson(response, 200, { ok: true, billingEnabled: hasStripeBilling(), ...payload });
+    sendJson(response, 200, { ok: true, billingEnabled: hasStripeBilling() || hasRazorpayBilling(), ...payload });
     return true;
   }
 
   if (parts.length === 4 && parts[3] === "billing" && request.method === "GET") {
     sendJson(response, 200, {
       billing: billingSummary(business),
-      billingEnabled: hasStripeBilling()
+      billingEnabled: hasStripeBilling() || hasRazorpayBilling()
     });
     return true;
   }
@@ -551,6 +552,25 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         url: session.url,
         id: session.id
       });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 5 && parts[3] === "billing" && parts[4] === "razorpay" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "billing-razorpay")) {
+      return true;
+    }
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const data = await createRazorpaySubscription({
+        business,
+        user: auth.user,
+        plan: body.plan || business.plan,
+        origin: requestOrigin(request)
+      });
+      sendJson(response, 200, { ok: true, ...data });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }
