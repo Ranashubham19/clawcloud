@@ -1129,8 +1129,9 @@ function needsOnboarding() {
   if (!biz) return false;
   const hasCourses = (biz.courseItems || []).length > 0;
   const hasFaqs = (biz.faqItems || []).length > 0;
-  const hasPrompt = String(biz.aiPrompt || "").trim().length > 0;
-  return !hasCourses && !hasFaqs && !hasPrompt;
+  // aiPrompt is auto-set by default on signup — not a signal the user has onboarded.
+  // Onboarding is needed as long as no courses AND no FAQs have been added.
+  return !hasCourses && !hasFaqs;
 }
 
 function renderOnboarding() {
