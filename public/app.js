@@ -1269,11 +1269,24 @@ function renderDashboard() {
   document.querySelectorAll("[data-upgrade-plan]").forEach((button) => {
     button.addEventListener("click", async () => {
       try {
-        const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/checkout`, {
+        const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/razorpay`, {
           method: "POST",
           body: { plan: button.dataset.upgradePlan }
         });
-        if (payload.url) {
+        if (payload.subscriptionId && payload.keyId) {
+          const rzp = new window.Razorpay({
+            key: payload.keyId,
+            subscription_id: payload.subscriptionId,
+            name: payload.businessName || "Claw Cloud",
+            description: `${button.dataset.upgradePlan} Plan Subscription`,
+            prefill: { email: payload.userEmail, name: payload.userName },
+            theme: { color: "#7c6fff" },
+            handler: function() {
+              window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
+            }
+          });
+          rzp.open();
+        } else if (payload.url) {
           window.location.href = payload.url;
         }
       } catch (error) {
