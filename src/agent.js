@@ -400,6 +400,63 @@ export function directSmallTalkReply(text, languageStyle) {
   return "";
 }
 
+const contactQueryPattern =
+  /\b(do\s+i\s+have|is\s+.+\s+in\s+my|does\s+my\s+whatsapp\s+have|find\s+contact|search\s+contact|look\s*up\s+contact|in\s+my\s+contact|in\s+my\s+whatsapp|contact\s+named|contact\s+called|contact\s+have|add\s+contact|save\s+contact|list\s+contact|show\s+contact|all\s+contact|my\s+contact|find\s+.+\s+number|number\s+of\s+.+|phone\s+of\s+.+)\b/i;
+
+const historyQueryPattern =
+  /\b(conversation\s+(of|with)|messages?\s+(of|from|with)|chat\s+(of|with)|history\s+(of|with)|what\s+did\s+\w+\s+say|tell\s+me\s+message|show\s+message|read\s+message|message\s+of\s+\w|recent\s+message\s+from|last\s+message\s+from)\b/i;
+
+async function preExecuteWhatsAppQuery(text, businessId) {
+  const lower = text.toLowerCase();
+
+  if (historyQueryPattern.test(text)) {
+    const nameMatch = lower.match(
+      /(?:conversation|messages?|chat|history|message)\s+(?:of|from|with)\s+([a-z0-9 ]+?)(?:\s+with\s+me)?(?:\s*$|\?)/i
+    ) || lower.match(/what\s+did\s+([a-z]+)\s+say/i) || lower.match(/tell\s+me\s+message\s+of\s+([a-z]+)/i);
+    const name = nameMatch ? nameMatch[1].trim() : "";
+    if (name) {
+      const contacts = await listContacts(name, { businessId });
+      if (contacts.length > 0) {
+        const contact = contacts[0];
+        const msgs = await getConversation(contact.phone, 15, { businessId });
+        if (msgs.length > 0) {
+          const formatted = msgs.map(
+            (m) => `[${m.role === "user" ? contact.name || contact.phone : "Bot"}]: ${m.text}`
+          ).join("\n");
+          return `TOOL RESULT — conversation with ${contact.name || name} (${contact.phone}):\n${formatted}`;
+        }
+        return `TOOL RESULT — No conversation history found with ${contact.name || name} in the system yet.`;
+      }
+      return `TOOL RESULT — No contact named "${name}" found in saved contacts.`;
+    }
+  }
+
+  if (contactQueryPattern.test(text)) {
+    const nameMatch = lower.match(
+      /(?:have|contact|find|search|look\s*up|is|does\s+my\s+whatsapp\s+have)\s+([a-z0-9 ]+?)(?:\s+(?:name|contact|number|in\s+my|saved))?\s*\??$/i
+    );
+    const name = nameMatch ? nameMatch[1].trim() : "";
+    if (name && name.length > 1 && !/^(a|my|the|in|any|some)$/.test(name)) {
+      const contacts = await listContacts(name, { businessId });
+      if (contacts.length > 0) {
+        const list = contacts.slice(0, 10).map(
+          (c) => `• *${c.name || "Unknown"}* — ${c.phone}`
+        ).join("\n");
+        return `TOOL RESULT — Found ${contacts.length} contact(s) matching "${name}":\n${list}`;
+      }
+      return `TOOL RESULT — No contact named "${name}" found in saved contacts.`;
+    }
+    const all = await listContacts("", { businessId });
+    if (all.length > 0) {
+      const list = all.slice(0, 20).map((c) => `• *${c.name || "Unknown"}* — ${c.phone}`).join("\n");
+      return `TOOL RESULT — ${all.length} saved contact(s):\n${list}`;
+    }
+    return `TOOL RESULT — No contacts saved yet.`;
+  }
+
+  return null;
+}
+
 export async function handleIncomingText({
   messageId,
   from,
@@ -500,6 +557,8 @@ export async function handleIncomingText({
     leadCapture.lead || (businessContext ? await getLeadContextForBusiness(businessContext, from) : null);
   const waContext = useTools ? await loadWhatsAppContext({ businessId }) : { contactCount: 0, threadCount: 0, contactList: "" };
 
+  const preResult = useTools ? await preExecuteWhatsAppQuery(text, businessId) : null;
+
   const messages = [
     {
       role: "system",
@@ -517,7 +576,10 @@ export async function handleIncomingText({
         useTools
       })
     },
-    ...historyToModelMessages(history)
+    ...historyToModelMessages(history),
+    ...(preResult
+      ? [{ role: "system", content: `${preResult}\n\nPresent this data to the user in a professional, formatted WhatsApp reply. Do not say you cannot access anything — the data above is real and already fetched.` }]
+      : [])
   ];
 
   let assistantText = "";
