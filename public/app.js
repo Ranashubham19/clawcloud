@@ -974,119 +974,65 @@ function dashboardSection() {
         </section>
       `;
     case "settings":
+      const waConn = state.selectedBusiness?.whatsapp;
+      const waIsLive = Boolean(waConn?.phoneNumberId && waConn?.accessToken);
       return `
         <section class="card">
-          <h2 class="section-title">Business settings</h2>
+          <div class="settings-wa-header">
+            <div class="settings-wa-icon">
+              <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+            </div>
+            <div>
+              <div class="settings-wa-title">Connect WhatsApp</div>
+              <div class="muted" style="font-size:0.85rem;">Enter your WhatsApp Cloud API credentials to let your AI bot reply to messages</div>
+            </div>
+            <div class="platform-card-badge ${waIsLive ? "badge--live" : "badge--idle"}" style="margin-left:auto;">
+              ${waIsLive ? "● Live" : "○ Not connected"}
+            </div>
+          </div>
+
+          ${waIsLive ? `
+            <div class="platform-connected-info" style="margin:18px 0;">
+              <div class="pci-row"><span>Phone Number</span><strong>${escapeHtml(waConn.displayPhoneNumber || waConn.phoneNumberId || "Connected")}</strong></div>
+              <div class="pci-row"><span>Status</span><strong style="color:#25d366;">Active — AI replying to messages</strong></div>
+            </div>
+          ` : ""}
+
           <form id="settings-form" class="section">
-            <div class="split">
-              <div class="field">
-                <label>Institute name</label>
-                <input class="input" name="name" value="${escapeHtml(state.selectedBusiness?.name || "")}" required />
-              </div>
-              <div class="field">
-                <label>Support email</label>
-                <input class="input" type="email" name="supportEmail" value="${escapeHtml(state.selectedBusiness?.supportEmail || "")}" />
-              </div>
+            <div class="settings-wa-steps" style="margin-bottom:20px;">
+              <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Meta for Developers</strong> → Create a WhatsApp app</div>
+              <div class="pc-step"><span class="pc-step-n">2</span>Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong> from the app dashboard</div>
+              <div class="pc-step"><span class="pc-step-n">3</span>Paste them below and save — your bot goes live instantly</div>
             </div>
             <div class="split">
               <div class="field">
-                <label>Website</label>
-                <input class="input" name="website" value="${escapeHtml(state.selectedBusiness?.website || "")}" />
+                <label>Your WhatsApp number</label>
+                <input class="input" name="whatsappDisplayPhoneNumber" placeholder="+91 98765 43210" value="${escapeHtml(waConn?.displayPhoneNumber || "")}" />
+                <small>The number users will message</small>
               </div>
               <div class="field">
-                <label>Plan</label>
-                <select class="select" name="plan">
-                  ${state.plans.map((plan) => `
-                    <option value="${escapeHtml(plan.id)}" ${state.selectedBusiness?.plan === plan.id ? "selected" : ""}>${escapeHtml(plan.name)}</option>
-                  `).join("")}
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label>Description</label>
-              <textarea class="textarea" name="description">${escapeHtml(state.selectedBusiness?.description || "")}</textarea>
-            </div>
-            <div class="split">
-              <div class="field">
-                <label>Messaging provider</label>
-                <select class="select" name="whatsappProvider">
-                  <option value="aisensy" ${(state.selectedBusiness?.whatsapp?.provider || "aisensy") === "aisensy" ? "selected" : ""}>AiSensy</option>
-                  <option value="meta" ${state.selectedBusiness?.whatsapp?.provider === "meta" ? "selected" : ""}>Meta Cloud API</option>
-                </select>
-                <small>AiSensy uses the shared server-level AiSensy credentials. Meta uses the business token and phone fields below.</small>
-              </div>
-              <div class="field">
-                <label>WhatsApp display number</label>
-                <input class="input" name="whatsappDisplayPhoneNumber" value="${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "")}" />
+                <label>Phone Number ID</label>
+                <input class="input" name="whatsappPhoneNumberId" placeholder="From Meta app dashboard" value="${escapeHtml(waConn?.phoneNumberId || "")}" />
               </div>
             </div>
             <div class="split">
               <div class="field">
-                <label>WhatsApp phone number ID</label>
-                <input class="input" name="whatsappPhoneNumberId" value="${escapeHtml(state.selectedBusiness?.whatsapp?.phoneNumberId || "")}" />
+                <label>Access Token</label>
+                <input class="input" name="whatsappAccessToken" placeholder="EAA..." value="${escapeHtml(waConn?.accessToken || "")}" />
+                <small>Permanent token from Meta app</small>
               </div>
               <div class="field">
-                <label>Business account ID</label>
-                <input class="input" name="whatsappBusinessAccountId" value="${escapeHtml(state.selectedBusiness?.whatsapp?.businessAccountId || "")}" />
+                <label>Business Account ID <span class="muted">(optional)</span></label>
+                <input class="input" name="whatsappBusinessAccountId" placeholder="From Meta Business Suite" value="${escapeHtml(waConn?.businessAccountId || "")}" />
               </div>
             </div>
-            <div class="split">
-              <div class="field">
-                <label>Access token</label>
-                <input class="input" name="whatsappAccessToken" value="${escapeHtml(state.selectedBusiness?.whatsapp?.accessToken || "")}" />
-              </div>
-              <div class="field"></div>
-            </div>
-            <div class="field">
-              <label>AI prompt</label>
-              <textarea class="textarea" name="aiPrompt">${escapeHtml(state.selectedBusiness?.aiPrompt || "")}</textarea>
-            </div>
-            <div class="field">
-              <label>Welcome message</label>
-              <textarea class="textarea" name="welcomeMessage">${escapeHtml(state.selectedBusiness?.welcomeMessage || "")}</textarea>
-            </div>
-            <div class="field">
-              <label>FAQs</label>
-              <textarea class="textarea" name="faqText">${escapeHtml(serializeFaqs(state.selectedBusiness?.faqItems || []))}</textarea>
-              <small>One FAQ per line: Question | Answer</small>
-            </div>
-            <div class="field">
-              <label>Courses</label>
-              <textarea class="textarea" name="courseText">${escapeHtml(serializeCourses(state.selectedBusiness?.courseItems || []))}</textarea>
-              <small>One course per line: Course | Timings comma-separated | Fee | Keywords comma-separated | Description</small>
-            </div>
+            <input type="hidden" name="whatsappProvider" value="meta" />
             <div class="form-actions">
-              <button class="button" type="submit">Save settings</button>
+              <button class="button" type="submit">${waIsLive ? "Update WhatsApp" : "Connect WhatsApp"}</button>
             </div>
           </form>
         </section>
-
-        <section class="card" style="margin-top:20px;">
-          <h2 class="section-title">Telegram Bot</h2>
-          ${state.selectedBusiness?.telegram?.token ? `
-            <div class="tg-connected-banner">
-              <div style="display:flex;align-items:center;gap:10px;">
-                <svg width="24" height="24" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
-                <div>
-                  <strong>@${escapeHtml(state.selectedBusiness.telegram.botUsername || "")}</strong> is connected and live
-                  <div class="muted" style="font-size:0.8rem;">Students can message this bot on Telegram and your AI will reply instantly</div>
-                </div>
-              </div>
-              <button class="ghost-button" id="tg-disconnect-settings-btn" style="color:#e53e3e;">Disconnect</button>
-            </div>
-          ` : `
-            <p class="muted" style="margin-bottom:16px;">Connect a Telegram bot so your AI can reply to students on Telegram too.</p>
-            <div id="tg-settings-error" class="form-error" style="display:none;margin-bottom:12px;"></div>
-            <form id="tg-settings-form" class="section">
-              <div class="field">
-                <label>BotFather Token</label>
-                <input class="input" id="tg-settings-token" placeholder="1234567890:ABCdefGHIjklMNO..." />
-                <small>Get this from @BotFather on Telegram → /newbot</small>
-              </div>
-              <div class="form-actions">
-                <button class="button" type="submit" id="tg-settings-btn">Connect Telegram Bot</button>
-              </div>
-            </form>
+      `;
           `}
         </section>
       `;

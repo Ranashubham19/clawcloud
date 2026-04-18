@@ -1991,6 +1991,34 @@ code {
   .lp-footer-links { justify-content: center; }
 }
 
+/* ── WhatsApp Settings ───────────────────────────────────────── */
+.settings-wa-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-wrap: wrap;
+}
+.settings-wa-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(37,211,102,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.settings-wa-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.settings-wa-steps { display: flex; flex-direction: column; gap: 10px; }
+
 /* ── Overview Dashboard ──────────────────────────────────────── */
 .overview-card {
   margin-bottom: 20px;
