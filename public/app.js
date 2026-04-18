@@ -172,7 +172,7 @@ function serializeCourses(items = []) {
 function formatPlanPrice(value) {
   const amount = Number(value || 0);
   if (!amount) return "Custom";
-  return `â‚¹${amount.toLocaleString("en-IN", { useGrouping: true })}`;
+  return `₹${amount.toLocaleString("en-IN", { useGrouping: true })}`;
 }
 
 function syncDashboardUrl() {
@@ -456,7 +456,7 @@ function renderLanding() {
                   <li>Multi-language AI replies</li>
                 </ul>
               </div>
-              <div class="lp-platform-cta">Get started free â†'</div>
+              <div class="lp-platform-cta">Get started free →</div>
             </a>
             <a href="/app?mode=signup&product=telegram" class="lp-platform-card lp-platform-telegram">
               <div class="lp-platform-icon">
@@ -474,10 +474,10 @@ function renderLanding() {
                   <li>No extra setup needed</li>
                 </ul>
               </div>
-              <div class="lp-platform-cta">Connect Telegram â†'</div>
+              <div class="lp-platform-cta">Connect Telegram →</div>
             </a>
           </div>
-          <div class="lp-platforms-login">Already have an account? <a href="/app?mode=login">Sign in â†'</a></div>
+          <div class="lp-platforms-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
         </div>
       </section>
 
@@ -530,8 +530,8 @@ function renderLanding() {
           <div class="lp-cta-banner-inner">
             <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
             <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Connect WhatsApp or Telegram in under 2 minutes. No technical skills required.</p>
-            <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>â‚¹2,999/month</strong></div>
-            <a class="button lp-cta-btn" href="/app?mode=platform" style="margin-top:24px;">Choose your platform â†'</a>
+            <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>₹2,999/month</strong></div>
+            <a class="button lp-cta-btn" href="/app?mode=platform" style="margin-top:24px;">Choose your platform →</a>
           </div>
         </div>
       </section>
@@ -591,7 +591,7 @@ function renderPlatformChoice() {
                 <li>Multi-language support</li>
               </ul>
             </div>
-            <div class="platform-choice-cta platform-choice-cta--wa">Get started â†'</div>
+            <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
           </a>
           <a href="/app?mode=signup&product=telegram" class="platform-choice-card platform-choice-tg">
             <div class="platform-choice-icon">
@@ -606,10 +606,10 @@ function renderPlatformChoice() {
                 <li>Same powerful AI as WhatsApp</li>
               </ul>
             </div>
-            <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram â†'</div>
+            <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram →</div>
           </a>
         </div>
-        <div class="platform-choice-login">Already have an account? <a href="/app?mode=login">Sign in â†'</a></div>
+        <div class="platform-choice-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
       </div>
     </div>
   `;
@@ -688,7 +688,7 @@ function renderAuth() {
                 <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" id="signup-btn" style="width:100%;justify-content:center;">Create account â†'</button>
+                <button class="button" type="submit" id="signup-btn" style="width:100%;justify-content:center;">Create account →</button>
               </div>
             </form>
           ` : `
@@ -705,7 +705,7 @@ function renderAuth() {
                 <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" id="login-btn" style="width:100%;justify-content:center;">Log in â†'</button>
+                <button class="button" type="submit" id="login-btn" style="width:100%;justify-content:center;">Log in →</button>
               </div>
             </form>
           `}
@@ -749,7 +749,7 @@ function renderAuth() {
         render();
       } catch (error) {
         if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Create account â†'"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Create account →"; }
       }
     });
   }
@@ -774,7 +774,7 @@ function renderAuth() {
         render();
       } catch (error) {
         if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Log in â†'"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Log in →"; }
       }
     });
   }
@@ -924,7 +924,7 @@ function dashboardSection() {
             </div>
             <div class="billing-plan-pricing">
               <div class="billing-plan-price">
-                <span class="billing-price-big">â‚¹2,999</span><span class="billing-price-period">/month</span>
+                <span class="billing-price-big">₹2,999</span><span class="billing-price-period">/month</span>
                 <span class="billing-price-or">or</span>
                 <span class="billing-price-big billing-price-usd">$49</span><span class="billing-price-period">/month</span>
               </div>
@@ -941,7 +941,7 @@ function dashboardSection() {
             ` : `
               <div class="payment-buttons" style="margin-top:4px;">
                 <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
-                  ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo
+                  ðŸ‡®ðŸ‡³ Pay ₹2,999/mo
                 </button>
                 <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
                   ðŸŒ Pay $49/mo
@@ -1164,7 +1164,7 @@ function dashboardSection() {
 
           <form id="settings-form" class="section">
             <div class="settings-wa-steps" style="margin-bottom:20px;">
-              <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Meta for Developers</strong> â†' Create a WhatsApp app</div>
+              <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Meta for Developers</strong> → Create a WhatsApp app</div>
               <div class="pc-step"><span class="pc-step-n">2</span>Copy your <strong>Phone Number ID</strong>, <strong>Access Token</strong>, and <strong>App Secret</strong></div>
               <div class="pc-step"><span class="pc-step-n">3</span>Paste them below, then finish the Meta webhook using the callback URL and verify token shown here</div>
             </div>
@@ -1374,8 +1374,8 @@ function dashboardSection() {
               ` : `
                 <p class="pcard-desc">Paste your BotFather token to go live in under 60 seconds — no Meta approval, no waiting, no extra cost.</p>
                 <div class="pcard-steps">
-                  <div class="pcard-step"><span class="pcard-step-n">1</span>Open Telegram â†' search <strong>@BotFather</strong></div>
-                  <div class="pcard-step"><span class="pcard-step-n">2</span>Send <code>/newbot</code> â†' follow the steps</div>
+                  <div class="pcard-step"><span class="pcard-step-n">1</span>Open Telegram → search <strong>@BotFather</strong></div>
+                  <div class="pcard-step"><span class="pcard-step-n">2</span>Send <code>/newbot</code> → follow the steps</div>
                   <div class="pcard-step"><span class="pcard-step-n">3</span>Paste the token below and go live</div>
                 </div>
                 <div id="ov-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
@@ -1495,9 +1495,9 @@ function renderOnboarding() {
         <div class="ob2-field">
           <label class="ob2-label">Course catalog</label>
           <div class="ob2-format-pill">Format: <code>Course Name | Timings | Fee | Keywords | Description</code></div>
-          <textarea class="ob2-textarea ob2-textarea--code" name="courseText" rows="8" placeholder="JEE Main & Advanced | Mon Wed Fri 5—7 pm | â‚¹8,000/month | jee,iit,engineering | Comprehensive 2-year JEE prep with test series
-NEET | Tue Thu Sat 4—6 pm | â‚¹7,500/month | neet,medical,biology | NEET coaching for Class 11—12 with biology focus
-Foundation (Class 8—10) | Daily 4—5 pm | â‚¹5,000/month | foundation,school,cbse | School subject coaching with competitive exam base">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
+          <textarea class="ob2-textarea ob2-textarea--code" name="courseText" rows="8" placeholder="JEE Main & Advanced | Mon Wed Fri 5—7 pm | ₹8,000/month | jee,iit,engineering | Comprehensive 2-year JEE prep with test series
+NEET | Tue Thu Sat 4—6 pm | ₹7,500/month | neet,medical,biology | NEET coaching for Class 11—12 with biology focus
+Foundation (Class 8—10) | Daily 4—5 pm | ₹5,000/month | foundation,school,cbse | School subject coaching with competitive exam base">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
           <span class="ob2-hint">One course per line. Keywords help the bot match student questions to the right course.</span>
         </div>
         <div class="ob2-actions">
@@ -1523,7 +1523,7 @@ Foundation (Class 8—10) | Daily 4—5 pm | â‚¹5,000/month | foundation,sch
         <div class="ob2-field">
           <label class="ob2-label">Frequently asked questions</label>
           <div class="ob2-format-pill">Format: <code>Question | Answer</code></div>
-          <textarea class="ob2-textarea ob2-textarea--code" name="faqText" rows="9" placeholder="What is the fee for JEE? | The JEE batch fee is â‚¹8,000/month with flexible EMI options available.
+          <textarea class="ob2-textarea ob2-textarea--code" name="faqText" rows="9" placeholder="What is the fee for JEE? | The JEE batch fee is ₹8,000/month with flexible EMI options available.
 Do you offer demo classes? | Yes! We offer a free 1-hour demo class. Just share your name and preferred timing.
 What are the batch timings? | Morning 6—8 am, Afternoon 2—4 pm, Evening 5—7 pm batches available.
 Is there a hostel facility? | Yes, hostel accommodation is available for outstation students.
@@ -1643,7 +1643,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Savingâ€¦';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
     try {
       const data = formToObject(e.target);
       await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
@@ -1657,7 +1657,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Savingâ€¦';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
     try {
       const data = formToObject(e.target);
       const courseItems = parseCourseText(data.courseText);
@@ -1673,7 +1673,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Launchingâ€¦';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Launching…';
     try {
       const data = formToObject(e.target);
       const faqItems = parseFaqText(data.faqText);
@@ -2186,7 +2186,7 @@ function renderTelegramSetup() {
               <h2>Telegram bot connected!</h2>
               <p>Your bot <strong>@${escapeHtml(bot.botUsername)}</strong> is live and ready.</p>
               <p class="tg-connected-sub">Students can now message your Telegram bot and your AI will reply instantly — no pre-messages, no delays.</p>
-              <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard â†'</button>
+              <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard →</button>
               <button class="ghost-button" style="margin-top:12px;" id="tg-disconnect-btn">Disconnect bot</button>
             </div>
           ` : `
@@ -2202,11 +2202,11 @@ function renderTelegramSetup() {
                 <div class="field-hint">Looks like: 1234567890:ABCdef...</div>
               </div>
               <button class="button" type="submit" style="width:100%;justify-content:center;" id="tg-submit-btn">
-                Connect Telegram Bot â†'
+                Connect Telegram Bot →
               </button>
             </form>
             <div class="tg-skip-link">
-              <a href="#" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render();return false;">Skip for now â†' Use WhatsApp instead</a>
+              <a href="#" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render();return false;">Skip for now → Use WhatsApp instead</a>
             </div>
           `}
         </div>
@@ -2237,7 +2237,7 @@ function renderTelegramSetup() {
       errEl.textContent = err.message;
       errEl.style.display = "block";
       btn.disabled = false;
-      btn.textContent = "Connect Telegram Bot â†'";
+      btn.textContent = "Connect Telegram Bot →";
     }
   });
 
@@ -2263,7 +2263,7 @@ function renderSetupFlow() {
         <h2 class="payment-popup-title">Activate your AI bot</h2>
         <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
         <div class="payment-popup-price">
-          <span class="payment-price-big">â‚¹2,999</span><span class="payment-price-period">/month</span>
+          <span class="payment-price-big">₹2,999</span><span class="payment-price-period">/month</span>
           <span class="payment-price-or">or</span>
           <span class="payment-price-big payment-price-usd">$49</span><span class="payment-price-period">/month</span>
         </div>
@@ -2274,7 +2274,7 @@ function renderSetupFlow() {
           <li>âœ" Cancel anytime</li>
         </ul>
         <div class="payment-popup-buttons">
-          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo</button>
+          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">ðŸ‡®ðŸ‡³ Pay ₹2,999/mo</button>
           <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">ðŸŒ Pay $49/mo</button>
         </div>
         <div class="payment-popup-note">Secure payment Â· Cancel anytime Â· Instant activation</div>
@@ -2284,7 +2284,7 @@ function renderSetupFlow() {
 
   const waForm = step === "wa-form" ? `
     <div class="setup-form-wrap">
-      <div class="setup-form-back" id="setup-back">â† Back</div>
+      <div class="setup-form-back" id="setup-back">← Back</div>
       <div class="setup-platform-header">
         <div class="setup-platform-icon setup-platform-icon--wa">
           <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
@@ -2295,7 +2295,7 @@ function renderSetupFlow() {
         </div>
       </div>
       <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> â†' create a WhatsApp app</div>
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> → create a WhatsApp app</div>
         <div class="setup-step-item"><span class="setup-step-num">2</span>Copy your <strong>Phone Number ID</strong>, <strong>Access Token</strong>, and <strong>App Secret</strong></div>
         <div class="setup-step-item"><span class="setup-step-num">3</span>Paste them below — subscribe to go live</div>
       </div>
@@ -2319,14 +2319,14 @@ function renderSetupFlow() {
           <input class="input" name="whatsappAppSecret" placeholder="Meta App Secret" required />
         </div>
         <input type="hidden" name="whatsappProvider" value="meta" />
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment â†'" : "Connect WhatsApp â†'"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect WhatsApp →"}</button>
       </form>
     </div>
   ` : "";
 
   const tgForm = step === "tg-form" ? `
     <div class="setup-form-wrap">
-      <div class="setup-form-back" id="setup-back">â† Back</div>
+      <div class="setup-form-back" id="setup-back">← Back</div>
       <div class="setup-platform-header">
         <div class="setup-platform-icon setup-platform-icon--tg">
           <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
@@ -2337,7 +2337,7 @@ function renderSetupFlow() {
         </div>
       </div>
       <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram â†' search <strong>@BotFather</strong></div>
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram → search <strong>@BotFather</strong></div>
         <div class="setup-step-item"><span class="setup-step-num">2</span>Send <code>/newbot</code> and follow the steps to create your bot</div>
         <div class="setup-step-item"><span class="setup-step-num">3</span>Copy the token BotFather gives you and paste it below</div>
       </div>
@@ -2348,7 +2348,7 @@ function renderSetupFlow() {
           <small style="color:rgba(255,255,255,0.4);font-size:0.78rem;margin-top:4px;display:block;">Looks like: 1234567890:ABCDefGHI...</small>
         </div>
         <div id="setup-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment â†'" : "Connect & Go Live â†'"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
       </form>
     </div>
   ` : "";
@@ -2368,7 +2368,7 @@ function renderSetupFlow() {
             <li>Meta Cloud API (free tier available)</li>
           </ul>
         </div>
-        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp â†'</div>
+        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp →</div>
       </button>
       <button class="setup-choice-card setup-choice-tg" id="setup-pick-tg">
         <div class="setup-choice-icon">
@@ -2383,7 +2383,7 @@ function renderSetupFlow() {
             <li>Same powerful AI as WhatsApp</li>
           </ul>
         </div>
-        <div class="setup-choice-cta setup-choice-cta--tg">Connect Telegram â†'</div>
+        <div class="setup-choice-cta setup-choice-cta--tg">Connect Telegram →</div>
       </button>
     </div>
   ` : "";
@@ -2442,7 +2442,7 @@ function renderSetupFlow() {
     state.setupStep = "choice"; state.showPaymentPopup = false; renderSetupFlow();
   });
 
-  // WA form submit â†' validate then show payment popup (or connect directly if pricing disabled)
+  // WA form submit → validate then show payment popup (or connect directly if pricing disabled)
   document.querySelector("#setup-wa-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = formToObject(e.target);
@@ -2474,11 +2474,11 @@ function renderSetupFlow() {
           showWhatsAppSetupAlert(result?.setup);
         }
         render();
-      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Connect WhatsApp â†'"; } }
+      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Connect WhatsApp →"; } }
     }
   });
 
-  // TG form submit â†' validate then show payment popup (or connect directly if pricing disabled)
+  // TG form submit → validate then show payment popup (or connect directly if pricing disabled)
   document.querySelector("#setup-tg-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const tokenInput = document.querySelector("#setup-tg-token");
@@ -2507,7 +2507,7 @@ function renderSetupFlow() {
         render();
       } catch (err) {
         if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment â†'"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; }
       }
     }
   });
@@ -2565,7 +2565,7 @@ function renderSetupFlow() {
         });
         rzp.open();
       }
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo"; } }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸ‡®ðŸ‡³ Pay ₹2,999/mo"; } }
   });
 
   // Stripe payment
