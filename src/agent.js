@@ -17,7 +17,6 @@ import {
 import {
   cleanUserFacingText,
   formatSourceAttribution,
-  insertInlineSourceCitations,
   safeJsonParse,
   sanitizeForWhatsApp
 } from "./lib/text.js";
@@ -68,32 +67,9 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
 }
 
 function formatGroundedAnswer(text, sources = [], supports = [], channel = "default") {
-  const sourceByNumber = new Map(
-    (Array.isArray(sources) ? sources : []).map((source, index) => [index + 1, source])
-  );
-
-  const answerText = cleanUserFacingText(
-    insertInlineSourceCitations(text, sources, supports, {
-      formatMarker(numbers) {
-        if (channel !== "telegram") {
-          return numbers.map((number) => `[${number}]`).join("");
-        }
-
-        return numbers
-          .map((number) => {
-            const source = sourceByNumber.get(number);
-            return source?.uri ? `[[TEL_CITE:${number}|${source.uri}]]` : `[${number}]`;
-          })
-          .join("");
-      }
-    })
-  );
+  const answerText = cleanUserFacingText(text);
   if (!answerText) {
     return "";
-  }
-
-  if (channel === "telegram") {
-    return answerText;
   }
 
   const attribution = formatSourceAttribution(sources, {
