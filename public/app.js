@@ -327,16 +327,112 @@ function renderLanding() {
 
       <!-- HERO -->
       <section class="lp-hero">
+        <div class="lp-hero-bg">
+          <div class="lp-hero-grid-bg"></div>
+          <div class="lp-hero-glow lp-hero-glow--purple"></div>
+          <div class="lp-hero-glow lp-hero-glow--blue"></div>
+        </div>
         <div class="shell">
           <div class="lp-hero-inner">
-            <span class="eyebrow">AI Bot Platform — swift-deploy.in</span>
-            <h1 class="lp-h1">One AI. Every platform.<br>Zero manual work.</h1>
-            <p class="lp-sub">swift-deploy.in gives your business an AI-powered bot that replies 24/7, supports any language, and works on WhatsApp and Telegram — live in under 2 minutes.</p>
+
+            <div class="lp-hero-badge">
+              <span class="lp-hero-badge-dot"></span>
+              AI-powered &bull; WhatsApp &amp; Telegram &bull; Any language
+            </div>
+
+            <h1 class="lp-h1">One AI. Every platform.<br><span class="lp-h1-accent">Zero manual work.</span></h1>
+            <p class="lp-sub">Your business gets an AI bot that replies instantly 24/7, speaks any language, and goes live in under 2 minutes &mdash; no code, no complexity.</p>
+
+            <div class="lp-hero-ctas">
+              <a class="button lp-hero-cta-primary" href="/app?mode=signup">Get started free &rarr;</a>
+              <a class="ghost-button lp-hero-cta-secondary" href="/app?mode=login">Log in to dashboard</a>
+            </div>
+
+            <div class="lp-trust-bar">
+              <div class="lp-trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                No credit card required
+              </div>
+              <span class="lp-trust-sep">&bull;</span>
+              <div class="lp-trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Live in under 2 minutes
+              </div>
+              <span class="lp-trust-sep">&bull;</span>
+              <div class="lp-trust-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                50+ languages supported
+              </div>
+            </div>
+
+            <div class="lp-hero-showcase">
+              <div class="lp-hero-platforms-col">
+                <div class="lp-hero-plat-card lp-hero-plat-wa">
+                  <div class="lp-hero-plat-icon">
+                    <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#25D366"/><path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2z" fill="white"/></svg>
+                  </div>
+                  <div class="lp-hero-plat-info">
+                    <div class="lp-hero-plat-name">WhatsApp Business</div>
+                    <div class="lp-hero-plat-desc">AI replies to every message</div>
+                  </div>
+                  <div class="lp-hero-plat-live">
+                    <span class="lp-live-dot lp-live-dot--wa"></span>Live
+                  </div>
+                </div>
+                <div class="lp-hero-plat-card lp-hero-plat-tg">
+                  <div class="lp-hero-plat-icon">
+                    <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+                  </div>
+                  <div class="lp-hero-plat-info">
+                    <div class="lp-hero-plat-name">Telegram Bot</div>
+                    <div class="lp-hero-plat-desc">Instant activation, no approval</div>
+                  </div>
+                  <div class="lp-hero-plat-live">
+                    <span class="lp-live-dot lp-live-dot--tg"></span>Live
+                  </div>
+                </div>
+                <div class="lp-hero-stats-row">
+                  <div class="lp-hero-stat"><span class="lp-hero-stat-val">24/7</span><span class="lp-hero-stat-lbl">Always on</span></div>
+                  <div class="lp-hero-stat-div"></div>
+                  <div class="lp-hero-stat"><span class="lp-hero-stat-val">&lt;2s</span><span class="lp-hero-stat-lbl">Reply speed</span></div>
+                  <div class="lp-hero-stat-div"></div>
+                  <div class="lp-hero-stat"><span class="lp-hero-stat-val">50+</span><span class="lp-hero-stat-lbl">Languages</span></div>
+                </div>
+              </div>
+
+              <div class="lp-hero-chat-col">
+                <div class="lp-chat-window">
+                  <div class="lp-chat-header">
+                    <span class="lp-chat-dot" style="background:#ef4444"></span>
+                    <span class="lp-chat-dot" style="background:#f59e0b"></span>
+                    <span class="lp-chat-dot" style="background:#22c55e"></span>
+                    <span class="lp-chat-title">swift-deploy.in &mdash; AI Bot</span>
+                  </div>
+                  <div class="lp-chat-body">
+                    <div class="lp-chat-msg lp-chat-user">Hi! What courses do you offer?</div>
+                    <div class="lp-chat-msg lp-chat-bot">
+                      *Courses Available*<br>
+                      - JEE Main &amp; Advanced | Mon Wed Fri 6&ndash;8 AM | &thinsp;&#8377;8,500/month<br>
+                      - NEET | Tue Thu Sat 4&ndash;6 PM | &#8377;7,500/month<br>
+                      - Foundation (Class 8&ndash;10) | Daily 4&ndash;5 PM<br><br>
+                      Want to book a free demo? Just say <em>book demo</em> and I&rsquo;ll set it up instantly!
+                    </div>
+                    <div class="lp-chat-msg lp-chat-user">Book demo for NEET tomorrow</div>
+                    <div class="lp-chat-msg lp-chat-bot lp-chat-typing">
+                      <span class="lp-typing-dot"></span>
+                      <span class="lp-typing-dot"></span>
+                      <span class="lp-typing-dot"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
-      <!-- PLATFORM CHOOSER -->
+            <!-- PLATFORM CHOOSER -->
       <section class="lp-platforms">
         <div class="shell">
           <div class="lp-platforms-header">
