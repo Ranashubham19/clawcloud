@@ -387,11 +387,11 @@ function renderLanding() {
               </div>
               <div class="lp-platform-info">
                 <h3>WhatsApp AI Bot</h3>
-                <p>AI assistant for WhatsApp Business. Capture leads, book demos, answer FAQs — all automatically.</p>
+                <p>Connect your WhatsApp Business number and let AI reply to every customer message — instantly, 24/7.</p>
                 <ul class="lp-platform-features">
-                  <li>Lead capture &amp; CRM dashboard</li>
-                  <li>Demo booking automation</li>
-                  <li>Multi-language AI replies</li>
+                  <li>Replies to text, photos, audio &amp; files</li>
+                  <li>Auto-detects &amp; replies in any language</li>
+                  <li>Always on — zero manual effort</li>
                 </ul>
               </div>
               <div class="lp-platform-cta">Get started free →</div>
@@ -405,11 +405,11 @@ function renderLanding() {
               </div>
               <div class="lp-platform-info">
                 <h3>Telegram AI Bot</h3>
-                <p>Connect your Telegram bot in seconds. Paste your BotFather token and your AI goes live instantly.</p>
+                <p>Paste your BotFather token and your AI bot goes live in seconds — no Meta approval, no waiting.</p>
                 <ul class="lp-platform-features">
-                  <li>Instant bot activation</li>
-                  <li>Same AI as WhatsApp</li>
-                  <li>No extra setup needed</li>
+                  <li>Handles messages, voice, photos &amp; files</li>
+                  <li>Replies in the user's own language</li>
+                  <li>No approval or verification needed</li>
                 </ul>
               </div>
               <div class="lp-platform-cta">Connect Telegram →</div>
@@ -524,9 +524,9 @@ function renderPlatformChoice() {
               <h2>WhatsApp AI Bot</h2>
               <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
               <ul class="platform-choice-features">
-                <li>Instant AI replies to any question</li>
-                <li>Works on any WhatsApp number</li>
-                <li>Multi-language support</li>
+                <li>Replies to text, photos, audio &amp; files</li>
+                <li>Auto-detects &amp; replies in any language</li>
+                <li>Always on — zero manual effort</li>
               </ul>
             </div>
             <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
@@ -539,9 +539,9 @@ function renderPlatformChoice() {
               <h2>Telegram AI Bot</h2>
               <p>Paste your BotFather token and your AI bot goes live instantly — no approval, no payment method needed to start.</p>
               <ul class="platform-choice-features">
-                <li>Live in under 60 seconds</li>
-                <li>No Meta approval needed</li>
-                <li>Same powerful AI as WhatsApp</li>
+                <li>Handles messages, voice, photos &amp; files</li>
+                <li>Replies in the user's own language</li>
+                <li>No approval or verification needed</li>
               </ul>
             </div>
             <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram →</div>
