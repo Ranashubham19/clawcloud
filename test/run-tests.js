@@ -542,7 +542,7 @@ await run("formatProfessionalReply turns long plain answers into structured form
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Answer\*/);
+  assert.match(formatted, /^\*Haldi\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
   assert.match(formatted, /- It is widely used in Indian cooking\./);
   assert.match(formatted, /- It is known for its bright yellow color\./);
@@ -555,7 +555,7 @@ await run("formatProfessionalReply strips generic follow-up questions", async ()
   );
 
   assert.doesNotMatch(formatted, /Would you like to know more/i);
-  assert.match(formatted, /^\*Answer\*/);
+  assert.match(formatted, /^\*Mehandi\*/);
 });
 
 await run("formatProfessionalReply preserves trailing source blocks", async () => {
@@ -564,7 +564,7 @@ await run("formatProfessionalReply preserves trailing source blocks", async () =
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Answer\*/);
+  assert.match(formatted, /^\*Gold prices\*/);
   assert.match(formatted, /\n\n1\. https:\/\/www\.reuters\.com\/example/);
   assert.match(formatted, /2\. https:\/\/www\.bbc\.com\/example$/);
 });

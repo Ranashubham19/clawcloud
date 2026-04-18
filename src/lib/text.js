@@ -73,42 +73,72 @@ function splitSentences(value) {
     .filter(Boolean);
 }
 
-function answerHeading(languageStyle = "english") {
+function defaultHeading(languageStyle = "english") {
   const headings = {
-    hindi: "उत्तर",
-    hinglish: "Answer",
-    bengali: "উত্তর",
-    gujarati: "જવાબ",
-    punjabi: "ਜਵਾਬ",
-    tamil: "பதில்",
-    telugu: "సమాధానం",
-    kannada: "ಉತ್ತರ",
-    malayalam: "ഉത്തരം",
-    arabic: "الإجابة",
-    urdu: "جواب",
-    persian: "پاسخ",
-    thai: "คำตอบ",
-    chinese: "回答",
-    japanese: "回答",
-    korean: "답변",
-    russian: "Ответ",
-    greek: "Απάντηση",
-    hebrew: "תשובה",
-    french: "Réponse",
-    spanish: "Respuesta",
-    portuguese: "Resposta",
-    german: "Antwort",
-    italian: "Risposta",
-    polish: "Odpowiedz",
-    turkish: "Yanıt",
-    vietnamese: "Tra loi",
-    indonesian: "Jawaban",
-    malay: "Jawapan",
-    filipino: "Sagot",
-    swahili: "Jibu"
+    hindi: "सारांश",
+    hinglish: "Overview",
+    bengali: "সারাংশ",
+    gujarati: "સારાંશ",
+    punjabi: "ਸਾਰ",
+    tamil: "சுருக்கம்",
+    telugu: "సారాంశం",
+    kannada: "ಸಾರಾಂಶ",
+    malayalam: "സംഗ്രഹം",
+    arabic: "نظرة سريعة",
+    urdu: "خلاصہ",
+    persian: "خلاصه",
+    thai: "ภาพรวม",
+    chinese: "概述",
+    japanese: "概要",
+    korean: "개요",
+    russian: "Кратко",
+    greek: "Σύνοψη",
+    hebrew: "סיכום",
+    french: "Apercu",
+    spanish: "Resumen",
+    portuguese: "Resumo",
+    german: "Uberblick",
+    italian: "Sintesi",
+    polish: "Podsumowanie",
+    turkish: "Ozet",
+    vietnamese: "Tong quan",
+    indonesian: "Ringkasan",
+    malay: "Ringkasan",
+    filipino: "Buod",
+    swahili: "Muhtasari"
   };
 
-  return headings[String(languageStyle || "").toLowerCase()] || "Answer";
+  return headings[String(languageStyle || "").toLowerCase()] || "Overview";
+}
+
+function deriveReplyHeading(body, languageStyle = "english") {
+  const firstSentence = splitSentences(body)[0] || "";
+  const raw = cleanInlineText(firstSentence.replace(/^[("'“”‘’\[]+/, ""));
+  if (!raw) {
+    return defaultHeading(languageStyle);
+  }
+
+  const matchers = [
+    /^([^,.!?।！？:;\-]{2,40}?)\s+(?:is|are|was|were|means|refer(?:s)? to|also known as)\b/i,
+    /^([^,.!?।！？:;\-]{2,40}?),(?:\s+also known as|\s+is|\s+are)\b/i,
+    /^([^,.!?।！？:;\-]{2,40}?)\s*[:\-]\s+/i,
+    /^([^,.!?।！？]{2,30}?),(?:\s|$)/
+  ];
+
+  for (const matcher of matchers) {
+    const candidate = raw.match(matcher)?.[1];
+    const cleanCandidate = cleanInlineText(candidate || "");
+    if (!cleanCandidate) {
+      continue;
+    }
+
+    const wordCount = cleanCandidate.split(/\s+/).filter(Boolean).length;
+    if (wordCount >= 1 && wordCount <= 5) {
+      return cleanCandidate;
+    }
+  }
+
+  return defaultHeading(languageStyle);
 }
 
 function splitTrailingSourceBlock(text) {
@@ -178,7 +208,7 @@ export function formatProfessionalReply(value, options = {}) {
   const hasHeading = /^\*[^*\n]{1,60}\*/.test(body);
   const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
   const sentences = splitSentences(body);
-  const heading = `*${answerHeading(options.languageStyle)}*`;
+  const heading = `*${deriveReplyHeading(body, options.languageStyle)}*`;
 
   if (!hasList && !hasHeading) {
     if (sentences.length >= 3) {
