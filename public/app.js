@@ -1052,7 +1052,7 @@ function dashboardSection() {
             <div class="overview-stats">
               <div class="ov-stat"><span class="ov-stat-val">${totalChats}</span><span class="ov-stat-label">Total Chats</span></div>
               <div class="ov-stat-divider"></div>
-              <div class="ov-stat"><span class="ov-stat-val">${totalLeads}</span><span class="ov-stat-label">Leads</span></div>
+              <div class="ov-stat"><span class="ov-stat-val">${state.analytics?.totalUsers || 0}</span><span class="ov-stat-label">Users</span></div>
             </div>
           </div>
         </section>
@@ -1082,9 +1082,9 @@ function dashboardSection() {
               ` : `
                 <p class="platform-card-desc">Connect your WhatsApp number to let your AI bot reply to every message automatically — no manual work.</p>
                 <div class="platform-card-steps">
-                  <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Settings → WhatsApp</strong></div>
-                  <div class="pc-step"><span class="pc-step-n">2</span>Enter your AiSensy API key or Meta credentials</div>
-                  <div class="pc-step"><span class="pc-step-n">3</span>Your bot goes live instantly</div>
+                  <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Settings</strong> in the sidebar</div>
+                  <div class="pc-step"><span class="pc-step-n">2</span>Enter your Meta WhatsApp credentials</div>
+                  <div class="pc-step"><span class="pc-step-n">3</span>Your AI bot goes live instantly</div>
                 </div>
                 <button class="platform-card-btn platform-card-btn--wa" id="ov-wa-connect-btn">
                   Connect WhatsApp →
@@ -1455,18 +1455,12 @@ function renderDashboard() {
 
         <section class="dashboard-grid">
           <aside class="sidebar">
-            <div class="sidebar-section-label">Main</div>
-            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">📊 Overview</button>
-            <button class="tab-button ${state.tab === "analytics" ? "active" : ""}" data-tab="analytics">📈 Analytics</button>
-            <button class="tab-button ${state.tab === "leads" ? "active" : ""}" data-tab="leads">👥 Leads</button>
-            <button class="tab-button ${state.tab === "chats" ? "active" : ""}" data-tab="chats">💬 Chats</button>
-            <button class="tab-button ${state.tab === "bookings" ? "active" : ""}" data-tab="bookings">📅 Bookings</button>
+            <div class="sidebar-section-label">Bot</div>
+            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">🏠 Dashboard</button>
+            <button class="tab-button ${state.tab === "chats" ? "active" : ""}" data-tab="chats">💬 Conversations</button>
             <div class="sidebar-section-label">Account</div>
-            <button class="tab-button ${state.tab === "team" ? "active" : ""}" data-tab="team">🤝 Team</button>
-            <button class="tab-button ${state.tab === "apikeys" ? "active" : ""}" data-tab="apikeys">🔑 API Keys</button>
-            <button class="tab-button ${state.tab === "audit" ? "active" : ""}" data-tab="audit">📋 Audit Log</button>
-            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">💳 Billing</button>
             <button class="tab-button ${state.tab === "settings" ? "active" : ""}" data-tab="settings">⚙️ Settings</button>
+            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">💳 Billing</button>
             ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">🛡️ Admin</button>` : ""}
           </aside>
 
