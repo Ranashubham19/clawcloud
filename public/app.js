@@ -1,6 +1,7 @@
 const app = document.querySelector("#app");
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
+const PRICING_ENABLED = false; // set to true to re-enable payment popup before platform connect
 
 function normalizeTab(value) {
   const tab = String(value || "").trim().toLowerCase();
@@ -286,10 +287,7 @@ function renderLanding() {
               <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
               <span class="logo-name">swift-deploy.in</span>
             </div>
-            <div class="nav-links">
-              <a href="#features">Features</a>
-              <a href="/privacy">Privacy</a>
-            </div>
+            <div class="nav-links"></div>
             <div class="nav-actions">
               <a class="ghost-button" href="/app?mode=platform">Log in</a>
               <a class="button" href="/app?mode=platform">Get started free</a>
@@ -542,39 +540,47 @@ function renderAuth() {
           </div>
 
           ${isSignup ? `
-            <form id="signup-form">
+            <form id="signup-form" novalidate>
+              <div id="signup-error" class="auth-form-error" style="display:none;"></div>
               <div class="field">
                 <label>Full name</label>
-                <input class="input" name="name" placeholder="Shubham Rana" required />
+                <input class="input" name="name" placeholder="Shubham Rana" autocomplete="name" />
+                <span class="field-error" id="err-name"></span>
               </div>
               <div class="field">
                 <label>Business name</label>
-                <input class="input" name="businessName" placeholder="ClawCloud Inc." required />
+                <input class="input" name="businessName" placeholder="Your company or project name" autocomplete="organization" />
+                <span class="field-error" id="err-businessName"></span>
               </div>
               <div class="field">
                 <label>Email</label>
-                <input class="input" type="email" name="email" placeholder="you@example.com" required />
+                <input class="input" type="email" name="email" placeholder="you@example.com" autocomplete="email" />
+                <span class="field-error" id="err-email"></span>
               </div>
               <div class="field">
                 <label>Password</label>
-                <input class="input" type="password" name="password" placeholder="Minimum 8 characters" required />
+                <input class="input" type="password" name="password" placeholder="Minimum 8 characters" autocomplete="new-password" />
+                <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" style="width:100%;justify-content:center;">Create account →</button>
+                <button class="button" type="submit" id="signup-btn" style="width:100%;justify-content:center;">Create account →</button>
               </div>
             </form>
           ` : `
-            <form id="login-form">
+            <form id="login-form" novalidate>
+              <div id="login-error" class="auth-form-error" style="display:none;"></div>
               <div class="field">
                 <label>Email</label>
-                <input class="input" type="email" name="email" placeholder="you@example.com" required />
+                <input class="input" type="email" name="email" placeholder="you@example.com" autocomplete="email" />
+                <span class="field-error" id="err-email"></span>
               </div>
               <div class="field">
                 <label>Password</label>
-                <input class="input" type="password" name="password" placeholder="Your password" required />
+                <input class="input" type="password" name="password" placeholder="Your password" autocomplete="current-password" />
+                <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" style="width:100%;justify-content:center;">Log in →</button>
+                <button class="button" type="submit" id="login-btn" style="width:100%;justify-content:center;">Log in →</button>
               </div>
             </form>
           `}
@@ -590,17 +596,35 @@ function renderAuth() {
     });
   });
 
+  function setFieldError(id, msg) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; el.style.display = msg ? "block" : "none"; }
+  }
+  function clearFieldErrors(ids) { ids.forEach((id) => setFieldError(id, "")); }
+
   const signupForm = document.querySelector("#signup-form");
   if (signupForm) {
     signupForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      clearFieldErrors(["err-name", "err-businessName", "err-email", "err-password"]);
+      const payload = formToObject(signupForm);
+      let valid = true;
+      if (!payload.name?.trim()) { setFieldError("err-name", "Full name is required."); valid = false; }
+      if (!payload.businessName?.trim()) { setFieldError("err-businessName", "Business name is required."); valid = false; }
+      if (!payload.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) { setFieldError("err-email", "Enter a valid email address."); valid = false; }
+      if (!payload.password || payload.password.length < 8) { setFieldError("err-password", "Password must be at least 8 characters."); valid = false; }
+      if (!valid) return;
+      const btn = document.querySelector("#signup-btn");
+      const errEl = document.querySelector("#signup-error");
+      if (btn) { btn.disabled = true; btn.textContent = "Creating account..."; }
+      if (errEl) errEl.style.display = "none";
       try {
-        const payload = formToObject(signupForm);
         await api("/api/auth/signup", { method: "POST", body: payload });
         await loadBootstrap(pageParams.get("businessId") || "");
         render();
       } catch (error) {
-        alert(error.message);
+        if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Create account →"; }
       }
     });
   }
@@ -609,13 +633,23 @@ function renderAuth() {
   if (loginForm) {
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      clearFieldErrors(["err-email", "err-password"]);
+      const payload = formToObject(loginForm);
+      let valid = true;
+      if (!payload.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) { setFieldError("err-email", "Enter a valid email address."); valid = false; }
+      if (!payload.password?.trim()) { setFieldError("err-password", "Password is required."); valid = false; }
+      if (!valid) return;
+      const btn = document.querySelector("#login-btn");
+      const errEl = document.querySelector("#login-error");
+      if (btn) { btn.disabled = true; btn.textContent = "Logging in..."; }
+      if (errEl) errEl.style.display = "none";
       try {
-        const payload = formToObject(loginForm);
         await api("/api/auth/login", { method: "POST", body: payload });
         await loadBootstrap(pageParams.get("businessId") || "");
         render();
       } catch (error) {
-        alert(error.message);
+        if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Log in →"; }
       }
     });
   }
@@ -1040,90 +1074,95 @@ function dashboardSection() {
           `}
         </section>
       `;
-    default:
+    default: {
       const tg = state.selectedBusiness?.telegram;
       const tgConnected = Boolean(tg?.token);
       const waConnected = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId || state.selectedBusiness?.whatsapp?.apiKey);
       const totalChats = state.analytics?.totalChats || 0;
-      const totalLeads = state.analytics?.totalLeads || 0;
       return `
-        <section class="card overview-card">
-          <div class="overview-greeting">
-            <div>
-              <div class="page-title">Welcome back, ${escapeHtml(state.user?.name?.split(" ")[0] || "there")} 👋</div>
-              <div class="muted">Here's your AI bot dashboard</div>
+        <div class="dash-hero">
+          <div class="dash-hero-left">
+            <div class="dash-hero-greeting">Welcome back, <span class="dash-hero-name">${escapeHtml(state.user?.name?.split(" ")[0] || "there")}</span></div>
+            <div class="dash-hero-sub">Your AI bot is ${(tgConnected || waConnected) ? "running 24/7 ✦" : "ready to connect"}</div>
+          </div>
+          <div class="dash-hero-stats">
+            <div class="dash-stat-pill">
+              <span class="dash-stat-num">${totalChats}</span>
+              <span class="dash-stat-lbl">Conversations</span>
             </div>
-            <div class="overview-stats">
-              <div class="ov-stat"><span class="ov-stat-val">${totalChats}</span><span class="ov-stat-label">Total Chats</span></div>
-              <div class="ov-stat-divider"></div>
-              <div class="ov-stat"><span class="ov-stat-val">${state.analytics?.totalUsers || 0}</span><span class="ov-stat-label">Users</span></div>
+            <div class="dash-stat-pill">
+              <span class="dash-stat-num">${(tgConnected ? 1 : 0) + (waConnected ? 1 : 0)}</span>
+              <span class="dash-stat-lbl">Active bots</span>
             </div>
           </div>
-        </section>
+        </div>
 
         <div class="platform-cards-grid">
 
           <!-- WhatsApp Card -->
-          <div class="platform-card ${waConnected ? "platform-card--connected" : ""}">
-            <div class="platform-card-header">
-              <div class="platform-card-icon platform-card-icon--wa">
-                <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+          <div class="pcard ${waConnected ? "pcard--live pcard--wa-live" : "pcard--wa-idle"}">
+            <div class="pcard-glow pcard-glow--wa"></div>
+            <div class="pcard-top">
+              <div class="pcard-icon pcard-icon--wa">
+                <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
               </div>
-              <div class="platform-card-title-wrap">
-                <div class="platform-card-name">WhatsApp</div>
-                <div class="platform-card-badge ${waConnected ? "badge--live" : "badge--idle"}">
-                  ${waConnected ? "● Live" : "○ Not connected"}
+              <div class="pcard-title-wrap">
+                <div class="pcard-platform">WhatsApp</div>
+                <div class="pcard-status ${waConnected ? "pcard-status--live" : "pcard-status--idle"}">
+                  <span class="pcard-dot"></span>${waConnected ? "Live — AI replying" : "Not connected"}
                 </div>
               </div>
             </div>
-            <div class="platform-card-body">
+            <div class="pcard-body">
               ${waConnected ? `
-                <div class="platform-connected-info">
-                  <div class="pci-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
-                  <div class="pci-row"><span>Status</span><strong style="color:#25d366;">Active — AI replying</strong></div>
+                <div class="pcard-info-rows">
+                  <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
+                  <div class="pcard-info-row"><span>Replies</span><strong style="color:#25d366;">24/7 automated</strong></div>
                 </div>
-                <p class="platform-card-desc">Your WhatsApp AI bot is live. Share your number with users and the AI will reply to every message instantly.</p>
+                <p class="pcard-desc">Your WhatsApp AI bot is live and replying to every message instantly. Share your number with users to start conversations.</p>
               ` : `
-                <p class="platform-card-desc">Connect your WhatsApp number to let your AI bot reply to every message automatically — no manual work.</p>
-                <div class="platform-card-steps">
-                  <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Settings</strong> in the sidebar</div>
-                  <div class="pc-step"><span class="pc-step-n">2</span>Enter your Meta WhatsApp credentials</div>
-                  <div class="pc-step"><span class="pc-step-n">3</span>Your AI bot goes live instantly</div>
+                <p class="pcard-desc">Connect your WhatsApp Business number. Your AI bot will reply to every message automatically — any language, any time.</p>
+                <div class="pcard-steps">
+                  <div class="pcard-step"><span class="pcard-step-n">1</span>Get your Meta WhatsApp API credentials</div>
+                  <div class="pcard-step"><span class="pcard-step-n">2</span>Go to <strong>Settings</strong> and enter them</div>
+                  <div class="pcard-step"><span class="pcard-step-n">3</span>Bot activates instantly — no waiting</div>
                 </div>
-                <button class="platform-card-btn platform-card-btn--wa" id="ov-wa-connect-btn">
-                  Connect WhatsApp →
+                <button class="pcard-btn pcard-btn--wa" id="ov-wa-connect-btn">
+                  <svg width="16" height="16" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm7.24 20.313c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4.175-.812.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012s-.688.1-1.05.487c-.362.387-1.387 1.35-1.387 3.3s1.425 3.837 1.625 4.1c.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+                  Connect WhatsApp
                 </button>
               `}
             </div>
           </div>
 
           <!-- Telegram Card -->
-          <div class="platform-card ${tgConnected ? "platform-card--connected" : ""}">
-            <div class="platform-card-header">
-              <div class="platform-card-icon platform-card-icon--tg">
-                <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+          <div class="pcard ${tgConnected ? "pcard--live pcard--tg-live" : "pcard--tg-idle"}">
+            <div class="pcard-glow pcard-glow--tg"></div>
+            <div class="pcard-top">
+              <div class="pcard-icon pcard-icon--tg">
+                <svg width="26" height="26" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
               </div>
-              <div class="platform-card-title-wrap">
-                <div class="platform-card-name">Telegram</div>
-                <div class="platform-card-badge ${tgConnected ? "badge--live" : "badge--idle"}">
-                  ${tgConnected ? "● Live" : "○ Not connected"}
+              <div class="pcard-title-wrap">
+                <div class="pcard-platform">Telegram</div>
+                <div class="pcard-status ${tgConnected ? "pcard-status--live pcard-status--tg" : "pcard-status--idle"}">
+                  <span class="pcard-dot"></span>${tgConnected ? "Live — AI replying" : "Not connected"}
                 </div>
               </div>
             </div>
-            <div class="platform-card-body">
+            <div class="pcard-body">
               ${tgConnected ? `
-                <div class="platform-connected-info">
-                  <div class="pci-row"><span>Bot</span><strong>@${escapeHtml(tg.botUsername || "")}</strong></div>
-                  <div class="pci-row"><span>Status</span><strong style="color:#2aabee;">Active — AI replying</strong></div>
+                <div class="pcard-info-rows">
+                  <div class="pcard-info-row"><span>Bot</span><strong>@${escapeHtml(tg.botUsername || "")}</strong></div>
+                  <div class="pcard-info-row"><span>Replies</span><strong style="color:#2aabee;">24/7 automated</strong></div>
                 </div>
-                <p class="platform-card-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users and the AI will reply to every message.</p>
-                <button class="platform-card-btn platform-card-btn--danger" id="ov-tg-disconnect">Disconnect bot</button>
+                <p class="pcard-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users — the AI handles every message instantly.</p>
+                <button class="pcard-btn pcard-btn--danger" id="ov-tg-disconnect">Disconnect bot</button>
               ` : `
-                <p class="platform-card-desc">Connect a Telegram bot instantly — no payment, no approval needed. Paste your BotFather token and go live in seconds.</p>
-                <div class="platform-card-steps">
-                  <div class="pc-step"><span class="pc-step-n">1</span>Open Telegram → search <strong>@BotFather</strong></div>
-                  <div class="pc-step"><span class="pc-step-n">2</span>Send <code>/newbot</code> → follow the steps</div>
-                  <div class="pc-step"><span class="pc-step-n">3</span>Paste the token below and connect</div>
+                <p class="pcard-desc">Paste your BotFather token to go live in under 60 seconds — no Meta approval, no waiting, no extra cost.</p>
+                <div class="pcard-steps">
+                  <div class="pcard-step"><span class="pcard-step-n">1</span>Open Telegram → search <strong>@BotFather</strong></div>
+                  <div class="pcard-step"><span class="pcard-step-n">2</span>Send <code>/newbot</code> → follow the steps</div>
+                  <div class="pcard-step"><span class="pcard-step-n">3</span>Paste the token below and go live</div>
                 </div>
                 <div id="ov-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
                 <form id="ov-tg-form" style="display:flex;gap:8px;margin-top:4px;">
@@ -1158,6 +1197,7 @@ function dashboardSection() {
           </div>
         </div>
       `;
+    }
   }
 }
 
@@ -1975,7 +2015,7 @@ function renderSetupFlow() {
           <input class="input" name="whatsappAccessToken" placeholder="EAA..." required />
         </div>
         <input type="hidden" name="whatsappProvider" value="meta" />
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">Continue to Payment →</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
       </form>
     </div>
   ` : "";
@@ -2004,7 +2044,7 @@ function renderSetupFlow() {
           <small style="color:rgba(255,255,255,0.4);font-size:0.78rem;margin-top:4px;display:block;">Looks like: 1234567890:ABCDefGHI...</small>
         </div>
         <div id="setup-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">Continue to Payment →</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
       </form>
     </div>
   ` : "";
@@ -2098,23 +2138,68 @@ function renderSetupFlow() {
     state.setupStep = "choice"; state.showPaymentPopup = false; renderSetupFlow();
   });
 
-  // WA form submit → show payment popup
-  document.querySelector("#setup-wa-form")?.addEventListener("submit", (e) => {
+  // WA form submit → validate then show payment popup (or connect directly if pricing disabled)
+  document.querySelector("#setup-wa-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = formToObject(e.target);
-    state.pendingPlatformSetup = { platform: "whatsapp", config: data };
-    state.showPaymentPopup = true;
-    renderSetupFlow();
+    const numEl = e.target.querySelector("[name=whatsappDisplayPhoneNumber]");
+    const idEl = e.target.querySelector("[name=whatsappPhoneNumberId]");
+    const tokEl = e.target.querySelector("[name=whatsappAccessToken]");
+    let valid = true;
+    [numEl, idEl, tokEl].forEach((el) => { if (el) el.classList.remove("input--error"); });
+    if (!data.whatsappDisplayPhoneNumber?.trim()) { if (numEl) numEl.classList.add("input--error"); valid = false; }
+    if (!data.whatsappPhoneNumberId?.trim()) { if (idEl) idEl.classList.add("input--error"); valid = false; }
+    if (!data.whatsappAccessToken?.trim()) { if (tokEl) tokEl.classList.add("input--error"); valid = false; }
+    if (!valid) return;
+    if (PRICING_ENABLED) {
+      state.pendingPlatformSetup = { platform: "whatsapp", config: data };
+      state.showPaymentPopup = true;
+      renderSetupFlow();
+    } else {
+      const btn = e.target.querySelector("button[type=submit]");
+      if (btn) { btn.disabled = true; btn.textContent = "Connecting..."; }
+      try {
+        await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
+        await loadBootstrap(biz.id);
+        state.billingActivated = true;
+        state.showBotLivePopup = true;
+        render();
+      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; } }
+    }
   });
 
-  // TG form submit → show payment popup
-  document.querySelector("#setup-tg-form")?.addEventListener("submit", (e) => {
+  // TG form submit → validate then show payment popup (or connect directly if pricing disabled)
+  document.querySelector("#setup-tg-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const token = document.querySelector("#setup-tg-token")?.value?.trim();
-    if (!token) return;
-    state.pendingPlatformSetup = { platform: "telegram", token };
-    state.showPaymentPopup = true;
-    renderSetupFlow();
+    const tokenInput = document.querySelector("#setup-tg-token");
+    const token = tokenInput?.value?.trim();
+    const errEl = document.querySelector("#setup-tg-error");
+    if (errEl) errEl.style.display = "none";
+    if (tokenInput) tokenInput.classList.remove("input--error");
+    if (!token) { if (tokenInput) tokenInput.classList.add("input--error"); return; }
+    if (!/^\d{6,12}:[A-Za-z0-9_-]{30,50}$/.test(token)) {
+      if (tokenInput) tokenInput.classList.add("input--error");
+      if (errEl) { errEl.textContent = "Invalid token format. It should look like: 1234567890:ABCDefGHI..."; errEl.style.display = "block"; }
+      return;
+    }
+    if (PRICING_ENABLED) {
+      state.pendingPlatformSetup = { platform: "telegram", token };
+      state.showPaymentPopup = true;
+      renderSetupFlow();
+    } else {
+      const btn = e.target.querySelector("button[type=submit]");
+      if (btn) { btn.disabled = true; btn.textContent = "Connecting..."; }
+      try {
+        await api(`/api/businesses/${encodeURIComponent(biz.id)}/telegram`, { method: "POST", body: { token } });
+        await loadBootstrap(biz.id);
+        state.billingActivated = true;
+        state.showBotLivePopup = true;
+        render();
+      } catch (err) {
+        if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; }
+      }
+    }
   });
 
   // Payment popup close
