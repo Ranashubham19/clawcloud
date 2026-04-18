@@ -891,11 +891,20 @@ export async function handleIncomingMedia({
   }
 
   if (!hasGeminiProvider()) {
-    const fallback = "I can't process media files right now — GEMINI_API_KEY is not configured. Please send a text message instead.";
-    await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
-      businessId
+    // No vision AI — reply via text model with media context so the user still gets a helpful response
+    const mediaLabel = filename ? `${mediaType} file (${filename})` : mediaType;
+    const syntheticText = caption
+      ? `[User sent a ${mediaLabel}] ${caption}`
+      : `[User sent a ${mediaLabel}]`;
+    const reply = await handleIncomingText({
+      messageId,
+      from,
+      profileName,
+      text: syntheticText,
+      businessContext,
+      deliveryChannel: "whatsapp"
     });
-    return fallback;
+    return reply;
   }
 
   // Download the media file from WhatsApp

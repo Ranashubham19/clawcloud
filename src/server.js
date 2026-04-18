@@ -567,7 +567,7 @@ async function handleTelegramWebhook(request, response, url) {
   sendJson(response, 200, { ok: true });
 
   const inbound = extractTelegramInbound(payload);
-  if (!inbound || !inbound.text) return;
+  if (!inbound || (!inbound.text && !inbound.mediaType)) return;
 
   const business = await getBusinessByTelegramToken(businessId);
   if (!business?.telegram?.token) return;

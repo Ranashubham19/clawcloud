@@ -132,20 +132,76 @@ function splitMessage(text, maxLen = 4000) {
   return chunks;
 }
 
+const TELEGRAM_MEDIA_TYPES = ["photo", "video", "audio", "voice", "document", "sticker", "animation", "video_note"];
+
+function extractTelegramMedia(message) {
+  for (const kind of TELEGRAM_MEDIA_TYPES) {
+    if (message[kind]) {
+      const item = Array.isArray(message[kind])
+        ? message[kind][message[kind].length - 1]
+        : message[kind];
+      return {
+        mediaType: kind,
+        fileId: item?.file_id || "",
+        mimeType: item?.mime_type || "",
+        filename: item?.file_name || "",
+        duration: item?.duration || 0
+      };
+    }
+  }
+  return null;
+}
+
+function telegramMediaLabel(mediaType, filename = "", mimeType = "") {
+  const labels = {
+    photo: "photo",
+    video: "video",
+    audio: "audio file",
+    voice: "voice message",
+    document: `document${filename ? ` (${filename})` : ""}`,
+    sticker: "sticker",
+    animation: "GIF/animation",
+    video_note: "video note"
+  };
+  return labels[mediaType] || mediaType;
+}
+
 export function extractTelegramInbound(payload) {
   const message = payload?.message || payload?.edited_message;
   if (!message) return null;
 
   const from = message.from || {};
   const chat = message.chat || {};
+  const caption = cleanText(message.caption || "");
+  const textContent = cleanText(message.text || "");
+  const media = extractTelegramMedia(message);
+
+  let text = textContent || caption;
+  let mediaType = "";
+  let mimeType = "";
+  let filename = "";
+
+  if (media) {
+    mediaType = media.mediaType;
+    mimeType = media.mimeType;
+    filename = media.filename;
+    if (!text) {
+      text = `[User sent a ${telegramMediaLabel(mediaType, filename, mimeType)}]`;
+    } else {
+      text = `[User sent a ${telegramMediaLabel(mediaType, filename, mimeType)}] ${text}`;
+    }
+  }
 
   return {
     provider: "telegram",
     from: String(from.id || ""),
     chatId: String(chat.id || ""),
-    text: cleanText(message.text || message.caption || ""),
+    text,
     profileName: [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || "",
     messageId: `telegram:${message.message_id || Date.now()}`,
-    timestamp: String(message.date || "")
+    timestamp: String(message.date || ""),
+    mediaType,
+    mimeType,
+    filename
   };
 }
