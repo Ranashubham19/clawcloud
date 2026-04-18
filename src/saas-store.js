@@ -318,9 +318,23 @@ function sanitizeBusiness(business) {
             )
           : Boolean(business.whatsapp?.accessToken && business.whatsapp?.phoneNumberId)
     },
+    telegram: sanitizeTelegramIntegration(business.telegram),
     settings: business.settings || {},
     createdAt: business.createdAt,
     updatedAt: business.updatedAt
+  };
+}
+
+export function sanitizeTelegramIntegration(telegram = {}) {
+  return {
+    botUsername: cleanText(telegram.botUsername),
+    botName: cleanText(telegram.botName),
+    webhookUrl: cleanText(telegram.webhookUrl),
+    connectedAt: cleanText(telegram.connectedAt),
+    webhookVerifiedAt: cleanText(telegram.webhookVerifiedAt),
+    lastError: cleanText(telegram.lastError),
+    tokenConfigured: Boolean(cleanText(telegram.token)),
+    configured: Boolean(cleanText(telegram.token) && cleanText(telegram.webhookUrl))
   };
 }
 
@@ -712,6 +726,20 @@ export async function updateBusinessForUser(userId, businessId, patch = {}) {
 export async function getBusinessByTelegramToken(businessId) {
   const businesses = await readJson("businesses");
   return businesses.find((b) => b.id === businessId) || null;
+}
+
+export async function findBusinessByTelegramToken(token) {
+  const normalizedToken = cleanText(token);
+  if (!normalizedToken) {
+    return null;
+  }
+
+  const businesses = await readJson("businesses");
+  return (
+    businesses.find(
+      (business) => cleanText(business.telegram?.token) === normalizedToken
+    ) || null
+  );
 }
 
 export async function updateBusinessTelegram(userId, businessId, telegramPatch = {}) {

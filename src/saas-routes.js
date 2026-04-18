@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { config } from "./config.js";
 import { createStripeCheckoutSession, createStripePortalSession, hasStripeBilling } from "./billing.js";
 import { createRazorpaySubscription, hasRazorpayBilling } from "./razorpay-billing.js";
 import { getConversation, listConversationThreads } from "./store.js";
@@ -37,10 +38,17 @@ import {
   adminListAllBusinesses,
   adminSuspendBusiness,
   getAdvancedAnalytics,
-  updateBusinessTelegram
+  updateBusinessTelegram,
+  getRawBusinessById,
+  findBusinessByTelegramToken
 } from "./saas-store.js";
 import { getBusinessDashboardData, saasPlans } from "./saas.js";
-import { setTelegramWebhook, getTelegramBotInfo, deleteTelegramWebhook } from "./telegram.js";
+import {
+  setTelegramWebhook,
+  getTelegramBotInfo,
+  getTelegramWebhookInfo,
+  deleteTelegramWebhook
+} from "./telegram.js";
 import { sendWelcomeEmail, sendPasswordResetEmail, sendTeamInviteEmail } from "./mailer.js";
 import {
   authRateLimit,
@@ -759,28 +767,78 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   if (parts.length === 4 && parts[3] === "telegram" && request.method === "POST") {
     if (rejectIfRateLimited(request, response, "write")) return true;
     try {
-      const body = await readJsonBody(request, readRawBody);
+      const parsedBody = await readJsonBody(request, readRawBody);
+      const body =
+        typeof parsedBody === "string"
+          ? JSON.parse(parsedBody)
+          : parsedBody;
       const token = String(body.token || "").trim();
       if (!token) throw new Error("Telegram bot token is required.");
 
-      const botInfo = await getTelegramBotInfo(token);
-      if (!botInfo.ok) throw new Error("Invalid Telegram bot token. Please check and try again.");
+      const rawBusiness = await getRawBusinessById(businessId);
+      if (!rawBusiness || rawBusiness.userId !== auth.user.id) {
+        throw new Error("Business not found.");
+      }
 
-      const appBase = requestOrigin(request) || String(process.env.APP_BASE_URL || "").replace(/\/$/, "");
+      const conflict = await findBusinessByTelegramToken(token);
+      if (conflict && conflict.id !== businessId) {
+        throw new Error("This Telegram bot is already connected to another workspace. Disconnect it there first.");
+      }
+
+      const botInfo = await getTelegramBotInfo(token);
+
+      const appBase = String(config.appBaseUrl || requestOrigin(request) || "").replace(/\/$/, "");
+      let parsedAppBase;
+      try {
+        parsedAppBase = new URL(appBase);
+      } catch {
+        throw new Error("APP_BASE_URL is invalid. Set it to your live backend URL before connecting Telegram.");
+      }
+
+      if (
+        parsedAppBase.protocol !== "https:" &&
+        !["localhost", "127.0.0.1"].includes(parsedAppBase.hostname)
+      ) {
+        throw new Error("Telegram needs a public HTTPS backend URL. Set APP_BASE_URL to your live backend domain and try again.");
+      }
+
       const webhookUrl = `${appBase}/webhooks/telegram/${businessId}`;
       await setTelegramWebhook(token, webhookUrl);
+      const webhookInfo = await getTelegramWebhookInfo(token);
+
+      if (String(webhookInfo.result?.url || "") !== webhookUrl) {
+        throw new Error("Telegram did not confirm the webhook URL. Please try again in a few seconds.");
+      }
+
+      const previousToken = String(rawBusiness.telegram?.token || "").trim();
+      if (previousToken && previousToken !== token) {
+        await deleteTelegramWebhook(previousToken).catch((error) => {
+          console.warn(`Failed to remove previous Telegram webhook for ${businessId}: ${error.message}`);
+        });
+      }
 
       await updateBusinessTelegram(auth.user.id, businessId, {
         token,
         botUsername: botInfo.result?.username || "",
         botName: botInfo.result?.first_name || "",
         webhookUrl,
-        connectedAt: new Date().toISOString()
+        connectedAt: new Date().toISOString(),
+        webhookVerifiedAt: new Date().toISOString(),
+        lastError: ""
       });
 
+      const refreshed = await getBusinessForUser(auth.user.id, businessId);
       await appendAuditLog({ businessId, userId: auth.user.id, action: "telegram.connect", details: { username: botInfo.result?.username } });
-      sendJson(response, 200, { ok: true, bot: { username: botInfo.result?.username, name: botInfo.result?.first_name } });
+      sendJson(response, 200, {
+        ok: true,
+        bot: { username: botInfo.result?.username, name: botInfo.result?.first_name },
+        telegram: refreshed?.telegram || {}
+      });
     } catch (error) {
+      await updateBusinessTelegram(auth.user.id, businessId, {
+        lastError: error.message,
+        webhookVerifiedAt: ""
+      }).catch(() => {});
       sendJson(response, 400, { error: error.message });
     }
     return true;
@@ -788,13 +846,27 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (parts.length === 4 && parts[3] === "telegram" && request.method === "DELETE") {
     try {
-      const current = business.telegram?.token;
+      const rawBusiness = await getRawBusinessById(businessId);
+      if (!rawBusiness || rawBusiness.userId !== auth.user.id) {
+        throw new Error("Business not found.");
+      }
+
+      const current = rawBusiness.telegram?.token;
       if (current) {
         await deleteTelegramWebhook(current).catch(() => {});
       }
-      await updateBusinessTelegram(auth.user.id, businessId, { token: "", botUsername: "", webhookUrl: "", connectedAt: "" });
+      await updateBusinessTelegram(auth.user.id, businessId, {
+        token: "",
+        botUsername: "",
+        botName: "",
+        webhookUrl: "",
+        connectedAt: "",
+        webhookVerifiedAt: "",
+        lastError: ""
+      });
+      const refreshed = await getBusinessForUser(auth.user.id, businessId);
       await appendAuditLog({ businessId, userId: auth.user.id, action: "telegram.disconnect", details: {} });
-      sendJson(response, 200, { ok: true });
+      sendJson(response, 200, { ok: true, telegram: refreshed?.telegram || {} });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }

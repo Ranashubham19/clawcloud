@@ -77,6 +77,11 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function isTelegramConnected(business = state.selectedBusiness) {
+  const telegram = business?.telegram || {};
+  return Boolean(telegram.configured || telegram.tokenConfigured || telegram.token);
+}
+
 function formatDate(value) {
   if (!value) {
     return "-";
@@ -1076,7 +1081,7 @@ function dashboardSection() {
       `;
     default: {
       const tg = state.selectedBusiness?.telegram;
-      const tgConnected = Boolean(tg?.token);
+      const tgConnected = isTelegramConnected(state.selectedBusiness);
       const waConnected = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId || state.selectedBusiness?.whatsapp?.apiKey);
       const totalChats = state.analytics?.totalChats || 0;
       return `
@@ -1481,7 +1486,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
 }
 
 function renderDashboard() {
-  const tgLive = Boolean(state.selectedBusiness?.telegram?.token);
+  const tgLive = isTelegramConnected(state.selectedBusiness);
   const waLive = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId && state.selectedBusiness?.whatsapp?.accessToken);
   const anyLive = tgLive || waLive;
 
@@ -1848,6 +1853,7 @@ function renderDashboard() {
 function renderTelegramSetup() {
   const bot = state.selectedBusiness?.telegram;
   const businessId = state.selectedBusiness?.id || "";
+  const botConnected = isTelegramConnected(state.selectedBusiness);
   app.innerHTML = `
     <div class="tg-setup-page">
       <div class="tg-setup-left">
@@ -1879,7 +1885,7 @@ function renderTelegramSetup() {
       </div>
       <div class="tg-setup-right">
         <div class="tg-setup-form-wrap">
-          ${bot?.token ? `
+          ${botConnected ? `
             <div class="tg-connected-state">
               <div class="tg-connected-icon">✅</div>
               <h2>Telegram bot connected!</h2>
@@ -1924,11 +1930,10 @@ function renderTelegramSetup() {
     try {
       const res = await api(`/api/businesses/${businessId}/telegram`, {
         method: "POST",
-        body: JSON.stringify({ token })
+        body: { token }
       });
       if (res.ok) {
-        if (!state.selectedBusiness) state.selectedBusiness = {};
-        state.selectedBusiness.telegram = { token, botUsername: res.bot?.username || "", botName: res.bot?.name || "" };
+        await loadBootstrap(businessId);
         renderTelegramSetup();
       } else {
         throw new Error(res.error || "Failed to connect.");
@@ -1944,7 +1949,7 @@ function renderTelegramSetup() {
   document.getElementById("tg-disconnect-btn")?.addEventListener("click", async () => {
     if (!confirm("Disconnect this Telegram bot?")) return;
     await api(`/api/businesses/${businessId}/telegram`, { method: "DELETE" });
-    if (state.selectedBusiness) state.selectedBusiness.telegram = {};
+    await loadBootstrap(businessId);
     renderTelegramSetup();
   });
 }

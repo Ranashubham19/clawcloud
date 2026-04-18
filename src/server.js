@@ -23,8 +23,8 @@ import {
 } from "./messaging.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
-import { extractTelegramInbound, sendTelegramMessage, setTelegramWebhook, getTelegramBotInfo } from "./telegram.js";
-import { getBusinessByTelegramToken, updateBusinessTelegram } from "./saas-store.js";
+import { extractTelegramInbound, sendTelegramMessage } from "./telegram.js";
+import { getBusinessByTelegramToken } from "./saas-store.js";
 import {
   getDataDeletionHtml,
   getPrivacyPolicyHtml,
@@ -541,29 +541,65 @@ async function handleTelegramWebhook(request, response, url) {
   const business = await getBusinessByTelegramToken(businessId);
   if (!business?.telegram?.token) return;
 
+  if (business.settings?.autoReplyEnabled === false) {
+    console.log(
+      `Skipping Telegram auto-reply for ${inbound.messageId} from ${inbound.from}`
+    );
+    return;
+  }
+
   const token = business.telegram.token;
+  const message = {
+    ...inbound,
+    businessId: business.id,
+    provider: "telegram",
+    phoneNumberId: "",
+    displayPhoneNumber: ""
+  };
+  const gate = await beginInboundProcessing(message.messageId);
+
+  if (gate.status !== "accepted") {
+    console.log(
+      `Skipping duplicate Telegram message ${message.messageId} from ${message.from}`
+    );
+    return;
+  }
 
   try {
-    const message = {
-      ...inbound,
-      businessId: business.id,
-      provider: "telegram",
-      phoneNumberId: "",
-      displayPhoneNumber: ""
-    };
-
-    const { handleIncomingText } = await import("./agent.js");
     const reply = await handleIncomingText({
-      business,
-      message,
-      replyMode: "return"
+      ...message,
+      businessContext: business
     });
 
     if (reply) {
-      await sendTelegramMessage(token, inbound.chatId, reply);
+      const dedupeKey = outboundDedupKey(
+        `telegram-reply:${business.id}`,
+        message.from,
+        reply,
+        message.messageId
+      );
+
+      if (!(await hasRecentOutboundDedup(dedupeKey, 24 * 60 * 60 * 1000))) {
+        await sendTelegramMessage(token, inbound.chatId, reply);
+        await rememberOutboundDedup(dedupeKey, {
+          inboundMessageId: message.messageId,
+          provider: "telegram"
+        });
+      }
     }
+
+    await completeInboundProcessing(message.messageId, {
+      reply,
+      outcome: reply ? "answered" : "empty_reply",
+      businessId: business.id
+    });
   } catch (err) {
     console.error("Telegram webhook error:", err);
+    await completeInboundProcessing(message.messageId, {
+      error: err.message,
+      outcome: "telegram_error",
+      businessId: business.id
+    });
   }
 }
 

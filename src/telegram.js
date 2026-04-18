@@ -4,35 +4,51 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+async function readTelegramResponse(response, action) {
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(
+      payload?.description || `Telegram ${action} failed with status ${response.status}.`
+    );
+  }
+  return payload || { ok: true };
+}
+
 export async function setTelegramWebhook(token, webhookUrl) {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/setWebhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message"] })
   });
-  return response.json();
+  return readTelegramResponse(response, "setWebhook");
 }
 
 export async function deleteTelegramWebhook(token) {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/deleteWebhook`, {
     method: "POST"
   });
-  return response.json();
+  return readTelegramResponse(response, "deleteWebhook");
 }
 
 export async function getTelegramBotInfo(token) {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/getMe`);
-  return response.json();
+  return readTelegramResponse(response, "getMe");
+}
+
+export async function getTelegramWebhookInfo(token) {
+  const response = await fetch(`${TELEGRAM_API}/bot${token}/getWebhookInfo`);
+  return readTelegramResponse(response, "getWebhookInfo");
 }
 
 export async function sendTelegramMessage(token, chatId, text) {
   const chunks = splitMessage(cleanText(text));
   for (const chunk of chunks) {
-    await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+    const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text: chunk })
     });
+    await readTelegramResponse(response, "sendMessage");
   }
 }
 

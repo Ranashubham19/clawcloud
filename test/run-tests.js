@@ -9,13 +9,22 @@ import {
 import { config } from "../src/config.js";
 import { cleanUserFacingText } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
-import {
-  buildAiSensyCampaignPayload,
-  extractIncomingMessages,
-  splitWhatsAppMessage
-} from "../src/whatsapp.js";
+import { buildAiSensyCampaignPayload, splitWhatsAppMessage } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 import { extractAiSensyFlowInput } from "../src/aisensy-flow.js";
+import {
+  detectMessagingProvider,
+  extractInboundMessages,
+  verifyMessagingWebhookGet
+} from "../src/messaging.js";
+import { buildMessagingWebhookSuccessResponse } from "../src/messaging.js";
+import {
+  extractTelegramInbound,
+  getTelegramBotInfo,
+  getTelegramWebhookInfo,
+  sendTelegramMessage,
+  setTelegramWebhook
+} from "../src/telegram.js";
 
 async function run(name, fn) {
   try {
@@ -85,6 +94,34 @@ await run("chooseAnswerRoute keeps WhatsApp history commands on NVIDIA tools", a
   assert.equal(agent.chooseAnswerRoute("show recent WhatsApp history"), "nvidia-tools");
 });
 
+await run("directSmallTalkReply keeps how are you professional", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.directSmallTalkReply("how are you", "english"),
+    "I'm doing well, thank you. How may I assist you today?"
+  );
+});
+
+await run("directSmallTalkReply handles capability questions professionally", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.directSmallTalkReply("what all you can do", "english"),
+    "I can answer questions clearly and professionally, explain concepts, help with writing, coding, math, planning, and everyday problem-solving. Send me any question, and I'll give you a direct and accurate answer."
+  );
+});
+
+await run("shouldUseWhatsAppTools stays off for normal questions", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.shouldUseWhatsAppTools("how are you"), false);
+  assert.equal(agent.shouldUseWhatsAppTools("what can you do"), false);
+});
+
+await run("shouldUseWhatsAppTools stays on for explicit WhatsApp actions", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.shouldUseWhatsAppTools("show recent WhatsApp history"), true);
+  assert.equal(agent.shouldUseWhatsAppTools("send a message to Raj"), true);
+});
+
 await run("isLanguageCompatible rejects Devanagari for English answers", async () => {
   assert.equal(
     isLanguageCompatible("Claude Opus 4.6 was released on February 5, 2026.", "english"),
@@ -107,7 +144,7 @@ await run("isLanguageCompatible requires Roman script for Hinglish", async () =>
   );
 });
 
-await run("extractIncomingMessages reads text payloads", async () => {
+await run("extractInboundMessages normalizes Meta text payloads", async () => {
   const payload = {
     entry: [
       {
@@ -130,10 +167,125 @@ await run("extractIncomingMessages reads text payloads", async () => {
     ]
   };
 
-  const messages = extractIncomingMessages(payload);
+  const messages = extractInboundMessages({
+    provider: "meta",
+    payload,
+    url: new URL("http://localhost/webhooks/whatsapp")
+  });
   assert.equal(messages.length, 1);
+  assert.equal(messages[0].provider, "meta");
   assert.equal(messages[0].profileName, "Shubham");
   assert.equal(messages[0].text, "Hello");
+  assert.equal(messages[0].providerMessageId, "wamid.1");
+  assert.equal(messages[0].messageId, "meta:wamid.1");
+});
+
+await run("extractTelegramInbound normalizes Telegram text payloads", async () => {
+  const inbound = extractTelegramInbound({
+    message: {
+      message_id: 42,
+      date: 1710000000,
+      text: "Hello from Telegram",
+      from: {
+        id: 987654321,
+        first_name: "Ada",
+        last_name: "Lovelace",
+        username: "ada"
+      },
+      chat: {
+        id: 987654321
+      }
+    }
+  });
+
+  assert.equal(inbound.provider, "telegram");
+  assert.equal(inbound.from, "987654321");
+  assert.equal(inbound.chatId, "987654321");
+  assert.equal(inbound.text, "Hello from Telegram");
+  assert.equal(inbound.profileName, "Ada Lovelace");
+  assert.equal(inbound.messageId, "telegram:42");
+  assert.equal(inbound.timestamp, "1710000000");
+});
+
+await run("setTelegramWebhook throws when Telegram rejects the webhook", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ok: false,
+      description: "Bad Request: bad webhook"
+    })
+  });
+
+  try {
+    await assert.rejects(
+      () => setTelegramWebhook("token", "https://example.com/webhooks/telegram/biz-1"),
+      /bad webhook/i
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("getTelegramBotInfo throws when Telegram rejects the token", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ok: false,
+      description: "Unauthorized"
+    })
+  });
+
+  try {
+    await assert.rejects(() => getTelegramBotInfo("bad-token"), /unauthorized/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("getTelegramWebhookInfo returns Telegram webhook metadata", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ok: true,
+      result: {
+        url: "https://example.com/webhooks/telegram/biz-1"
+      }
+    })
+  });
+
+  try {
+    const info = await getTelegramWebhookInfo("token");
+    assert.equal(info.result.url, "https://example.com/webhooks/telegram/biz-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("sendTelegramMessage throws when Telegram rejects the reply", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ok: false,
+      description: "Forbidden: bot was blocked by the user"
+    })
+  });
+
+  try {
+    await assert.rejects(
+      () => sendTelegramMessage("token", "123456", "hello"),
+      /blocked by the user/i
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 await run("extractAiSensyFlowInput reads flexible flow payloads", async () => {
@@ -147,7 +299,16 @@ await run("extractAiSensyFlowInput reads flexible flow payloads", async () => {
     from: "918091392311",
     text: "What is zapma",
     profileName: "Shubh",
-    messageId: "flow-1"
+    messageId: "flow-1",
+    businessId: "",
+    phoneNumberId: "",
+    displayPhoneNumber: "",
+    timestamp: "",
+    mediaId: "",
+    mediaType: "",
+    mimeType: "",
+    caption: "",
+    filename: ""
   });
 });
 
@@ -166,6 +327,25 @@ await run("extractAiSensyFlowInput falls back to query params", async () => {
   assert.equal(input.profileName, "Shubh");
 });
 
+await run("verifyMessagingWebhookGet accepts AiSensy token on GET routes", async () => {
+  const previousToken = config.aisensyFlowToken;
+  config.aisensyFlowToken = "test-flow-token";
+
+  try {
+    const verification = verifyMessagingWebhookGet({
+      provider: "aisensy",
+      headers: {
+        authorization: "Bearer test-flow-token"
+      },
+      url: new URL("http://localhost/integrations/aisensy/answer")
+    });
+
+    assert.equal(verification.ok, true);
+  } finally {
+    config.aisensyFlowToken = previousToken;
+  }
+});
+
 await run("extractAiSensyFlowInput ignores unresolved attributes", async () => {
   const input = extractAiSensyFlowInput({
     from: "$phone",
@@ -176,6 +356,69 @@ await run("extractAiSensyFlowInput ignores unresolved attributes", async () => {
   assert.equal(input.from, "");
   assert.equal(input.text, "");
   assert.equal(input.profileName, "");
+});
+
+await run("extractInboundMessages normalizes AiSensy payloads", async () => {
+  const messages = extractInboundMessages({
+    provider: "aisensy",
+    payload: {
+      contact: { phone: "918091392311", name: "Shubh" },
+      message: "What is zapma",
+      message_id: "flow-1",
+      businessId: "biz-1",
+      display_phone_number: "+919876543210"
+    },
+    url: new URL("http://localhost/webhooks/aisensy")
+  });
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].provider, "aisensy");
+  assert.ok(messages[0].messageId.startsWith("aisensy:derived:"));
+  assert.equal(messages[0].providerMessageId, "flow-1");
+  assert.equal(messages[0].businessId, "biz-1");
+  assert.equal(messages[0].displayPhoneNumber, "+919876543210");
+  assert.equal(messages[0].text, "What is zapma");
+});
+
+await run("detectMessagingProvider infers path and payload", async () => {
+  assert.equal(
+    detectMessagingProvider({
+      url: new URL("http://localhost/webhooks/whatsapp")
+    }),
+    "meta"
+  );
+  assert.equal(
+    detectMessagingProvider({
+      url: new URL("http://localhost/webhooks/messaging"),
+      payload: { contact: { phone: "918091392311" }, message: "Hi" }
+    }),
+    "aisensy"
+  );
+});
+
+await run("buildMessagingWebhookSuccessResponse keeps meta webhooks acknowledged", async () => {
+  const response = buildMessagingWebhookSuccessResponse({
+    provider: "meta",
+    messageCount: 0
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.provider, "meta");
+  assert.equal(response.body.received, true);
+  assert.equal(response.body.messages, 0);
+});
+
+await run("buildMessagingWebhookSuccessResponse preserves full AiSensy reply formatting", async () => {
+  const response = buildMessagingWebhookSuccessResponse({
+    provider: "aisensy",
+    reply: "*Overview*\n\nNamaste,\nYeh ek detailed answer hai."
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.format, "json");
+  assert.equal(response.body.botreply, "*Overview*\n\nNamaste,\nYeh ek detailed answer hai.");
+  assert.equal(response.body.text, "*Overview*\n\nNamaste,\nYeh ek detailed answer hai.");
+  assert.equal(response.body.compactReply, "*Overview* Namaste, Yeh ek detailed answer hai.");
 });
 
 await run("cleanUserFacingText removes tool and search meta lines", async () => {
@@ -206,6 +449,24 @@ await run("beginInboundProcessing dedupes repeated message ids", async () => {
 
   assert.equal(first.status, "accepted");
   assert.equal(second.status, "duplicate");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("getInboundProcessingResult returns stored replies for inline duplicates", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+  await store.beginInboundProcessing("wamid-inline-1");
+  await store.completeInboundProcessing("wamid-inline-1", {
+    reply: "I'm doing well, thanks. How can I help you today?",
+    outcome: "answered"
+  });
+
+  const saved = await store.getInboundProcessingResult("wamid-inline-1");
+  assert.equal(saved.reply, "I'm doing well, thanks. How can I help you today?");
 
   await rm(tempDir, { recursive: true, force: true });
 });
@@ -473,6 +734,150 @@ await run("searchConversationHistory finds text across chats", async () => {
   assert.equal(matches.length, 1);
   assert.equal(matches[0].contact.name, "Dii Sharma");
   assert.match(matches[0].message.text, /theek/i);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("business scoped conversation threads stay isolated per institute", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const store = await import(`../src/store.js?ts=${Date.now()}`);
+  await store.initStore();
+
+  await store.upsertContact({
+    businessId: "biz-alpha",
+    name: "Riya",
+    phone: "+919999000001"
+  });
+  await store.upsertContact({
+    businessId: "biz-beta",
+    name: "Riya",
+    phone: "+919999000001"
+  });
+
+  await store.appendConversationMessage(
+    "+919999000001",
+    {
+      role: "user",
+      text: "Need NEET timings",
+      at: "2026-04-15T10:00:00.000Z"
+    },
+    { businessId: "biz-alpha" }
+  );
+  await store.appendConversationMessage(
+    "+919999000001",
+    {
+      role: "user",
+      text: "Need JEE batch details",
+      at: "2026-04-15T11:00:00.000Z"
+    },
+    { businessId: "biz-beta" }
+  );
+
+  const alphaThreads = await store.listConversationThreads({
+    businessId: "biz-alpha",
+    limit: 10
+  });
+  const betaThreads = await store.listConversationThreads({
+    businessId: "biz-beta",
+    limit: 10
+  });
+
+  assert.equal(alphaThreads.length, 1);
+  assert.equal(betaThreads.length, 1);
+  assert.match(alphaThreads[0].lastMessage.text, /NEET/i);
+  assert.match(betaThreads[0].lastMessage.text, /JEE/i);
+
+  const alphaMatches = await store.searchConversationHistory({
+    businessId: "biz-alpha",
+    query: "JEE",
+    limit: 10
+  });
+
+  assert.equal(alphaMatches.length, 0);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("saas store creates a workspace and resolves inbound WhatsApp mapping", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const user = await saasStore.createSaasUser({
+    name: "Shubham",
+    email: "shubham@example.com",
+    password: "supersecure123"
+  });
+
+  const business = await saasStore.createBusinessForUser(user.id, {
+    name: "OpenClaw Academy",
+    whatsappPhoneNumberId: "pn_123",
+    whatsappDisplayPhoneNumber: "+919876543210",
+    whatsappAccessToken: "token_123456"
+  });
+
+  const session = await saasStore.createSaasSession({
+    userId: user.id,
+    userAgent: "test-agent",
+    ipAddress: "127.0.0.1"
+  });
+
+  const loadedSession = await saasStore.getSaasSession(session.token);
+  const resolvedBusiness = await saasStore.getBusinessByInboundChannel({
+    phoneNumberId: "pn_123"
+  });
+
+  assert.equal(loadedSession.user.email, "shubham@example.com");
+  assert.equal(resolvedBusiness.id, business.id);
+  assert.equal(resolvedBusiness.whatsapp.phoneNumberId, "pn_123");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("saas store exposes safe Telegram status without leaking the token", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const user = await saasStore.createSaasUser({
+    name: "Aditi",
+    email: "aditi@example.com",
+    password: "supersecure123"
+  });
+
+  const business = await saasStore.createBusinessForUser(user.id, {
+    name: "Telegram Academy"
+  });
+
+  await saasStore.updateBusinessTelegram(user.id, business.id, {
+    token: "123456:telegram-secret-token",
+    botUsername: "telegram_academy_bot",
+    botName: "Telegram Academy Bot",
+    webhookUrl: "https://example.com/webhooks/telegram/biz-1",
+    connectedAt: "2026-04-18T10:00:00.000Z",
+    webhookVerifiedAt: "2026-04-18T10:00:01.000Z"
+  });
+
+  const safeBusiness = await saasStore.getBusinessForUser(user.id, business.id);
+  const rawMatch = await saasStore.findBusinessByTelegramToken(
+    "123456:telegram-secret-token"
+  );
+
+  assert.equal(safeBusiness.telegram.configured, true);
+  assert.equal(safeBusiness.telegram.tokenConfigured, true);
+  assert.equal(safeBusiness.telegram.botUsername, "telegram_academy_bot");
+  assert.equal(
+    safeBusiness.telegram.webhookVerifiedAt,
+    "2026-04-18T10:00:01.000Z"
+  );
+  assert.equal("token" in safeBusiness.telegram, false);
+  assert.equal(rawMatch.id, business.id);
 
   await rm(tempDir, { recursive: true, force: true });
 });
