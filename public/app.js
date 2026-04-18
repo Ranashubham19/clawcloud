@@ -1091,101 +1091,128 @@ function dashboardSection() {
         </section>
       `;
     default:
+      const tg = state.selectedBusiness?.telegram;
+      const tgConnected = Boolean(tg?.token);
+      const waConnected = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId || state.selectedBusiness?.whatsapp?.apiKey);
+      const totalChats = state.analytics?.totalChats || 0;
+      const totalLeads = state.analytics?.totalLeads || 0;
       return `
-        <section class="card">
-          <div class="section-header">
+        <section class="card overview-card">
+          <div class="overview-greeting">
             <div>
-              <div class="page-title">Overview</div>
-              <div class="muted">Your workspace at a glance</div>
+              <div class="page-title">Welcome back, ${escapeHtml(state.user?.name?.split(" ")[0] || "there")} 👋</div>
+              <div class="muted">Here's your AI bot dashboard</div>
             </div>
-          </div>
-          <div class="metrics-grid">
-            <div class="metric">
-              <div class="metric-label">Total Leads</div>
-              <div class="metric-value">${escapeHtml(String(state.analytics?.totalLeads || 0))}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Qualified</div>
-              <div class="metric-value">${escapeHtml(String(state.analytics?.qualifiedLeads || 0))}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Demo Requests</div>
-              <div class="metric-value">${escapeHtml(String(state.analytics?.demoRequested || 0))}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Chats</div>
-              <div class="metric-value">${escapeHtml(String(state.analytics?.totalChats || 0))}</div>
-            </div>
-          </div>
-          <div class="section split">
-            <div class="card">
-              <h3 class="section-title">Launch readiness</h3>
-              <div class="metric-value">${escapeHtml(`${readiness.score || 0}/${readiness.total || 0}`)}</div>
-              <div class="muted">How close this institute is to a clean live launch.</div>
-              <div class="status-list section">
-                ${(readiness.items || []).map((item) => `
-                  <div class="status-row">
-                    <span>${escapeHtml(item.label)}</span>
-                    <span class="status-badge ${item.ok ? "ok" : "warn"}">${item.ok ? "Ready" : "Needs action"}</span>
-                  </div>
-                `).join("") || `<div class="empty">No readiness checks yet.</div>`}
-              </div>
-            </div>
-            <div class="card">
-              <h3 class="section-title">Workspace snapshot</h3>
-              <div class="status-list">
-                <div class="status-row">
-                  <span class="muted">Current plan</span>
-                  <span>${escapeHtml(String(currentPlan).toUpperCase())}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Billing status</span>
-                  <span class="status-badge ${activeBilling ? "ok" : "warn"}">${escapeHtml(billing.status || "inactive")}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">WhatsApp display number</span>
-                  <span>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Not linked yet")}</span>
-                </div>
-                <div class="status-row">
-                  <span class="muted">Support email</span>
-                  <span>${escapeHtml(state.selectedBusiness?.supportEmail || state.user?.email || "-")}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="section split">
-            <div class="card">
-              <h3 class="section-title">Recent leads</h3>
-              ${(state.leads || []).slice(0, 5).map((lead) => `
-                <div class="chat-thread">
-                  <strong>${escapeHtml(lead.name || lead.phone)}</strong>
-                  <div class="muted">${escapeHtml(lead.courseInterest || "Course not captured yet")}</div>
-                  <div class="pill">${escapeHtml(lead.status || "new")}</div>
-                </div>
-              `).join("") || `<div class="empty">No recent leads yet.</div>`}
-            </div>
-            <div class="card">
-              <h3 class="section-title">Recent chats</h3>
-              ${(state.chats || []).slice(0, 5).map((chat) => `
-                <div class="chat-thread">
-                  <strong>${escapeHtml(chat.contact?.name || chat.chatId)}</strong>
-                  <div class="muted">${escapeHtml(chat.lastMessage?.text || "No reply yet")}</div>
-                </div>
-              `).join("") || `<div class="empty">No chats stored yet.</div>`}
+            <div class="overview-stats">
+              <div class="ov-stat"><span class="ov-stat-val">${totalChats}</span><span class="ov-stat-label">Total Chats</span></div>
+              <div class="ov-stat-divider"></div>
+              <div class="ov-stat"><span class="ov-stat-val">${totalLeads}</span><span class="ov-stat-label">Leads</span></div>
             </div>
           </div>
         </section>
+
+        <div class="platform-cards-grid">
+
+          <!-- WhatsApp Card -->
+          <div class="platform-card ${waConnected ? "platform-card--connected" : ""}">
+            <div class="platform-card-header">
+              <div class="platform-card-icon platform-card-icon--wa">
+                <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#25D366"/><path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2z" fill="white"/></svg>
+              </div>
+              <div class="platform-card-title-wrap">
+                <div class="platform-card-name">WhatsApp</div>
+                <div class="platform-card-badge ${waConnected ? "badge--live" : "badge--idle"}">
+                  ${waConnected ? "● Live" : "○ Not connected"}
+                </div>
+              </div>
+            </div>
+            <div class="platform-card-body">
+              ${waConnected ? `
+                <div class="platform-connected-info">
+                  <div class="pci-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
+                  <div class="pci-row"><span>Status</span><strong style="color:#25d366;">Active — AI replying</strong></div>
+                </div>
+                <p class="platform-card-desc">Your WhatsApp AI bot is live. Share your number with users and the AI will reply to every message instantly.</p>
+              ` : `
+                <p class="platform-card-desc">Connect your WhatsApp number to let your AI bot reply to every message automatically — no manual work.</p>
+                <div class="platform-card-steps">
+                  <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Settings → WhatsApp</strong></div>
+                  <div class="pc-step"><span class="pc-step-n">2</span>Enter your AiSensy API key or Meta credentials</div>
+                  <div class="pc-step"><span class="pc-step-n">3</span>Your bot goes live instantly</div>
+                </div>
+                <button class="platform-card-btn platform-card-btn--wa" onclick="document.querySelector('[data-tab=settings]')?.click()">
+                  Connect WhatsApp →
+                </button>
+              `}
+            </div>
+          </div>
+
+          <!-- Telegram Card -->
+          <div class="platform-card ${tgConnected ? "platform-card--connected" : ""}">
+            <div class="platform-card-header">
+              <div class="platform-card-icon platform-card-icon--tg">
+                <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+              </div>
+              <div class="platform-card-title-wrap">
+                <div class="platform-card-name">Telegram</div>
+                <div class="platform-card-badge ${tgConnected ? "badge--live" : "badge--idle"}">
+                  ${tgConnected ? "● Live" : "○ Not connected"}
+                </div>
+              </div>
+            </div>
+            <div class="platform-card-body">
+              ${tgConnected ? `
+                <div class="platform-connected-info">
+                  <div class="pci-row"><span>Bot</span><strong>@${escapeHtml(tg.botUsername || "")}</strong></div>
+                  <div class="pci-row"><span>Status</span><strong style="color:#2aabee;">Active — AI replying</strong></div>
+                </div>
+                <p class="platform-card-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users and the AI will reply to every message.</p>
+                <button class="platform-card-btn platform-card-btn--danger" id="ov-tg-disconnect">Disconnect bot</button>
+              ` : `
+                <p class="platform-card-desc">Connect a Telegram bot instantly — no payment, no approval needed. Paste your BotFather token and go live in seconds.</p>
+                <div class="platform-card-steps">
+                  <div class="pc-step"><span class="pc-step-n">1</span>Open Telegram → search <strong>@BotFather</strong></div>
+                  <div class="pc-step"><span class="pc-step-n">2</span>Send <code>/newbot</code> → follow the steps</div>
+                  <div class="pc-step"><span class="pc-step-n">3</span>Paste the token below and connect</div>
+                </div>
+                <div id="ov-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
+                <form id="ov-tg-form" style="display:flex;gap:8px;margin-top:4px;">
+                  <input class="input" id="ov-tg-token" placeholder="Paste BotFather token..." style="flex:1;font-size:0.82rem;" required />
+                  <button class="platform-card-btn platform-card-btn--tg" type="submit">Connect</button>
+                </form>
+              `}
+            </div>
+          </div>
+
+        </div>
+
+        <div class="section split" style="margin-top:20px;">
+          <div class="card">
+            <h3 class="section-title">Recent chats</h3>
+            ${(state.chats || []).slice(0, 5).map((chat) => `
+              <div class="chat-thread">
+                <strong>${escapeHtml(chat.contact?.name || chat.chatId)}</strong>
+                <div class="muted">${escapeHtml(chat.lastMessage?.text || "No messages yet")}</div>
+              </div>
+            `).join("") || `<div class="empty">No chats yet. Connect a platform above to start.</div>`}
+          </div>
+          <div class="card">
+            <h3 class="section-title">Recent leads</h3>
+            ${(state.leads || []).slice(0, 5).map((lead) => `
+              <div class="chat-thread">
+                <strong>${escapeHtml(lead.name || lead.phone)}</strong>
+                <div class="muted">${escapeHtml(lead.courseInterest || "No course captured")}</div>
+                <div class="pill">${escapeHtml(lead.status || "new")}</div>
+              </div>
+            `).join("") || `<div class="empty">No leads yet.</div>`}
+          </div>
+        </div>
       `;
   }
 }
 
 function needsOnboarding() {
-  if (state.onboardingDone) return false;
-  const biz = state.selectedBusiness;
-  if (!biz) return false;
-  const hasCourses = (biz.courseItems || []).length > 0;
-  const hasFaqs = (biz.faqItems || []).length > 0;
-  return !hasCourses && !hasFaqs;
+  return false;
 }
 
 function renderOnboarding() {
@@ -1580,6 +1607,37 @@ function renderDashboard() {
     }
   });
 
+  // Overview tab — Telegram connect form
+  document.querySelector("#ov-tg-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = document.querySelector("#ov-tg-token")?.value?.trim();
+    if (!token) return;
+    const btn = e.target.querySelector("button[type=submit]");
+    const errEl = document.querySelector("#ov-tg-error");
+    if (btn) { btn.disabled = true; btn.textContent = "Connecting..."; }
+    if (errEl) errEl.style.display = "none";
+    try {
+      await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, {
+        method: "POST",
+        body: { token }
+      });
+      await loadBootstrap(state.selectedBusiness.id);
+      render();
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
+      if (btn) { btn.disabled = false; btn.textContent = "Connect"; }
+    }
+  });
+
+  document.querySelector("#ov-tg-disconnect")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect this Telegram bot? It will stop replying to users.")) return;
+    try {
+      await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, { method: "DELETE" });
+      await loadBootstrap(state.selectedBusiness.id);
+      render();
+    } catch (err) { alert(err.message); }
+  });
+
   document.querySelectorAll("[data-chat-id]").forEach((button) => {
     button.addEventListener("click", async () => {
       await openChat(button.dataset.chatId);
@@ -1911,16 +1969,6 @@ function render() {
 
   if (!state.user) {
     renderAuth();
-    return;
-  }
-
-  if (state.telegramSetup) {
-    renderTelegramSetup();
-    return;
-  }
-
-  if (state.selectedProduct === "telegram" && state.user && !state.selectedBusiness?.telegram?.token) {
-    renderTelegramSetup();
     return;
   }
 
