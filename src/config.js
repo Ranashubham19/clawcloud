@@ -45,6 +45,8 @@ export const config = {
   port: toInt(process.env.PORT, 3000),
   timezone: process.env.TIMEZONE || "Asia/Calcutta",
   dataDir: path.resolve(process.cwd(), process.env.CLAW_DATA_DIR || "./data"),
+  databaseUrl: process.env.DATABASE_URL || "",
+  databaseSsl: process.env.DATABASE_SSL || "auto",
   botName: process.env.BOT_NAME || "Claw Cloud",
   appBaseUrl: process.env.APP_BASE_URL || "",
   appCookieSecure:

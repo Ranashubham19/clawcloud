@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node test/run-tests.js",
+    "db:import": "node scripts/import-postgres.js",
     "doctor": "node scripts/doctor.js",
     "doctor:meta": "node scripts/check-meta-whatsapp.js",
     "doctor:public": "node scripts/check-public-launch.js"
@@ -16,6 +17,7 @@
     "node": ">=18.17"
   },
   "dependencies": {
-    "nodemailer": "^6.9.0"
+    "nodemailer": "^6.9.0",
+    "pg": "^8.20.0"
   }
 }

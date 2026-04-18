@@ -1,174 +1,208 @@
-# Claw Cloud WhatsApp
+# SwiftDeploy SaaS for Coaching Institutes
 
-A professional WhatsApp-only backend powered by Gemini for live/general answers and a strict selected 10-model NVIDIA stack for technical, academic, tool, and retry paths.
+Multi-tenant WhatsApp AI SaaS for coaching institutes. This build keeps the existing WhatsApp bot core and adds institute workspaces, operator auth, lead capture, demo booking, billing hooks, and a browser dashboard.
 
 ## What this build does
 
-- Handles inbound WhatsApp webhook events
-- Uses only the selected 10 NVIDIA API models for model-stack answers
-- Stores contacts, conversations, reminders, and dedupe state locally in JSON
-- Auto-sends WhatsApp messages when the user asks
-- Prevents duplicate processing and duplicate outbound sends
-- Runs scheduled reminders in the background
-- Can sync Google Contacts into the bot's contact store
-- Splits long answers into clean WhatsApp-sized chunks instead of cutting replies mid-sentence
-- Uses Gemini with Google Search grounding first for live, latest, and general answers while preserving the user's language
-- Does not send canned fallback replies when providers fail; failed model routing is logged instead
+- Receives inbound WhatsApp messages through a provider-normalized webhook layer
+- Resolves the correct institute by business id, WhatsApp number mapping, or unambiguous provider routing
+- Uses institute-specific AI prompts, FAQs, courses, and welcome copy
+- Captures leads with name, phone, course interest, and preferred timing
+- Stores demo booking requests and operator-created bookings
+- Serves a SaaS dashboard with auth, leads, chats, bookings, billing, and settings
+- Adds Stripe checkout, billing portal, and webhook handling
+- Adds security headers, origin checks, session cookies, and rate limiting
+- Keeps Meta and AiSensy integrations intact behind one messaging abstraction so switching providers is a config change
 
-## Project shape
+## Architecture
 
-- `src/server.js`: HTTP server and webhook routing
-- `src/agent.js`: orchestration, retry, and answer-quality guards
-- `src/tools.js`: contact, history, reminder, and outbound message tools
-- `src/google-contacts.js`: Google OAuth and Google Contacts sync
-- `src/nvidia.js`: NVIDIA OpenAI-compatible chat client
-- `src/gemini.js`: Gemini live-answer client with Google Search grounding
-- `src/whatsapp.js`: WhatsApp Cloud API integration
-- `src/store.js`: JSON persistence
-- `src/reminders.js`: reminder poller
-- `data/`: local state files
+- `public/`: landing page and operator dashboard
+- `src/server.js`: HTTP server, webhooks, SaaS routes, legal pages
+- `src/saas-routes.js`: auth, dashboard API, business CRUD, billing endpoints
+- `src/saas-store.js`: SaaS users, businesses, leads, bookings, sessions, billing metadata
+- `src/saas.js`: institute prompt building, lead extraction, dashboard aggregation, readiness scoring
+- `src/security.js`: CSP headers, origin validation, rate limiting, Stripe signature verification
+- `src/billing.js`: Stripe checkout session, portal session, webhook sync
+- `src/agent.js`: AI orchestration and business-aware reply generation
+- `src/messaging.js`: provider-agnostic messaging orchestration, webhook normalization, and provider switching
+- `src/whatsapp.js`: provider-specific transport helpers for Meta Cloud API and AiSensy campaign sends
+- `src/store.js`: bot conversations, reminders, dedupe, contact state
+
+## Product modules
+
+- Multi-tenant institute workspaces
+- WhatsApp inbound and outbound automation
+- Admissions-focused AI responses
+- Lead capture and qualification
+- Demo booking workflow
+- Dashboard analytics and chat review
+- Billing and plan management readiness
 
 ## Setup
 
 1. Copy `.env.example` to `.env`
-2. Fill in:
-   - `NVIDIA_API_KEY`
-   - `GEMINI_API_KEY` if you want faster live answers for recent updates and current events
-   - Optional latency controls: `GEMINI_MODEL`, `GEMINI_TIMEOUT_MS`, `NVIDIA_TIMEOUT_MS`, `NVIDIA_MAX_ATTEMPTS`, `SEARCH_TIMEOUT_MS`, `REPLY_LATENCY_BUDGET_MS`
-   - `WHATSAPP_VERIFY_TOKEN`
-   - `WHATSAPP_ACCESS_TOKEN`
-   - `WHATSAPP_PHONE_NUMBER_ID`
-   - `WHATSAPP_BUSINESS_ACCOUNT_ID`
-   - `WHATSAPP_PROVIDER=meta` for direct Meta sending, or `WHATSAPP_PROVIDER=aisensy` for AiSensy outbound sending
-   - `AISENSY_API_KEY` and `AISENSY_CAMPAIGN_NAME` if using AiSensy outbound sending
-   - `ADMIN_API_TOKEN` if you want protected admin/integration routes
-   - `APP_BASE_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` if you want Google Contacts sync
+2. Configure the environment values you need
 3. Start the server:
 
 ```bash
 npm start
 ```
 
-## Webhook endpoints
+4. Open:
 
-- `GET /health`
-- `GET /ready`
-- `GET /webhooks/whatsapp`
-- `POST /webhooks/whatsapp`
-- `GET /integrations/google`
-- `GET /integrations/google/status`
-- `GET /integrations/google/connect`
-- `GET /integrations/google/callback`
-- `GET /integrations/google/sync`
-- `POST /integrations/google/sync`
+```text
+http://localhost:3000/
+```
 
-Use the webhook URL plus `WHATSAPP_VERIFY_TOKEN` in the Meta dashboard.
+5. Use `/app` for the SaaS dashboard
 
-## AiSensy Outbound Mode
+## Core environment variables
 
-Set `WHATSAPP_PROVIDER=aisensy` when the production number must send through AiSensy instead of direct Meta Cloud API.
+### Required for the bot core
 
-Required variables:
+- `NVIDIA_API_KEY`
+- `MESSAGING_PROVIDER`
+
+### Required when `MESSAGING_PROVIDER=aisensy`
 
 - `AISENSY_API_KEY`
 - `AISENSY_CAMPAIGN_NAME`
-- `AISENSY_API_URL`, defaults to `https://backend.aisensy.com/campaign/t1/api/v2`
-
-Important: AiSensy API Campaigns send approved-template messages. Create one live API Campaign in AiSensy with one body variable for the AI reply, for example:
-
-`{{1}}`
-
-The backend passes the AI answer as `templateParams[0]`. Incoming user messages still need a webhook source. AiSensy trial accounts may not expose incoming-message webhooks, so Meta webhook intake can remain enabled while AiSensy handles outbound delivery.
-
-## AiSensy Flow Clean Reply Mode
-
-Use this mode when you want AiSensy to send the AI answer as a normal Flow Builder text reply without a template prefix or suffix.
-
-Required variable:
-
 - `AISENSY_FLOW_TOKEN`
-- Set `WHATSAPP_AUTO_REPLY=false` after the AiSensy Flow is connected, so the old Meta webhook path does not also send a template reply.
 
-Flow Builder API Request:
+### Required when `MESSAGING_PROVIDER=meta`
 
-- URL: `https://your-domain.com/integrations/aisensy/answer`
-- Method: `POST`
-- Header: `x-admin-token: <AISENSY_FLOW_TOKEN>`
-- Header: `Content-Type: application/json`
-- JSON body:
+- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`
 
-```json
-{
-  "from": "$phone",
-  "profileName": "$name",
-  "text": "$message"
-}
-```
+### Recommended for production
 
-Capture `answer` from the JSON response, then send a Flow Builder text message containing that captured value. In this mode the backend returns the AI answer but does not send a WhatsApp template campaign message itself.
-
-## Google Contacts sync
-
-This backend can import your Google Contacts so the WhatsApp agent can resolve names like `Dii`, `Papa`, or `Maa` much more reliably.
-
-Set these env vars:
-
-- `ADMIN_API_TOKEN`
+- `DATABASE_URL`
+- `DATABASE_SSL=auto`
 - `APP_BASE_URL`
+- `WHATSAPP_APP_SECRET`
+- `APP_COOKIE_SECURE=auto`
+- `AUTH_RATE_LIMIT_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MAX`
+- `WRITE_RATE_LIMIT_WINDOW_MS`
+- `WRITE_RATE_LIMIT_MAX`
+
+### Optional live-answer providers and integrations
+
+- `GEMINI_API_KEY`
+- `ADMIN_API_TOKEN`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `WHATSAPP_PROVIDER` (backward-compatible alias for `MESSAGING_PROVIDER`)
 
-Optional:
+### Optional Stripe billing
 
-- `GOOGLE_REDIRECT_URI`
-- `GOOGLE_CONTACTS_SCOPE`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_BASIC`
+- `STRIPE_PRICE_PRO`
+- `STRIPE_PRICE_PREMIUM`
 
-Recommended Google redirect URI:
+If the Stripe values are not set, the dashboard still works and the billing tab stays in manual-disabled mode.
 
-`https://your-domain.com/integrations/google/callback`
+## SaaS flow
 
-After deployment, open:
+1. Business owner signs up in `/app`
+2. A business workspace is created automatically
+3. Owner adds institute data, prompt, FAQs, courses, and WhatsApp credentials
+4. Student messages the mapped WhatsApp number
+5. Webhook resolves the correct institute
+6. AI responds using only that institute context
+7. Lead and booking signals are stored in the SaaS data layer
+8. Owner reviews leads, chats, readiness, and billing from the dashboard
 
-`https://your-domain.com/integrations/google?token=YOUR_ADMIN_API_TOKEN`
+## Main routes
 
-Then:
+### Public and operator routes
 
-1. Click `Connect Google Contacts`
-2. Authorize the Google account
-3. The first sync will run automatically
-4. Use `Run Contact Sync` any time you want a manual refresh
+- `GET /`
+- `GET /app`
+- `GET /app.js`
+- `GET /app.css`
+- `GET /health`
+- `GET /ready`
 
-Notes:
+### WhatsApp and billing webhooks
 
-- The Google integration is protected by `ADMIN_API_TOKEN`
-- Contacts are imported into the same local contact store used by the WhatsApp tools
-- Only contacts with phone numbers are imported for action-ready messaging
+- `GET /webhooks/messaging`
+- `POST /webhooks/messaging`
+- `GET /webhooks/whatsapp`
+- `POST /webhooks/whatsapp`
+- `POST /webhooks/aisensy`
+- `POST /integrations/aisensy/answer`
+- `POST /webhooks/stripe`
 
-## Default NVIDIA model stack
+### SaaS API
 
-The backend keeps a strict selected 10-model NVIDIA-hosted stack and automatically tries the next selected model if one fails or behaves badly. The default stack is:
+- `GET /api/plans`
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/app/bootstrap`
+- `GET /api/businesses`
+- `POST /api/businesses`
+- `GET /api/businesses/:id`
+- `PATCH /api/businesses/:id`
+- `GET /api/businesses/:id/dashboard`
+- `GET /api/businesses/:id/leads`
+- `PATCH /api/businesses/:id/leads/:leadId`
+- `GET /api/businesses/:id/bookings`
+- `POST /api/businesses/:id/bookings`
+- `GET /api/businesses/:id/chats`
+- `GET /api/businesses/:id/chats/:chatId`
+- `GET /api/businesses/:id/billing`
+- `POST /api/businesses/:id/billing/checkout`
+- `POST /api/businesses/:id/billing/portal`
 
-1. `qwen/qwen3.5-397b-a17b`
-2. `meta/llama-3.1-405b-instruct`
-3. `mistralai/mistral-large-3-675b-instruct-2512`
-4. `meta/llama-3.3-70b-instruct`
-5. `mistralai/mistral-medium-3-instruct`
-6. `meta/llama-4-maverick-17b-128e-instruct`
-7. `qwen/qwen3-next-80b-a3b-instruct`
-8. `google/gemma-3-27b-it`
-9. `deepseek-ai/deepseek-v3.2`
-10. `qwen/qwen2.5-coder-32b-instruct`
+## Billing notes
 
-You can override the selected stack with `NVIDIA_MODELS`. Only the first 10 unique configured models are used for answer routing.
+- Stripe checkout creates a subscription session for the chosen plan
+- Stripe customer and subscription IDs are stored on the business record
+- Stripe webhook updates subscription status, billing period dates, and cancel-at-period-end state
+- Success and cancel redirects return the operator to the billing tab in `/app`
 
-## Notes
+## Security notes
 
-- The app can start without WhatsApp credentials, but sending messages will fail until those env vars are configured.
-- The app can start without `NVIDIA_API_KEY`, but model calls will fail until it is configured.
-- Signature validation is enabled automatically when `WHATSAPP_APP_SECRET` is set.
-- `WHATSAPP_BUSINESS_ACCOUNT_ID` is kept for diagnostics and future WABA management calls.
+- SaaS routes return CSP and basic security headers
+- Mutating SaaS requests are protected by origin checks
+- Auth and write APIs are rate limited in memory
+- Session cookies are `HttpOnly` and `SameSite=Lax`
+- `Secure` is added automatically when the request is served over HTTPS unless overridden by `APP_COOKIE_SECURE`
+- Stripe webhook signatures are verified when `STRIPE_WEBHOOK_SECRET` is configured
 
-## Readiness
+## Persistence
+
+The app now supports shared PostgreSQL-backed persistence for both:
+
+- `src/store.js` bot data such as contacts, conversations, reminders, dedupe, and integrations
+- `src/saas-store.js` SaaS data such as users, businesses, sessions, leads, bookings, team, API keys, audit logs, and usage
+
+### Recommended production setup
+
+- Set `DATABASE_URL` to a managed PostgreSQL instance
+- Leave `DATABASE_SSL=auto` unless your provider needs something specific
+- Start the app normally with `npm start`
+
+When `DATABASE_URL` is configured, the app stores the logical JSON datasets inside PostgreSQL with transaction-backed row locking, so multiple app instances can safely share one central data store.
+
+### Migration from existing local JSON files
+
+If you already have data in `data/`, run:
+
+```bash
+npm run db:import
+```
+
+On first database initialization, any missing database rows are automatically seeded from the existing local JSON files. Local JSON remains a fallback for development when `DATABASE_URL` is not set.
+
+## Readiness and diagnostics
 
 Run:
 
@@ -176,15 +210,11 @@ Run:
 npm run doctor
 ```
 
-This prints which required env vars are still missing.
-
 Run:
 
 ```bash
 npm run doctor:meta
 ```
-
-This verifies that the Meta access token can see the configured WhatsApp phone number ID without printing the token.
 
 Run:
 
@@ -192,13 +222,34 @@ Run:
 npm run doctor:public
 ```
 
-This fails unless the WhatsApp setup is ready for public use. It blocks Meta test numbers, temporary user tokens, and missing webhook signature secrets.
-
 `GET /ready` returns:
 
-- `200` when the required NVIDIA and WhatsApp settings are present
-- `503` when required settings are still missing
+- `200` when required bot settings are present
+- `503` when the active provider or bot settings are still missing
+
+The dashboard also shows an institute-level readiness score so operators can see whether WhatsApp, AI content, FAQs, courses, and billing are configured.
 
 ## Deployment
 
-This repo includes a simple `Dockerfile`, so you can deploy it cleanly on a single Node container host such as Railway.
+- Backend: Railway, Render, AWS, or any Node host
+- Frontend: already served by the same Node app, or can be fronted by a reverse proxy
+- Production database: PostgreSQL via `DATABASE_URL`
+- Local development fallback: JSON files in `data/` when `DATABASE_URL` is not set
+
+## Test and verify
+
+```bash
+npm test
+```
+
+Use the active provider credentials plus a real Stripe test/live project to validate:
+
+- webhook delivery
+- outbound replies
+- institute routing by provider metadata or phone mapping
+- Stripe checkout redirects
+- Stripe webhook subscription updates
+
+## Current MVP boundary
+
+This build is intentionally business-focused. It is not an open-ended general chatbot. The assistant should stay centered on admissions, courses, timings, FAQs, follow-ups, and demo conversion for each institute.

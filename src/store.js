@@ -1,8 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import crypto from "node:crypto";
 import { config } from "./config.js";
 import { comparablePhone, looksLikePhone, normalizePhone } from "./lib/phones.js";
+import { createJsonStore } from "./json-store.js";
 
 const defaults = {
   contacts: [],
@@ -31,7 +30,6 @@ const fileNames = {
   meta: "meta.json"
 };
 
-const writeQueues = new Map();
 const INBOUND_PROCESSING_STALE_MS = 10 * 60 * 1000;
 const REMINDER_PROCESSING_STALE_MS = 10 * 60 * 1000;
 const PERMANENT_REMINDER_ERRORS = [
@@ -44,62 +42,15 @@ function cloneDefault(name) {
   return JSON.parse(JSON.stringify(defaults[name]));
 }
 
-function dataDir() {
-  return process.env.CLAW_DATA_DIR
-    ? path.resolve(process.cwd(), process.env.CLAW_DATA_DIR)
-    : config.dataDir;
-}
-
-function filePath(name) {
-  return path.join(dataDir(), fileNames[name]);
-}
-
-async function ensureFiles() {
-  await mkdir(dataDir(), { recursive: true });
-
-  await Promise.all(
-    Object.keys(fileNames).map(async (name) => {
-      const target = filePath(name);
-      try {
-        await readFile(target, "utf8");
-      } catch {
-        await writeFile(
-          target,
-          `${JSON.stringify(cloneDefault(name), null, 2)}\n`,
-          "utf8"
-        );
-      }
-    })
-  );
-}
-
-async function readJson(name) {
-  await ensureFiles();
-  try {
-    const content = await readFile(filePath(name), "utf8");
-    return JSON.parse(content);
-  } catch {
-    return cloneDefault(name);
-  }
-}
-
-async function writeJson(name, data) {
-  await ensureFiles();
-  await writeFile(filePath(name), `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  return data;
-}
-
-async function withWriteLock(name, updater) {
-  const previous = writeQueues.get(name) || Promise.resolve();
-  const next = previous.then(async () => {
-    const current = await readJson(name);
-    const updated = (await updater(current)) ?? current;
-    return writeJson(name, updated);
-  });
-
-  writeQueues.set(name, next.catch(() => undefined));
-  return next;
-}
+const jsonStore = createJsonStore({
+  namespace: "bot-core",
+  defaults,
+  fileNames
+});
+const ensureFiles = () => jsonStore.ensureFiles();
+const readJson = (name) => jsonStore.readJson(name);
+const writeJson = (name, data) => jsonStore.writeJson(name, data);
+const withWriteLock = (name, updater) => jsonStore.withWriteLock(name, updater);
 
 function nowIso() {
   return new Date().toISOString();
