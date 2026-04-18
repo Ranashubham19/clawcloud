@@ -1455,11 +1455,7 @@ function renderDashboard() {
 
         <section class="dashboard-grid">
           <aside class="sidebar">
-            <div class="sidebar-section-label">Bot</div>
             <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">🏠 Dashboard</button>
-            <button class="tab-button ${state.tab === "chats" ? "active" : ""}" data-tab="chats">💬 Conversations</button>
-            <div class="sidebar-section-label">Account</div>
-            <button class="tab-button ${state.tab === "settings" ? "active" : ""}" data-tab="settings">⚙️ Settings</button>
             <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">💳 Billing</button>
             ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">🛡️ Admin</button>` : ""}
           </aside>
