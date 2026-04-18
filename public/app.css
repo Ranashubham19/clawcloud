@@ -1887,12 +1887,10 @@ code {
 
 /* ── Landing page platform cards ─────────────────────────────── */
 .lp-platforms {
-  max-width: 900px;
-  margin: 0 auto 40px;
-  padding: 0 16px;
+  padding: 48px 16px 56px;
 }
 
-.lp-platforms-header { text-align: center; margin-bottom: 32px; }
+.lp-platforms-header { text-align: center; margin-bottom: 36px; }
 .lp-platforms-header h2 { font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0 0 8px; }
 .lp-platforms-header p { color: var(--text-secondary); font-size: 1rem; margin: 0; }
 
@@ -1900,24 +1898,26 @@ code {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
-  margin-bottom: 24px;
+  max-width: 780px;
+  margin: 0 auto 28px;
 }
 
-.lp-platform-info { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.lp-platform-info h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin: 0; }
-.lp-platform-info p { font-size: 0.875rem; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.lp-platform-info { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.lp-platform-info h3 { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.lp-platform-info p { font-size: 0.875rem; color: var(--text-secondary); margin: 0; line-height: 1.55; }
 
 .lp-platform-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 36px 32px 32px;
+  padding: 32px 28px 28px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   transition: box-shadow 0.2s, transform 0.2s;
   position: relative;
   overflow: hidden;
+  text-decoration: none;
 }
 .lp-platform-card:hover {
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
@@ -2012,7 +2012,8 @@ code {
   text-align: center;
   font-size: 0.875rem;
   color: var(--text-secondary);
-  padding-bottom: 16px;
+  max-width: 780px;
+  margin: 0 auto;
 }
 .lp-platforms-login a { color: var(--accent); text-decoration: none; font-weight: 600; }
 
@@ -2223,7 +2224,7 @@ code {
 
 /* ── Responsive overrides for new sections ───────────────────── */
 @media (max-width: 900px) {
-  .lp-platform-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto 24px; }
+  .lp-platform-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto 24px; }
   .tg-setup-page { grid-template-columns: 1fr; }
   .tg-setup-left { display: none; }
   .tg-setup-right { padding: 32px 24px; max-width: 100%; }
