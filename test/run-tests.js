@@ -303,6 +303,33 @@ await run("sendTelegramMessage renders starred headings as Telegram bold HTML", 
   }
 });
 
+await run("sendTelegramMessage turns inline citation placeholders into clickable number links", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: { message_id: 1 } })
+    };
+  };
+
+  try {
+    await sendTelegramMessage(
+      "token",
+      "123456",
+      "Top line [[TEL_CITE:1|https://www.reuters.com/world/example-story]][[TEL_CITE:3|https://apnews.com/article/example]]"
+    );
+    assert.match(
+      requestBody.text,
+      /<a href="https:\/\/www\.reuters\.com\/world\/example-story">\[1\]<\/a><a href="https:\/\/apnews\.com\/article\/example">\[3\]<\/a>/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 await run("sendTelegramMessage throws when Telegram rejects the reply", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -620,7 +647,7 @@ await run("insertInlineSourceCitations adds numeric markers to supported answer 
         segment: {
           endIndex: 57
         },
-        groundingChunkIndices: [0]
+        groundingChunkIndices: [0, 1]
       },
       {
         segment: {
@@ -631,7 +658,7 @@ await run("insertInlineSourceCitations adds numeric markers to supported answer 
     ]
   );
 
-  assert.match(cited, /today\.\s\[1\]/);
+  assert.match(cited, /today\.\s\[1\]\[2\]/);
   assert.match(cited, /rising\.\s\[2\]$/);
 });
 

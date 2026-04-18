@@ -67,13 +67,36 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
   return null;
 }
 
-function formatGroundedAnswer(text, sources = [], supports = []) {
-  const answerText = cleanUserFacingText(insertInlineSourceCitations(text, sources, supports));
+function formatGroundedAnswer(text, sources = [], supports = [], channel = "default") {
+  const sourceByNumber = new Map(
+    (Array.isArray(sources) ? sources : []).map((source, index) => [index + 1, source])
+  );
+
+  const answerText = cleanUserFacingText(
+    insertInlineSourceCitations(text, sources, supports, {
+      formatMarker(numbers) {
+        if (channel !== "telegram") {
+          return numbers.map((number) => `[${number}]`).join("");
+        }
+
+        return numbers
+          .map((number) => {
+            const source = sourceByNumber.get(number);
+            return source?.uri ? `[[TEL_CITE:${number}|${source.uri}]]` : `[${number}]`;
+          })
+          .join("");
+      }
+    })
+  );
   if (!answerText) {
     return "";
   }
 
-  const attribution = formatSourceAttribution(sources);
+  if (channel === "telegram") {
+    return answerText;
+  }
+
+  const attribution = formatSourceAttribution(sources, { includeHeading: false });
   if (!attribution) {
     return answerText;
   }
@@ -547,7 +570,8 @@ export async function handleIncomingText({
   from,
   profileName,
   text,
-  businessContext = null
+  businessContext = null,
+  deliveryChannel = "default"
 }) {
   const languageStyle = detectLanguageStyle(text);
   const answerRoute = chooseAnswerRoute(text);
@@ -609,7 +633,8 @@ export async function handleIncomingText({
           formatGroundedAnswer(
             geminiAnswer.text,
             geminiAnswer.sources || [],
-            geminiAnswer.supports || []
+            geminiAnswer.supports || [],
+            deliveryChannel
           )
         );
         await appendConversationMessage(

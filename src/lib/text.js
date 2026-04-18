@@ -156,16 +156,21 @@ export function formatSourceAttribution(sources, options = {}) {
     return "";
   }
 
+  const includeHeading = options.includeHeading !== false;
   const sourcesHeading = cleanInlineText(options.sourcesHeading || "Sources") || "Sources";
   const detailLines = items.map((source, index) => {
     const label = sourceDetailLabel(source);
     return `${index + 1}. ${label}: ${cleanInlineText(source.uri)}`;
   });
 
+  if (!includeHeading) {
+    return detailLines.join("\n").trim();
+  }
+
   return `*${sourcesHeading}*\n${detailLines.join("\n")}`.trim();
 }
 
-export function insertInlineSourceCitations(text, sources, supports) {
+export function insertInlineSourceCitations(text, sources, supports, options = {}) {
   const baseText = String(text || "");
   if (!baseText.trim()) {
     return "";
@@ -181,6 +186,11 @@ export function insertInlineSourceCitations(text, sources, supports) {
   if (!sourceMap.size || !Array.isArray(supports) || !supports.length) {
     return baseText;
   }
+
+  const markerFormatter =
+    typeof options.formatMarker === "function"
+      ? options.formatMarker
+      : (numbers) => numbers.map((number) => `[${number}]`).join("");
 
   const markersByEndIndex = new Map();
 
@@ -209,7 +219,7 @@ export function insertInlineSourceCitations(text, sources, supports) {
   let output = baseText;
 
   for (const [endIndex, numbers] of insertions) {
-    const marker = ` [${numbers.join(",")}]`;
+    const marker = ` ${markerFormatter(numbers, sourceMap)}`;
     output = `${output.slice(0, endIndex)}${marker}${output.slice(endIndex)}`;
   }
 

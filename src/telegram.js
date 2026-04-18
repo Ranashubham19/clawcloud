@@ -11,11 +11,42 @@ function escapeTelegramHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
+function escapeTelegramHtmlAttribute(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function formatTelegramHtml(value) {
-  return escapeTelegramHtml(value).replace(
+  const placeholders = [];
+  const prepared = String(value || "").replace(
+    /\[\[TEL_CITE:(\d+)\|([^[\]]+)\]\]/g,
+    (_match, number, url) => {
+      const token = `TELCITEPLACEHOLDER${placeholders.length}`;
+      placeholders.push({
+        token,
+        number,
+        url
+      });
+      return token;
+    }
+  );
+
+  let formatted = escapeTelegramHtml(prepared).replace(
     /\*([^*\n]{1,160})\*/g,
     "<b>$1</b>"
   );
+
+  for (const placeholder of placeholders) {
+    formatted = formatted.replace(
+      placeholder.token,
+      `<a href="${escapeTelegramHtmlAttribute(placeholder.url)}">[${placeholder.number}]</a>`
+    );
+  }
+
+  return formatted;
 }
 
 async function readTelegramResponse(response, action) {

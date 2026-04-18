@@ -297,7 +297,8 @@ async function processInboundMessage(message, options = {}) {
     } else {
       assistantReply = await handleIncomingText({
         ...message,
-        businessContext
+        businessContext,
+        deliveryChannel: "whatsapp"
       });
     }
 
@@ -568,7 +569,8 @@ async function handleTelegramWebhook(request, response, url) {
   try {
     const reply = await handleIncomingText({
       ...message,
-      businessContext: business
+      businessContext: business,
+      deliveryChannel: "telegram"
     });
 
     if (reply) {
