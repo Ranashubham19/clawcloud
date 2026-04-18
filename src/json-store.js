@@ -10,6 +10,7 @@ let pool = null;
 let poolSignature = "";
 let initPromise = null;
 let activeSslOption;
+let databaseDisabled = false;
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -34,7 +35,25 @@ function fileQueueKey(namespace, name) {
 }
 
 export function hasDatabaseStorage() {
+  return Boolean(cleanText(config.databaseUrl)) && !databaseDisabled;
+}
+
+function isDatabaseConfigured() {
   return Boolean(cleanText(config.databaseUrl));
+}
+
+function disableDatabaseStorage(error) {
+  if (databaseDisabled) {
+    return;
+  }
+
+  databaseDisabled = true;
+  activeSslOption = undefined;
+  initPromise = null;
+  void resetPool();
+  console.warn(
+    `[json-store] PostgreSQL unavailable, falling back to local JSON storage. ${error?.message || "Unknown database error."}`
+  );
 }
 
 function isLocalDatabaseHost(hostname = "") {
@@ -165,7 +184,7 @@ async function resetPool() {
 }
 
 function getPool(sslOption) {
-  if (!hasDatabaseStorage()) {
+  if (!isDatabaseConfigured() || databaseDisabled) {
     return null;
   }
 
@@ -243,8 +262,9 @@ async function ensureDatabaseReady() {
       }
       return true;
     })().catch((error) => {
+      disableDatabaseStorage(error);
       initPromise = null;
-      throw error;
+      return false;
     });
   }
 
@@ -318,7 +338,10 @@ async function seedDatabaseRow(namespace, name, defaultValue, fileNames, default
 }
 
 async function readDatabaseJson(namespace, fileNames, defaults, name) {
-  await ensureDatabaseReady();
+  const ready = await ensureDatabaseReady();
+  if (!ready) {
+    return readLocalJson(fileNames, defaults, name);
+  }
   await seedDatabaseRow(namespace, name, defaults[name], fileNames, defaults);
 
   const result = await getPool().query(
@@ -329,8 +352,11 @@ async function readDatabaseJson(namespace, fileNames, defaults, name) {
   return result.rows[0]?.data ?? cloneValue(defaults[name]);
 }
 
-async function writeDatabaseJson(namespace, name, data) {
-  await ensureDatabaseReady();
+async function writeDatabaseJson(namespace, fileNames, defaults, name, data) {
+  const ready = await ensureDatabaseReady();
+  if (!ready) {
+    return writeLocalJson(fileNames, defaults, name, data);
+  }
   await getPool().query(
     `
       INSERT INTO app_json_store (namespace, name, data, updated_at)
@@ -344,7 +370,10 @@ async function writeDatabaseJson(namespace, name, data) {
 }
 
 async function withDatabaseWriteLock(namespace, fileNames, defaults, name, updater) {
-  await ensureDatabaseReady();
+  const ready = await ensureDatabaseReady();
+  if (!ready) {
+    return withLocalWriteLock(namespace, fileNames, defaults, name, updater);
+  }
   const client = await getPool().connect();
 
   try {
@@ -419,13 +448,15 @@ export function createJsonStore({ namespace, defaults, fileNames }) {
   return {
     async ensureFiles() {
       if (hasDatabaseStorage()) {
-        await ensureDatabaseReady();
-        await Promise.all(
-          Object.keys(fileNames).map((name) =>
-            seedDatabaseRow(namespace, name, clonedDefaults[name], fileNames, clonedDefaults)
-          )
-        );
-        return;
+        const ready = await ensureDatabaseReady();
+        if (ready) {
+          await Promise.all(
+            Object.keys(fileNames).map((name) =>
+              seedDatabaseRow(namespace, name, clonedDefaults[name], fileNames, clonedDefaults)
+            )
+          );
+          return;
+        }
       }
 
       await ensureLocalFiles(fileNames, clonedDefaults);
@@ -447,7 +478,7 @@ export function createJsonStore({ namespace, defaults, fileNames }) {
       }
 
       return hasDatabaseStorage()
-        ? writeDatabaseJson(namespace, name, data)
+        ? writeDatabaseJson(namespace, fileNames, clonedDefaults, name, data)
         : writeLocalJson(fileNames, clonedDefaults, name, data);
     },
 
