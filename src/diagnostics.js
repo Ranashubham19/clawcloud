@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { getDatabaseStorageStatus } from "./json-store.js";
 
 function present(value) {
   return Boolean(String(value || "").trim());
@@ -52,6 +53,7 @@ export function getReadinessReport() {
     ready: missing.length === 0,
     missing,
     checks,
+    storage: getDatabaseStorageStatus(),
     service: config.botName,
     model: config.nvidiaModel,
     timezone: config.timezone,

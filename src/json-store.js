@@ -42,6 +42,15 @@ function isDatabaseConfigured() {
   return Boolean(cleanText(config.databaseUrl));
 }
 
+export function getDatabaseStorageStatus() {
+  return {
+    configured: isDatabaseConfigured(),
+    active: hasDatabaseStorage(),
+    fallbackToLocal: databaseDisabled,
+    mode: hasDatabaseStorage() ? "postgres" : "json"
+  };
+}
+
 function disableDatabaseStorage(error) {
   if (databaseDisabled) {
     return;
