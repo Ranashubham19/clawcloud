@@ -11,6 +11,7 @@ let poolSignature = "";
 let initPromise = null;
 let activeSslOption;
 let databaseDisabled = false;
+let databaseLastError = null;
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -47,8 +48,76 @@ export function getDatabaseStorageStatus() {
     configured: isDatabaseConfigured(),
     active: hasDatabaseStorage(),
     fallbackToLocal: databaseDisabled,
-    mode: hasDatabaseStorage() ? "postgres" : "json"
+    mode: hasDatabaseStorage() ? "postgres" : "json",
+    lastError: databaseLastError
   };
+}
+
+function buildDatabaseErrorSummary(error, sslOption) {
+  const code = cleanText(error?.code).toUpperCase() || null;
+  const message = cleanText(error?.message).toLowerCase();
+  let category = "unknown";
+  let hint = "PostgreSQL connection failed during startup.";
+
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    category = "dns_error";
+    hint = "The database host could not be resolved.";
+  } else if (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "EHOSTUNREACH" ||
+    code === "ENETUNREACH"
+  ) {
+    category = "network_error";
+    hint = "The database host rejected or dropped the connection.";
+  } else if (code === "ETIMEDOUT" || message.includes("timeout")) {
+    category = "timeout";
+    hint = "The database connection timed out before PostgreSQL responded.";
+  } else if (
+    code === "28P01" ||
+    code === "28000" ||
+    message.includes("password authentication failed")
+  ) {
+    category = "auth_failed";
+    hint = "PostgreSQL rejected the username or password in DATABASE_URL.";
+  } else if (
+    code === "3D000" ||
+    message.includes("database") && message.includes("does not exist")
+  ) {
+    category = "database_not_found";
+    hint = "The target database name in DATABASE_URL does not exist.";
+  } else if (code === "42501" || message.includes("permission denied")) {
+    category = "permission_denied";
+    hint = "The PostgreSQL user does not have the required permissions.";
+  } else if (
+    code === "57P03" ||
+    message.includes("the database system is starting up") ||
+    message.includes("cannot_connect_now")
+  ) {
+    category = "server_unavailable";
+    hint = "PostgreSQL is not ready to accept connections yet.";
+  } else if (
+    message.includes("does not support ssl") ||
+    message.includes("ssl off") ||
+    message.includes("ssl is not enabled") ||
+    message.includes("ssl required") ||
+    message.includes("self signed certificate") ||
+    message.includes("tls")
+  ) {
+    category = "ssl_mismatch";
+    hint = "The SSL mode does not match what the PostgreSQL endpoint expects.";
+  }
+
+  return {
+    category,
+    code,
+    attemptedTransport: describeSslOption(sslOption),
+    hint
+  };
+}
+
+function clearDatabaseError() {
+  databaseLastError = null;
 }
 
 function disableDatabaseStorage(error) {
@@ -59,6 +128,9 @@ function disableDatabaseStorage(error) {
   databaseDisabled = true;
   activeSslOption = undefined;
   initPromise = null;
+  if (error) {
+    databaseLastError = error._jsonStoreSummary || buildDatabaseErrorSummary(error);
+  }
   void resetPool();
   console.warn(
     `[json-store] PostgreSQL unavailable, falling back to local JSON storage. ${error?.message || "Unknown database error."}`
@@ -231,8 +303,10 @@ async function connectDatabaseClient() {
     try {
       const client = await getPool(sslOption).connect();
       activeSslOption = sslOption;
+      clearDatabaseError();
       return client;
     } catch (error) {
+      error._jsonStoreSummary = buildDatabaseErrorSummary(error, sslOption);
       lastError = error;
       await resetPool();
 
