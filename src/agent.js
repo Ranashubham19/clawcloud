@@ -17,6 +17,7 @@ import {
 import {
   cleanUserFacingText,
   formatSourceAttribution,
+  insertInlineSourceCitations,
   safeJsonParse,
   sanitizeForWhatsApp
 } from "./lib/text.js";
@@ -66,8 +67,8 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
   return null;
 }
 
-function formatGroundedAnswer(text, sources = []) {
-  const answerText = cleanUserFacingText(text);
+function formatGroundedAnswer(text, sources = [], supports = []) {
+  const answerText = cleanUserFacingText(insertInlineSourceCitations(text, sources, supports));
   if (!answerText) {
     return "";
   }
@@ -605,7 +606,11 @@ export async function handleIncomingText({
         isLanguageCompatible(geminiText, languageStyle)
       ) {
         const groundedReply = sanitizeForWhatsApp(
-          formatGroundedAnswer(geminiText, geminiAnswer.sources || [])
+          formatGroundedAnswer(
+            geminiAnswer.text,
+            geminiAnswer.sources || [],
+            geminiAnswer.supports || []
+          )
         );
         await appendConversationMessage(
           from,

@@ -95,11 +95,110 @@ function cleanText(value) {
 }
 
 function normalizeSourceDomain(uri) {
+  const raw = cleanText(uri).replace(/^www\./i, "");
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(raw)) {
+    return raw.toLowerCase();
+  }
+
   try {
     return new URL(uri).hostname.replace(/^www\./i, "").trim();
   } catch {
     return "";
   }
+}
+
+function isGroundingRedirectUrl(uri) {
+  try {
+    const url = new URL(uri);
+    return /grounding-api-redirect/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function sourceFallbackUrl(source = {}) {
+  const domain = cleanText(source.domain);
+  const title = cleanText(source.title);
+  const query = [domain ? `site:${domain}` : "", title].filter(Boolean).join(" ");
+  if (!query) {
+    return cleanText(source.uri);
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+const resolvedGroundingUrlCache = new Map();
+
+async function requestResolvedUrl(uri, method, timeoutMs) {
+  const { signal, cancel } = createTimeoutSignal(timeoutMs);
+
+  try {
+    const response = await fetch(uri, {
+      method,
+      redirect: "follow",
+      signal,
+      headers: {
+        "user-agent": "Mozilla/5.0"
+      }
+    });
+
+    const finalUrl = cleanText(response?.url || "");
+    return finalUrl || cleanText(uri);
+  } catch {
+    return "";
+  } finally {
+    cancel();
+  }
+}
+
+async function resolveGroundingSourceUrl(uri, timeoutMs = 1800) {
+  const value = cleanText(uri);
+  if (!value) {
+    return "";
+  }
+
+  if (!isGroundingRedirectUrl(value)) {
+    return value;
+  }
+
+  if (resolvedGroundingUrlCache.has(value)) {
+    return resolvedGroundingUrlCache.get(value);
+  }
+
+  let resolved = await requestResolvedUrl(value, "HEAD", timeoutMs);
+  if (!resolved || isGroundingRedirectUrl(resolved)) {
+    resolved = await requestResolvedUrl(value, "GET", timeoutMs);
+  }
+
+  const finalUrl = resolved && !isGroundingRedirectUrl(resolved) ? resolved : "";
+  resolvedGroundingUrlCache.set(value, finalUrl);
+  return finalUrl;
+}
+
+export async function resolveGeminiGroundingSources(sources, timeoutMs = 1800) {
+  const items = Array.isArray(sources) ? sources : [];
+  if (!items.length) {
+    return [];
+  }
+
+  return Promise.all(
+    items.map(async (source) => {
+      const resolvedUri = await resolveGroundingSourceUrl(source.uri, timeoutMs);
+      const nextUri = resolvedUri || sourceFallbackUrl(source);
+      return {
+        ...source,
+        uri: nextUri,
+        domain:
+          normalizeSourceDomain(resolvedUri) ||
+          normalizeSourceDomain(source.title) ||
+          source.domain
+      };
+    })
+  );
+}
+
+function normalizeGroundingSupports(candidate) {
+  const supports = candidate?.groundingMetadata?.groundingSupports;
+  return Array.isArray(supports) ? supports : [];
 }
 
 export function extractGeminiGroundingSources(candidate, maxSources = 6) {
@@ -153,6 +252,7 @@ export function extractGeminiGroundingSources(candidate, maxSources = 6) {
     const domain = normalizeSourceDomain(uri);
     const title = cleanText(web.title || domain || uri);
     sources.push({
+      index,
       title,
       uri,
       domain
@@ -248,9 +348,13 @@ async function requestGeminiSearchAnswer({
       return null;
     }
 
+    const rawSources = extractGeminiGroundingSources(candidate);
+    const sources = await resolveGeminiGroundingSources(rawSources);
+
     return {
       text,
-      sources: extractGeminiGroundingSources(candidate)
+      sources,
+      supports: normalizeGroundingSupports(candidate)
     };
   } catch (error) {
     const message =

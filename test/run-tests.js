@@ -10,13 +10,17 @@ import { config } from "../src/config.js";
 import {
   cleanUserFacingText,
   formatSourceAttribution,
+  insertInlineSourceCitations,
   sanitizeForWhatsApp
 } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildAiSensyCampaignPayload, splitWhatsAppMessage } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 import { extractAiSensyFlowInput } from "../src/aisensy-flow.js";
-import { extractGeminiGroundingSources } from "../src/gemini.js";
+import {
+  extractGeminiGroundingSources,
+  resolveGeminiGroundingSources
+} from "../src/gemini.js";
 import {
   detectMessagingProvider,
   extractInboundMessages,
@@ -291,6 +295,7 @@ await run("sendTelegramMessage renders starred headings as Telegram bold HTML", 
       "Here is the update:\n\n- *Top Story*: Something happened"
     );
     assert.equal(requestBody.parse_mode, "HTML");
+    assert.equal(requestBody.link_preview_options.is_disabled, true);
     assert.match(requestBody.text, /<b>Top Story<\/b>/);
     assert.equal(requestBody.text.includes("*Top Story*"), false);
   } finally {
@@ -513,38 +518,121 @@ await run("extractGeminiGroundingSources keeps grounded web sources in support o
     sources.map((source) => source.domain),
     ["apnews.com", "reuters.com", "bbc.com"]
   );
+  assert.deepEqual(
+    sources.map((source) => source.index),
+    [1, 0, 2]
+  );
 });
 
-await run("formatSourceAttribution builds compact source summary", async () => {
+await run("resolveGeminiGroundingSources replaces redirect URLs with final article URLs", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("grounding-api-redirect")) {
+      return {
+        ok: true,
+        status: 200,
+        url:
+          options.method === "HEAD"
+            ? "https://www.reuters.com/world/example-story"
+            : "https://www.reuters.com/world/example-story"
+      };
+    }
+    throw new Error("Unexpected URL");
+  };
+
+  try {
+    const sources = await resolveGeminiGroundingSources([
+      {
+        index: 0,
+        title: "Reuters story",
+        domain: "vertexaisearch.cloud.google.com",
+        uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc"
+      }
+    ]);
+
+    assert.equal(sources[0].uri, "https://www.reuters.com/world/example-story");
+    assert.equal(sources[0].domain, "reuters.com");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("formatSourceAttribution builds numbered source list", async () => {
   const formatted = formatSourceAttribution([
     {
+      index: 1,
       title: "Reuters story",
       domain: "reuters.com",
       uri: "https://www.reuters.com/world/example-story"
     },
     {
+      index: 2,
       title: "AP story",
       domain: "apnews.com",
       uri: "https://apnews.com/article/example"
     },
     {
+      index: 3,
       title: "BBC story",
       domain: "bbc.com",
       uri: "https://www.bbc.com/news/example"
     },
     {
+      index: 4,
       title: "CNN story",
       domain: "cnn.com",
       uri: "https://www.cnn.com/world/example"
     }
   ]);
 
-  assert.match(formatted, /\*Sources\*: reuters\.com, apnews\.com, bbc\.com \+1 more/);
-  assert.match(formatted, /\*See details\*/);
+  assert.match(formatted, /^\*Sources\*/);
   assert.match(
     formatted,
     /1\. Reuters story \(reuters\.com\): https:\/\/www\.reuters\.com\/world\/example-story/
   );
+  assert.match(
+    formatted,
+    /4\. CNN story \(cnn\.com\): https:\/\/www\.cnn\.com\/world\/example/
+  );
+});
+
+await run("insertInlineSourceCitations adds numeric markers to supported answer spans", async () => {
+  const text =
+    "Top headlines:\n- IPL 2026: SRH vs CSK is happening today.\n- Oil prices are rising.";
+  const cited = insertInlineSourceCitations(
+    text,
+    [
+      {
+        index: 0,
+        title: "Sports source",
+        domain: "espncricinfo.com",
+        uri: "https://www.espncricinfo.com/example"
+      },
+      {
+        index: 1,
+        title: "Markets source",
+        domain: "reuters.com",
+        uri: "https://www.reuters.com/markets/example"
+      }
+    ],
+    [
+      {
+        segment: {
+          endIndex: 57
+        },
+        groundingChunkIndices: [0]
+      },
+      {
+        segment: {
+          endIndex: text.length
+        },
+        groundingChunkIndices: [1]
+      }
+    ]
+  );
+
+  assert.match(cited, /today\.\s\[1\]/);
+  assert.match(cited, /rising\.\s\[2\]$/);
 });
 
 await run("beginInboundProcessing dedupes repeated message ids", async () => {

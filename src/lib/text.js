@@ -55,6 +55,12 @@ function sourceDetailLabel(source = {}) {
   return title || domain || "Source";
 }
 
+function uniqueNumbers(values = []) {
+  return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))].sort(
+    (left, right) => left - right
+  );
+}
+
 export function sanitizeForWhatsApp(value) {
   let text = stripDecorativeSymbols(value);
   if (!text.trim()) return "";
@@ -150,19 +156,64 @@ export function formatSourceAttribution(sources, options = {}) {
     return "";
   }
 
-  const extraCount = Math.max(0, items.length - summaryLabels.length);
   const sourcesHeading = cleanInlineText(options.sourcesHeading || "Sources") || "Sources";
-  const detailsHeading = cleanInlineText(options.detailsHeading || "See details") || "See details";
-  const summaryLine = `*${sourcesHeading}*: ${summaryLabels.join(", ")}${
-    extraCount ? ` +${extraCount} more` : ""
-  }`;
-
-  const detailLines = items.slice(0, 3).map((source, index) => {
+  const detailLines = items.map((source, index) => {
     const label = sourceDetailLabel(source);
     return `${index + 1}. ${label}: ${cleanInlineText(source.uri)}`;
   });
 
-  return `${summaryLine}\n\n*${detailsHeading}*\n${detailLines.join("\n")}`.trim();
+  return `*${sourcesHeading}*\n${detailLines.join("\n")}`.trim();
+}
+
+export function insertInlineSourceCitations(text, sources, supports) {
+  const baseText = String(text || "");
+  if (!baseText.trim()) {
+    return "";
+  }
+
+  const sourceMap = new Map();
+  (Array.isArray(sources) ? sources : []).forEach((source, index) => {
+    if (Number.isInteger(source?.index)) {
+      sourceMap.set(source.index, index + 1);
+    }
+  });
+
+  if (!sourceMap.size || !Array.isArray(supports) || !supports.length) {
+    return baseText;
+  }
+
+  const markersByEndIndex = new Map();
+
+  for (const support of supports) {
+    const endIndex = Number(support?.segment?.endIndex);
+    if (!Number.isFinite(endIndex) || endIndex <= 0 || endIndex > baseText.length) {
+      continue;
+    }
+
+    const markerNumbers = uniqueNumbers(
+      (support?.groundingChunkIndices || []).map((chunkIndex) => sourceMap.get(chunkIndex))
+    );
+    if (!markerNumbers.length) {
+      continue;
+    }
+
+    const existing = markersByEndIndex.get(endIndex) || [];
+    markersByEndIndex.set(endIndex, uniqueNumbers([...existing, ...markerNumbers]));
+  }
+
+  if (!markersByEndIndex.size) {
+    return baseText;
+  }
+
+  const insertions = [...markersByEndIndex.entries()].sort((left, right) => right[0] - left[0]);
+  let output = baseText;
+
+  for (const [endIndex, numbers] of insertions) {
+    const marker = ` [${numbers.join(",")}]`;
+    output = `${output.slice(0, endIndex)}${marker}${output.slice(endIndex)}`;
+  }
+
+  return output;
 }
 
 export function toModelText(content) {

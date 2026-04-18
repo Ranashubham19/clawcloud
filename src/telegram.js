@@ -63,7 +63,10 @@ export async function sendTelegramMessage(token, chatId, text) {
       body: JSON.stringify({
         chat_id: chatId,
         text: formatTelegramHtml(chunk),
-        parse_mode: "HTML"
+        parse_mode: "HTML",
+        link_preview_options: {
+          is_disabled: true
+        }
       })
     });
     await readTelegramResponse(response, "sendMessage");
