@@ -1117,7 +1117,7 @@ function dashboardSection() {
           <div class="platform-card ${waConnected ? "platform-card--connected" : ""}">
             <div class="platform-card-header">
               <div class="platform-card-icon platform-card-icon--wa">
-                <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#25D366"/><path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2z" fill="white"/></svg>
+                <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
               </div>
               <div class="platform-card-title-wrap">
                 <div class="platform-card-name">WhatsApp</div>
@@ -1140,7 +1140,7 @@ function dashboardSection() {
                   <div class="pc-step"><span class="pc-step-n">2</span>Enter your AiSensy API key or Meta credentials</div>
                   <div class="pc-step"><span class="pc-step-n">3</span>Your bot goes live instantly</div>
                 </div>
-                <button class="platform-card-btn platform-card-btn--wa" onclick="document.querySelector('[data-tab=settings]')?.click()">
+                <button class="platform-card-btn platform-card-btn--wa" id="ov-wa-connect-btn">
                   Connect WhatsApp →
                 </button>
               `}
@@ -1587,6 +1587,15 @@ function renderDashboard() {
     } catch (error) {
       alert(error.message);
     }
+  });
+
+  // Overview tab — WhatsApp connect button
+  document.querySelector("#ov-wa-connect-btn")?.addEventListener("click", () => {
+    state.tab = "settings";
+    render();
+    setTimeout(() => {
+      document.querySelector("#ov-wa-connect-btn")?.scrollIntoView?.({ behavior: "smooth" });
+    }, 100);
   });
 
   // Overview tab — Telegram connect form
