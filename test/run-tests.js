@@ -38,6 +38,7 @@ import {
   sendTelegramMessage,
   setTelegramWebhook
 } from "../src/telegram.js";
+import { startTypingKeepAlive } from "../src/typing.js";
 
 async function run(name, fn) {
   try {
@@ -299,6 +300,35 @@ await run("sendTelegramChatAction sends typing status", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+await run("startTypingKeepAlive sends immediately and repeats until stopped", async () => {
+  let ticks = 0;
+  const stop = startTypingKeepAlive(async () => {
+    ticks += 1;
+  }, { intervalMs: 200 });
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 450));
+  } finally {
+    stop();
+  }
+
+  assert.ok(ticks >= 2);
+});
+
+await run("startTypingKeepAlive stops cleanly", async () => {
+  let ticks = 0;
+  const stop = startTypingKeepAlive(async () => {
+    ticks += 1;
+  }, { intervalMs: 200 });
+
+  await new Promise((resolve) => setTimeout(resolve, 260));
+  stop();
+  const countAfterStop = ticks;
+  await new Promise((resolve) => setTimeout(resolve, 260));
+
+  assert.equal(ticks, countAfterStop);
 });
 
 await run("sendTelegramMessage renders starred headings as Telegram bold HTML", async () => {

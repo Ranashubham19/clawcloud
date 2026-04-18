@@ -28,6 +28,7 @@ import {
   sendTelegramChatAction,
   sendTelegramMessage
 } from "./telegram.js";
+import { startTypingKeepAlive } from "./typing.js";
 import {
   getBusinessByTelegramToken,
   updateBusinessWhatsAppById
@@ -295,13 +296,17 @@ async function processInboundMessage(message, options = {}) {
   }
 
   let assistantReply = "";
+  let stopTyping = () => {};
   try {
     if (
       replyMode === "provider-send" &&
       message.provider === "meta" &&
       message.providerMessageId
     ) {
-      await sendTypingPresence(message.providerMessageId, replyIntegration).catch(() => {});
+      stopTyping = startTypingKeepAlive(
+        () => sendTypingPresence(message.providerMessageId, replyIntegration),
+        { intervalMs: 4000 }
+      );
     }
 
     if (message.mediaId) {
@@ -365,6 +370,8 @@ async function processInboundMessage(message, options = {}) {
       outcome: "model_error_no_reply",
       businessId: businessContext?.id || ""
     });
+  } finally {
+    stopTyping();
   }
 
   return assistantReply;
@@ -589,8 +596,12 @@ async function handleTelegramWebhook(request, response, url) {
     return;
   }
 
+  let stopTyping = () => {};
   try {
-    await sendTelegramChatAction(token, inbound.chatId, "typing").catch(() => {});
+    stopTyping = startTypingKeepAlive(
+      () => sendTelegramChatAction(token, inbound.chatId, "typing"),
+      { intervalMs: 4000 }
+    );
 
     const reply = await handleIncomingText({
       ...message,
@@ -627,6 +638,8 @@ async function handleTelegramWebhook(request, response, url) {
       outcome: "telegram_error",
       businessId: business.id
     });
+  } finally {
+    stopTyping();
   }
 }
 
