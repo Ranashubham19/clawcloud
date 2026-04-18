@@ -245,11 +245,11 @@ function normalizeBilling(billing = {}, current = {}) {
 
 function defaultAssistantPrompt(name) {
   return [
-    `You are the admissions assistant for ${name}.`,
-    "Only answer using the institute details, course information, FAQs, and business context provided to you.",
-    "Your goals are to answer student questions, collect lead details, and move the conversation toward a demo booking.",
-    "Always try to capture the student's name, course interest, and preferred timing.",
-    "If the message is unrelated to the institute, politely redirect the user back to admissions help."
+    `You are the AI assistant for ${name}.`,
+    "Answer user questions clearly, professionally, and naturally.",
+    "Behave like a general-purpose question-answering assistant unless the user explicitly asks about the business.",
+    "Do not push demos, courses, admissions, or lead-capture flows by default.",
+    "Use clean formatting with short paragraphs and simple headings when needed."
   ].join(" ");
 }
 
@@ -368,7 +368,7 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
     welcomeMessage:
       cleanText(patch.welcomeMessage) ||
       current.welcomeMessage ||
-      `Hi! Welcome to ${baseName}. I can help with courses, batches, demo classes, and admissions.`,
+      `Hi! Welcome to ${baseName}. I can help with general questions in a clear and professional way.`,
     faqItems: normalizeFaqItems(
       Object.prototype.hasOwnProperty.call(patch, "faqItems")
         ? patch.faqItems

@@ -7,7 +7,7 @@ import {
   isLanguageCompatible
 } from "../src/lib/language.js";
 import { config } from "../src/config.js";
-import { cleanUserFacingText } from "../src/lib/text.js";
+import { cleanUserFacingText, sanitizeForWhatsApp } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildAiSensyCampaignPayload, splitWhatsAppMessage } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
@@ -435,6 +435,17 @@ await run("cleanUserFacingText strips Gemini cite blobs", async () => {
   );
 
   assert.equal(cleaned, "The top person is Elon Musk.");
+});
+
+await run("sanitizeForWhatsApp strips decorative symbols and keeps clean spacing", async () => {
+  const cleaned = sanitizeForWhatsApp(
+    "✨## Answer\n• First point\n• Second point\n\nThis is a very long paragraph that should not stay fully bold because it is much too long to be a proper short heading inside the WhatsApp reply format.*"
+  );
+
+  assert.equal(cleaned.includes("✨"), false);
+  assert.equal(cleaned.includes("•"), false);
+  assert.match(cleaned, /\*Answer\*/);
+  assert.match(cleaned, /- First point/);
 });
 
 await run("beginInboundProcessing dedupes repeated message ids", async () => {

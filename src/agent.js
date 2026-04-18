@@ -24,11 +24,7 @@ import {
   unsupportedFormatName
 } from "./gemini.js";
 import { downloadInboundMedia } from "./messaging.js";
-import {
-  buildBusinessSystemPrompt,
-  captureLeadFromInbound,
-  getLeadContextForBusiness
-} from "./saas.js";
+import { buildBusinessSystemPrompt } from "./saas.js";
 
 // Advanced + responsive models — preferred across all routes
 const ADVANCED_MODELS = [
@@ -237,7 +233,65 @@ async function continueIfTruncated({
   return combined;
 }
 
+function buildGeneralReplyPrompt(context) {
+  const lines = [
+    `You are ${config.botName}, a professional general-purpose AI assistant.`,
+    "Answer the user's actual question clearly, accurately, and naturally.",
+    "",
+    "Language rules:",
+    context.languageInstruction,
+    `Reply fully in ${context.languageLabel} unless the user explicitly asks for another language.`,
+    "Match the user's language style and script exactly.",
+    "Do not mix languages unless the user does.",
+    "",
+    "Formatting rules:",
+    "- Start with a direct answer.",
+    "- For simple questions, use 1 to 3 short paragraphs.",
+    "- For longer answers, use one short bold heading like *Key Points*, *Explanation*, or *Answer*.",
+    "- Leave one blank line between paragraphs and sections.",
+    "- Use numbered points or '-' bullets only when they improve clarity.",
+    "- Bold only short headings or key terms. Never bold full paragraphs.",
+    "- Do not use markdown headers, tables, code fences, emojis, or decorative symbols.",
+    "",
+    "Style rules:",
+    "- Be professional, calm, and easy to read.",
+    "- Do not repeat or mention the user's name unless the user explicitly asks for it.",
+    "- Do not include unnecessary greetings once the conversation is already underway.",
+    "- Do not mention tools, models, searching, or internal workflow.",
+    "- If you are unsure, say so briefly and answer as helpfully as possible.",
+    "- Never leave the answer empty."
+  ];
+
+  if (context.useTools) {
+    lines.push(
+      "",
+      "Tool use:",
+      "- If the user explicitly asks about contacts, chats, messages, or reminders, use the available tools and present the result cleanly.",
+      "- Do not claim lack of access when a relevant tool exists.",
+      "- Return tool results directly and professionally."
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function buildBusinessReplyPrompt(context) {
+  return [
+    buildGeneralReplyPrompt(context),
+    "",
+    "Business workspace rules:",
+    "- This bot must behave like a clean general Q and A assistant by default.",
+    "- Do not mention courses, admissions, demos, bookings, batches, fees, or business promotions unless the user explicitly asks about them.",
+    "- Ignore sales-style or lead-capture behavior.",
+    "- Do not steer the user toward services or ask marketing follow-up questions."
+  ].join("\n");
+}
+
 function systemPrompt(context) {
+  return context.business
+    ? buildBusinessReplyPrompt(context)
+    : buildGeneralReplyPrompt(context);
+
   if (context.business) {
     return buildBusinessSystemPrompt({
       business: context.business,
@@ -366,14 +420,14 @@ export function directSmallTalkReply(text, languageStyle) {
     if (languageStyle === "hinglish") {
       return "Main bilkul theek hoon, shukriya! Aaj main aapki kaise madad kar sakta hoon?";
     }
-    return "I'm doing great, thank you for asking! How may I assist you today?";
+    return "I'm doing well, thank you. How may I assist you today?";
   }
 
   if (/^(hi|hello|hey|hii|hlo|helo|yo|sup|greetings|good morning|good afternoon|good evening|good night|namaste|namaskar)\!?$/.test(source)) {
     if (languageStyle === "hinglish") {
-      return "Namaste! Main aapki madad ke liye yahan hoon. Aap mujhse koi bhi sawaal pooch sakte hain — main poori koshish karunga ki aapko sahi aur jaldi jawab milein.";
+      return "Namaste! Main aapki madad ke liye yahan hoon. Aap mujhse koi bhi sawal pooch sakte hain. Main spasht aur sahi jawab dene ki poori koshish karunga.";
     }
-    return "Hello! I'm here and ready to help. Feel free to ask me anything — I'll do my best to give you a clear and accurate answer.";
+    return "Hello! I'm here to help. Ask me any question, and I'll do my best to give a clear and accurate answer.";
   }
 
   if (
@@ -382,16 +436,16 @@ export function directSmallTalkReply(text, languageStyle) {
     )
   ) {
     if (languageStyle === "hinglish") {
-      return "Main aapke liye bahut kuch kar sakta hoon:\n\n• *Sawaalon ke jawab* — general knowledge, science, history, math, coding, finance, law, health aur aur bhi bahut kuch\n• *Writing mein help* — emails, essays, summaries, translations\n• *Explain karna* — koi bhi topic ko simple language mein\n• *Planning* — travel, projects, daily tasks\n• *WhatsApp actions* — message bhejne, contacts dhundne, reminders set karne mein bhi help\n\nBas apna sawaal bhejiye — main direct aur clear jawab dunga.";
+      return "Main sawalon ke spasht aur professional jawab de sakta hoon, concepts samjha sakta hoon, writing, coding, math, planning aur rozmarra problem-solving mein madad kar sakta hoon. Aap koi bhi sawal pooch sakte hain, main seedha aur sahi jawab dunga.";
     }
-    return "Here's what I can help you with:\n\n• *Answering questions* — general knowledge, science, history, math, coding, finance, law, health, and much more\n• *Writing assistance* — emails, essays, summaries, translations\n• *Explaining topics* — breaking down complex subjects simply\n• *Planning & advice* — travel, projects, decisions, daily tasks\n• *WhatsApp actions* — sending messages, finding contacts, setting reminders\n\nJust send me your question — I'll give you a direct, accurate answer.";
+    return "I can answer questions clearly and professionally, explain concepts, help with writing, coding, math, planning, and everyday problem-solving. Send me any question, and I'll give you a direct and accurate answer.";
   }
 
   if (/^(who are you|what are you|are you a bot|are you ai|are you human|are you a robot|are you an ai|are you chatgpt|who made you|who created you)\??$/.test(source)) {
     if (languageStyle === "hinglish") {
-      return `Main ${config.botName} hoon — ek professional AI assistant jo aapke WhatsApp pe available hai. Main aapke sawaalo ka jawab dene ke liye yahan hoon. Aap kya jaanna chahte hain?`;
+      return `Main ${config.botName} hoon, ek professional AI assistant. Main aapke sawalon ke jawab dene ke liye yahan hoon. Aap kya jaanna chahte hain?`;
     }
-    return `I'm ${config.botName}, a professional AI assistant available right here on WhatsApp. I'm here to answer your questions and help you get things done. What would you like to know?`;
+    return `I'm ${config.botName}, a professional AI assistant. I'm here to answer your questions clearly and helpfully. What would you like to know?`;
   }
 
   if (/^(thanks|thank you|thank u|thx|ty|great|awesome|nice|good|perfect|excellent|amazing|wonderful)\!?$/.test(source)) {
@@ -476,9 +530,9 @@ export async function handleIncomingText({
   businessContext = null
 }) {
   const languageStyle = detectLanguageStyle(text);
-  const answerRoute = businessContext ? "business" : chooseAnswerRoute(text);
+  const answerRoute = chooseAnswerRoute(text);
   const useTools = businessContext ? false : shouldUseWhatsAppTools(text);
-  const useGeminiFirst = businessContext ? false : answerRoute === "gemini-first";
+  const useGeminiFirst = answerRoute === "gemini-first";
   const businessId = businessContext?.id || "";
   let nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
   let leadCapture = { lead: null, booking: null };
@@ -502,32 +556,18 @@ export async function handleIncomingText({
     { businessId }
   );
 
-  if (businessContext) {
-    leadCapture = await captureLeadFromInbound({
-      business: businessContext,
-      message: {
-        messageId,
-        from,
-        profileName,
-        text
-      }
-    });
-  }
-
-  if (!businessContext) {
-    const smallTalkReply = directSmallTalkReply(text, languageStyle);
-    if (smallTalkReply) {
-      await appendConversationMessage(
-        from,
-        {
-          role: "assistant",
-          text: smallTalkReply,
-          meta: { source: "small-talk-direct" }
-        },
-        { businessId }
-      );
-      return smallTalkReply;
-    }
+  const smallTalkReply = directSmallTalkReply(text, languageStyle);
+  if (smallTalkReply) {
+    await appendConversationMessage(
+      from,
+      {
+        role: "assistant",
+        text: smallTalkReply,
+        meta: { source: "small-talk-direct" }
+      },
+      { businessId }
+    );
+    return smallTalkReply;
   }
 
   let history = [];
@@ -564,8 +604,7 @@ export async function handleIncomingText({
   }
 
   const preferredModels = resolvePreferredModels(answerRoute);
-  const leadContext =
-    leadCapture.lead || (businessContext ? await getLeadContextForBusiness(businessContext, from) : null);
+  const leadContext = leadCapture.lead || null;
   const waContext = useTools ? await loadWhatsAppContext({ businessId }) : { contactCount: 0, threadCount: 0, contactList: "" };
 
   const preResult = useTools ? await preExecuteWhatsAppQuery(text, businessId) : null;
