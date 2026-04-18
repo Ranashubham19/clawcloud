@@ -45,7 +45,8 @@ const state = {
   activeChatId: "",
   activeChatMessages: [],
   tab: normalizeTab(pageParams.get("tab")),
-  authMode: pageParams.get("mode") === "login" ? "login" : "signup",
+  authMode: ["login","signup","platform"].includes(pageParams.get("mode")) ? pageParams.get("mode") : "signup",
+  showBotLivePopup: false,
   teamMembers: [],
   apiKeys: [],
   auditLogs: [],
@@ -283,12 +284,11 @@ function renderLanding() {
             </div>
             <div class="nav-links">
               <a href="#features">Features</a>
-              <a href="#pricing">Pricing</a>
               <a href="/privacy">Privacy</a>
             </div>
             <div class="nav-actions">
-              <a class="ghost-button" href="/app?mode=login">Log in</a>
-              <a class="button" href="/app?mode=signup">Get started free</a>
+              <a class="ghost-button" href="/app?mode=platform">Log in</a>
+              <a class="button" href="/app?mode=platform">Get started free</a>
             </div>
           </div>
         </div>
@@ -397,39 +397,14 @@ function renderLanding() {
         </div>
       </section>
 
-      <!-- PRICING -->
-      <section class="lp-section lp-pricing-section" id="pricing">
-        <div class="shell">
-          <div class="lp-section-header">
-            <span class="eyebrow">Simple Pricing</span>
-            <h2 class="lp-h2">Transparent plans.<br>No hidden fees.</h2>
-            <p class="lp-section-sub">Pay in INR or USD. Cancel anytime. Upgrade or downgrade as you grow.</p>
-          </div>
-          <div class="lp-pricing-grid">
-            ${state.plans.map((plan, i) => `
-              <div class="lp-pricing-card ${i === 1 ? "lp-pricing-card--featured" : ""}">
-                ${i === 1 ? `<div class="lp-pricing-badge">Most Popular</div>` : ""}
-                <div class="lp-pricing-name">${escapeHtml(plan.name)}</div>
-                <div class="lp-pricing-amount">
-                  <span class="lp-pricing-inr">₹${escapeHtml(String(plan.priceInr))}</span>
-                  <span class="lp-pricing-period">/month</span>
-                </div>
-                <div class="lp-pricing-usd">or $${escapeHtml(String(plan.priceUsd || ""))}/mo for international</div>
-                <p class="lp-pricing-desc">${escapeHtml(plan.summary)}</p>
-                <a class="button ${i === 1 ? "" : "ghost-button"}" href="/app?mode=signup" style="width:100%;text-align:center;display:block;">Get started</a>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      </section>
-
       <!-- CTA BANNER -->
       <section class="lp-cta-banner">
         <div class="shell">
           <div class="lp-cta-banner-inner">
-            <h2 class="lp-h2" style="color:#fff;">Ready to automate your business conversations?</h2>
-            <p style="color:rgba(255,255,255,0.65);margin:12px 0 28px;font-size:1rem;">Set up your AI assistant on WhatsApp or Telegram in under 5 minutes. No technical skills required.</p>
-            <a class="button lp-cta-btn" href="/app?mode=signup">Create your free workspace →</a>
+            <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
+            <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Connect WhatsApp or Telegram in under 2 minutes. No technical skills required.</p>
+            <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>₹2,999/month</strong></div>
+            <a class="button lp-cta-btn" href="/app?mode=platform" style="margin-top:24px;">Choose your platform →</a>
           </div>
         </div>
       </section>
@@ -452,6 +427,63 @@ function renderLanding() {
           </div>
         </div>
       </footer>
+    </div>
+  `;
+}
+
+function renderPlatformChoice() {
+  app.innerHTML = `
+    <div class="platform-choice-page">
+      <nav class="landing-nav">
+        <div class="shell">
+          <div class="nav-inner">
+            <a class="logo" href="/">
+              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
+              <span class="logo-name">ClawCloud</span>
+            </a>
+          </div>
+        </div>
+      </nav>
+      <div class="platform-choice-body">
+        <div class="platform-choice-header">
+          <span class="eyebrow">Get started in 2 minutes</span>
+          <h1 class="platform-choice-title">Choose your platform</h1>
+          <p class="platform-choice-sub">Pick where you want your AI bot to reply. You can connect both after setup.</p>
+        </div>
+        <div class="platform-choice-grid">
+          <a href="/app?mode=signup&product=whatsapp" class="platform-choice-card platform-choice-wa">
+            <div class="platform-choice-icon">
+              <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+            </div>
+            <div class="platform-choice-info">
+              <h2>WhatsApp AI Bot</h2>
+              <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+              <ul class="platform-choice-features">
+                <li>Instant AI replies to any question</li>
+                <li>Works on any WhatsApp number</li>
+                <li>Multi-language support</li>
+              </ul>
+            </div>
+            <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
+          </a>
+          <a href="/app?mode=signup&product=telegram" class="platform-choice-card platform-choice-tg">
+            <div class="platform-choice-icon">
+              <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+            </div>
+            <div class="platform-choice-info">
+              <h2>Telegram AI Bot</h2>
+              <p>Paste your BotFather token and your AI bot goes live instantly — no approval, no payment method needed to start.</p>
+              <ul class="platform-choice-features">
+                <li>Live in under 60 seconds</li>
+                <li>No Meta approval needed</li>
+                <li>Same powerful AI as WhatsApp</li>
+              </ul>
+            </div>
+            <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram →</div>
+          </a>
+        </div>
+        <div class="platform-choice-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
+      </div>
     </div>
   `;
 }
@@ -707,86 +739,54 @@ function dashboardSection() {
     case "billing":
       return `
         <section class="card">
-          <div class="section-header">
-            <div>
-              <div class="page-title">Billing & Subscription</div>
-              <div class="muted">Manage your plan and payment method</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <button class="ghost-button" type="button" id="billing-refresh">Refresh</button>
-              ${state.billingEnabled && billing.stripeCustomerId
-                ? `<button class="button" type="button" id="billing-portal">Billing portal</button>`
-                : ""}
-            </div>
-          </div>
-          ${state.billingNotice ? `
-            <div class="notice ${escapeHtml(state.billingNotice.tone)}">${escapeHtml(state.billingNotice.message)}</div>
-          ` : ""}
-          <div class="info-grid">
-            <div class="info-tile">
-              <div class="info-tile-label">Current Plan</div>
-              <div class="info-tile-value">${escapeHtml(String(currentPlan).charAt(0).toUpperCase() + String(currentPlan).slice(1))}</div>
-            </div>
-            <div class="info-tile">
-              <div class="info-tile-label">Billing Status</div>
-              <div class="info-tile-value">
-                <span class="status-badge ${activeBilling ? "ok" : "warn"}">${escapeHtml(billing.status || "Inactive")}</span>
+          <div class="page-title" style="margin-bottom:6px;">Subscription</div>
+          <div class="muted" style="margin-bottom:24px;">One plan. Everything included. Cancel anytime.</div>
+
+          ${activeBilling ? `
+            <div class="billing-active-banner">
+              <div class="billing-active-icon">✅</div>
+              <div>
+                <div class="billing-active-title">Your subscription is active</div>
+                <div class="muted" style="font-size:0.85rem;">Renews on ${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "—")}</div>
               </div>
+              ${state.billingEnabled && billing.stripeCustomerId ? `<button class="ghost-button" id="billing-portal" style="margin-left:auto;">Manage</button>` : ""}
             </div>
-            <div class="info-tile">
-              <div class="info-tile-label">Period Ends</div>
-              <div class="info-tile-value">${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "—")}</div>
+          ` : ""}
+
+          <div class="billing-plan-card">
+            <div class="billing-plan-top">
+              <div class="billing-plan-badge">ClawCloud AI Bot</div>
+              <div class="billing-plan-name">All Platforms. All Features.</div>
+              <div class="billing-plan-desc">Connect WhatsApp and Telegram. AI replies to every message 24/7 in any language. Unlimited conversations.</div>
             </div>
-            <div class="info-tile">
-              <div class="info-tile-label">Customer ID</div>
-              <div class="info-tile-value">${escapeHtml(billing.stripeCustomerId || billing.razorpaySubscriptionId || "Not created")}</div>
+            <div class="billing-plan-pricing">
+              <div class="billing-plan-price">
+                <span class="billing-price-big">₹2,999</span><span class="billing-price-period">/month</span>
+                <span class="billing-price-or">or</span>
+                <span class="billing-price-big billing-price-usd">$49</span><span class="billing-price-period">/month</span>
+              </div>
+              <ul class="billing-plan-features">
+                <li>✓ WhatsApp AI Bot</li>
+                <li>✓ Telegram AI Bot</li>
+                <li>✓ Unlimited AI replies</li>
+                <li>✓ Any language support</li>
+                <li>✓ 24/7 always-on</li>
+              </ul>
             </div>
+            ${activeBilling ? `
+              <div class="status-badge ok" style="width:fit-content;">Active — Bot is running</div>
+            ` : `
+              <div class="payment-buttons" style="margin-top:4px;">
+                <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
+                  🇮🇳 Pay ₹2,999/mo
+                </button>
+                <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
+                  🌍 Pay $49/mo
+                </button>
+              </div>
+            `}
           </div>
-
-          <div class="section">
-            <div class="section-title">Choose a Plan</div>
-            <div class="plan-stack">
-              ${state.plans.map((plan) => {
-                const isCurrentPlan = String(plan.id) === String(currentPlan);
-                let actionMarkup = `<button class="ghost-button" type="button" disabled>Billing not configured</button>`;
-
-                if (state.billingEnabled) {
-                  if (isCurrentPlan && activeBilling) {
-                    actionMarkup = `<span class="status-badge ok">Active subscription</span>`;
-                  } else {
-                    actionMarkup = `
-                      <div class="payment-buttons">
-                        <button class="button razorpay-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="razorpay">
-                          🇮🇳 Pay ₹${escapeHtml(String(plan.priceInr))}/mo
-                        </button>
-                        <button class="button stripe-btn" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" data-provider="stripe">
-                          🌍 Pay $${escapeHtml(String(plan.priceUsd || ""))}/mo
-                        </button>
-                      </div>
-                    `;
-                  }
-                }
-
-                return `
-                  <article class="plan-card">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:10px;">
-                      <div style="flex:1;min-width:0;">
-                        <h3>${escapeHtml(plan.name)}${isCurrentPlan ? ` <span class="pill" style="margin-left:8px;">Current</span>` : ""}</h3>
-                        <p class="plan-summary">${escapeHtml(plan.summary)}</p>
-                      </div>
-                      <div style="text-align:right;flex-shrink:0;">
-                        <div class="plan-price-inr">₹${escapeHtml(String(plan.priceInr))}<span>/mo</span></div>
-                        <div class="plan-price-usd">$${escapeHtml(String(plan.priceUsd || ""))}/mo</div>
-                      </div>
-                    </div>
-                    <div class="plan-actions">
-                      ${actionMarkup}
-                    </div>
-                  </article>
-                `;
-              }).join("")}
-            </div>
-          </div>
+          <button class="ghost-button" style="margin-top:12px;font-size:0.82rem;" id="billing-refresh">Refresh billing status</button>
         </section>
       `;
     case "team":
@@ -1437,7 +1437,23 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
 }
 
 function renderDashboard() {
+  const tgLive = Boolean(state.selectedBusiness?.telegram?.token);
+  const waLive = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId && state.selectedBusiness?.whatsapp?.accessToken);
+  const anyLive = tgLive || waLive;
+
   app.innerHTML = `
+    ${state.showBotLivePopup ? `
+      <div class="bot-live-overlay" id="bot-live-overlay">
+        <div class="bot-live-popup">
+          <div class="bot-live-popup-icon">🚀</div>
+          <h2>Your bot is live!</h2>
+          <p>${tgLive ? `<strong>@${escapeHtml(state.selectedBusiness?.telegram?.botUsername || "")}</strong> is now active on Telegram.` : ""}
+             ${waLive ? `Your WhatsApp number <strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "")}</strong> is now active.` : ""}</p>
+          <p class="bot-live-popup-sub">Your AI bot is running 24/7. Share your bot/number with users — it replies instantly to every message.</p>
+          <button class="button" id="bot-live-close" style="width:100%;justify-content:center;">Go to Dashboard →</button>
+        </div>
+      </div>
+    ` : ""}
     <main class="app-shell">
       <div class="shell">
         <div class="app-topbar">
@@ -1483,6 +1499,15 @@ function renderDashboard() {
       render();
     });
   }
+
+  document.querySelector("#bot-live-close")?.addEventListener("click", () => {
+    state.showBotLivePopup = false;
+    render();
+  });
+
+  document.querySelector("#bot-live-overlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "bot-live-overlay") { state.showBotLivePopup = false; render(); }
+  });
 
   document.querySelector("#refresh-dashboard")?.addEventListener("click", async () => {
     await loadBootstrap(state.selectedBusiness?.id || "");
@@ -1549,6 +1574,7 @@ function renderDashboard() {
         body: { token }
       });
       await loadBootstrap(state.selectedBusiness.id);
+      state.showBotLivePopup = true;
       render();
     } catch (err) {
       if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
@@ -1606,6 +1632,8 @@ function renderDashboard() {
           body: payload
         });
         await loadBootstrap(state.selectedBusiness.id);
+        const waNowLive = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId && state.selectedBusiness?.whatsapp?.accessToken);
+        if (waNowLive) state.showBotLivePopup = true;
         render();
       } catch (error) {
         alert(error.message);
@@ -1895,7 +1923,11 @@ function render() {
   }
 
   if (!state.user) {
-    renderAuth();
+    if (state.authMode === "platform") {
+      renderPlatformChoice();
+    } else {
+      renderAuth();
+    }
     return;
   }
 
