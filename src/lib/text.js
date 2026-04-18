@@ -158,7 +158,12 @@ export function formatSourceAttribution(sources, options = {}) {
 
   const includeHeading = options.includeHeading !== false;
   const sourcesHeading = cleanInlineText(options.sourcesHeading || "Sources") || "Sources";
+  const urlOnly = options.urlOnly === true;
   const detailLines = items.map((source, index) => {
+    if (urlOnly) {
+      return `${index + 1}. ${cleanInlineText(source.uri)}`;
+    }
+
     const label = sourceDetailLabel(source);
     return `${index + 1}. ${label}: ${cleanInlineText(source.uri)}`;
   });

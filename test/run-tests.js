@@ -623,6 +623,34 @@ await run("formatSourceAttribution builds numbered source list", async () => {
   );
 });
 
+await run("formatSourceAttribution can build compact url-only list", async () => {
+  const formatted = formatSourceAttribution(
+    [
+      {
+        index: 1,
+        title: "Reuters story",
+        domain: "reuters.com",
+        uri: "https://www.reuters.com/world/example-story"
+      },
+      {
+        index: 2,
+        title: "AP story",
+        domain: "apnews.com",
+        uri: "https://apnews.com/article/example"
+      }
+    ],
+    {
+      includeHeading: false,
+      urlOnly: true
+    }
+  );
+
+  assert.equal(
+    formatted,
+    "1. https://www.reuters.com/world/example-story\n2. https://apnews.com/article/example"
+  );
+});
+
 await run("insertInlineSourceCitations adds numeric markers to supported answer spans", async () => {
   const text =
     "Top headlines:\n- IPL 2026: SRH vs CSK is happening today.\n- Oil prices are rising.";

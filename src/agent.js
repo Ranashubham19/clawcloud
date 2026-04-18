@@ -96,7 +96,10 @@ function formatGroundedAnswer(text, sources = [], supports = [], channel = "defa
     return answerText;
   }
 
-  const attribution = formatSourceAttribution(sources, { includeHeading: false });
+  const attribution = formatSourceAttribution(sources, {
+    includeHeading: false,
+    urlOnly: true
+  });
   if (!attribution) {
     return answerText;
   }
