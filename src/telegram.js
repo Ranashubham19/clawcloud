@@ -4,6 +4,20 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function escapeTelegramHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatTelegramHtml(value) {
+  return escapeTelegramHtml(value).replace(
+    /\*([^*\n]{1,160})\*/g,
+    "<b>$1</b>"
+  );
+}
+
 async function readTelegramResponse(response, action) {
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok === false) {
@@ -46,7 +60,11 @@ export async function sendTelegramMessage(token, chatId, text) {
     const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: chunk })
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: formatTelegramHtml(chunk),
+        parse_mode: "HTML"
+      })
     });
     await readTelegramResponse(response, "sendMessage");
   }

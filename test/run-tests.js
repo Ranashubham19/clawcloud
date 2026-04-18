@@ -267,6 +267,32 @@ await run("getTelegramWebhookInfo returns Telegram webhook metadata", async () =
   }
 });
 
+await run("sendTelegramMessage renders starred headings as Telegram bold HTML", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: { message_id: 1 } })
+    };
+  };
+
+  try {
+    await sendTelegramMessage(
+      "token",
+      "123456",
+      "Here is the update:\n\n- *Top Story*: Something happened"
+    );
+    assert.equal(requestBody.parse_mode, "HTML");
+    assert.match(requestBody.text, /<b>Top Story<\/b>/);
+    assert.equal(requestBody.text.includes("*Top Story*"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 await run("sendTelegramMessage throws when Telegram rejects the reply", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
