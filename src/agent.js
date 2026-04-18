@@ -30,6 +30,7 @@ import {
   unsupportedFormatName
 } from "./gemini.js";
 import { downloadInboundMedia } from "./messaging.js";
+import { downloadTelegramMedia } from "./telegram.js";
 import { buildBusinessSystemPrompt } from "./saas.js";
 
 // Advanced + responsive models — preferred across all routes
@@ -848,6 +849,8 @@ export async function handleIncomingMedia({
   from,
   profileName,
   mediaId,
+  fileId,
+  telegramToken,
   mediaType,
   mimeType,
   caption,
@@ -896,29 +899,37 @@ export async function handleIncomingMedia({
     const syntheticText = caption
       ? `[User sent a ${mediaLabel}] ${caption}`
       : `[User sent a ${mediaLabel}]`;
+    const deliveryChannel = fileId ? "telegram" : "whatsapp";
     const reply = await handleIncomingText({
       messageId,
       from,
       profileName,
       text: syntheticText,
       businessContext,
-      deliveryChannel: "whatsapp"
+      deliveryChannel
     });
     return reply;
   }
 
-  // Download the media file from WhatsApp
+  // Download the media file (WhatsApp or Telegram)
   let mediaData, resolvedMime;
+  const isTelegram = Boolean(fileId && telegramToken);
   try {
-    const downloaded = await downloadInboundMedia(
-      mediaId,
-      businessContext?.messagingConfig || businessContext?.whatsappConfig || {}
-    );
-    mediaData = downloaded.data;
-    resolvedMime = downloaded.mimeType;
+    if (isTelegram) {
+      mediaData = await downloadTelegramMedia(telegramToken, fileId);
+      resolvedMime = mimeType || "";
+    } else {
+      const downloaded = await downloadInboundMedia(
+        mediaId,
+        businessContext?.messagingConfig || businessContext?.whatsappConfig || {}
+      );
+      mediaData = downloaded.data;
+      resolvedMime = downloaded.mimeType;
+    }
   } catch (dlError) {
-    console.error(`[agent] Media download failed for ${mediaId}: ${dlError.message}`);
-    const fallback = "Sorry, I couldn't download that file from WhatsApp. Please try sending it again.";
+    console.error(`[agent] Media download failed for ${isTelegram ? fileId : mediaId}: ${dlError.message}`);
+    const platform = isTelegram ? "Telegram" : "WhatsApp";
+    const fallback = `Sorry, I couldn't download that file from ${platform}. Please try sending it again.`;
     await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
       businessId
     });
@@ -950,6 +961,18 @@ export async function handleIncomingMedia({
     return fallback;
   }
 
+  const businessSysPrompt = businessContext
+    ? buildBusinessSystemPrompt({
+        business: businessContext,
+        languageInstruction: languageInstruction(languageStyle),
+        languageLabel: languageLabel(languageStyle),
+        currentUserPhone: from,
+        profileName,
+        lead: null,
+        booking: null
+      })
+    : "";
+
   let answer;
   try {
     const deadlineAt = Date.now() + config.geminiMediaTimeoutMs;
@@ -960,6 +983,7 @@ export async function handleIncomingMedia({
       caption,
       filename,
       languageStyle,
+      businessSystemPrompt: businessSysPrompt,
       deadlineAt
     });
   } catch (geminiError) {

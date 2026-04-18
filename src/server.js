@@ -603,11 +603,21 @@ async function handleTelegramWebhook(request, response, url) {
       { intervalMs: 4000 }
     );
 
-    const reply = await handleIncomingText({
-      ...message,
-      businessContext: business,
-      deliveryChannel: "telegram"
-    });
+    let reply;
+    if (message.mediaType && message.fileId) {
+      reply = await handleIncomingMedia({
+        ...message,
+        telegramToken: token,
+        businessContext: business,
+        deliveryChannel: "telegram"
+      });
+    } else {
+      reply = await handleIncomingText({
+        ...message,
+        businessContext: business,
+        deliveryChannel: "telegram"
+      });
+    }
 
     if (reply) {
       const dedupeKey = outboundDedupKey(

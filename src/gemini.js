@@ -459,6 +459,7 @@ export async function geminiMediaAnswer({
   caption = "",
   filename = "",
   languageStyle = "english",
+  businessSystemPrompt = "",
   deadlineAt = 0
 }) {
   if (!config.geminiApiKey) return null;
@@ -472,14 +473,18 @@ export async function geminiMediaAnswer({
   const langInstruct = languageInstruction(languageStyle);
 
   const systemInstruction = [
-    `You are an advanced AI assistant in WhatsApp.`,
+    businessSystemPrompt || `You are a smart, helpful AI assistant.`,
     `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}`,
-    "FORMATTING RULE: Use WhatsApp format only. *bold* for headings and key terms (single asterisk). Numbered lists for steps. • bullets for lists. ONE blank line between every paragraph and after every heading.",
+    "FORMATTING RULE: Use *bold* for headings (single asterisk). Numbered lists for steps. - bullets for lists. ONE blank line between every section.",
     "Give a complete, accurate, and helpful response. Never write walls of text — break into readable sections.",
-    "Never mention tools, internal workflow, or that you are processing a file.",
-    "If this is audio, transcribe every word first, then respond.",
-    "If this is an image with text, read all visible text accurately."
-  ].join("\n");
+    "Never mention tools, internal workflow, or that you are analysing a file.",
+    "MEDIA RULES:",
+    "- If this is a voice/audio message: transcribe every spoken word accurately first, then answer any question in the audio.",
+    "- If this is a video: describe what is happening, transcribe any speech or on-screen text, answer any question asked.",
+    "- If this is an image: describe it fully, read ALL visible text, numbers, labels. If it is a document, receipt, or screenshot extract all key information.",
+    "- If this is a document/PDF: summarise the content, list key facts or figures.",
+    "- Always give the user a genuinely useful and accurate answer based on the actual file content."
+  ].filter(Boolean).join("\n");
 
   const userPrompt = mediaPrompt(mediaType, mimeType, caption, filename);
 

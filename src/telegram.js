@@ -140,16 +140,36 @@ function extractTelegramMedia(message) {
       const item = Array.isArray(message[kind])
         ? message[kind][message[kind].length - 1]
         : message[kind];
+      const rawMime = item?.mime_type || "";
+      // Telegram photos have no mime_type — they are always JPEG
+      const mimeType = rawMime || (kind === "photo" ? "image/jpeg" : kind === "sticker" ? "image/webp" : "");
       return {
         mediaType: kind,
         fileId: item?.file_id || "",
-        mimeType: item?.mime_type || "",
+        mimeType,
         filename: item?.file_name || "",
         duration: item?.duration || 0
       };
     }
   }
   return null;
+}
+
+export async function downloadTelegramMedia(token, fileId) {
+  // Step 1: resolve file_path
+  const infoRes = await fetch(
+    `https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`
+  );
+  if (!infoRes.ok) throw new Error(`Telegram getFile failed: ${infoRes.status}`);
+  const info = await infoRes.json();
+  const filePath = info?.result?.file_path;
+  if (!filePath) throw new Error("Telegram getFile: no file_path returned");
+
+  // Step 2: download the actual bytes
+  const dlRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
+  if (!dlRes.ok) throw new Error(`Telegram file download failed: ${dlRes.status}`);
+  const arrayBuffer = await dlRes.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 function telegramMediaLabel(mediaType, filename = "", mimeType = "") {
@@ -180,11 +200,13 @@ export function extractTelegramInbound(payload) {
   let mediaType = "";
   let mimeType = "";
   let filename = "";
+  let fileId = "";
 
   if (media) {
     mediaType = media.mediaType;
     mimeType = media.mimeType;
     filename = media.filename;
+    fileId = media.fileId;
     if (!text) {
       text = `[User sent a ${telegramMediaLabel(mediaType, filename, mimeType)}]`;
     } else {
@@ -197,11 +219,13 @@ export function extractTelegramInbound(payload) {
     from: String(from.id || ""),
     chatId: String(chat.id || ""),
     text,
+    caption: media ? (textContent || caption) : "",
     profileName: [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || "",
     messageId: `telegram:${message.message_id || Date.now()}`,
     timestamp: String(message.date || ""),
     mediaType,
     mimeType,
-    filename
+    filename,
+    fileId
   };
 }
