@@ -1500,10 +1500,8 @@ function renderDashboard() {
               <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
               <span class="logo-name">ClawCloud</span>
             </div>
-            ${state.selectedBusiness?.name ? `<span class="topbar-biz-name">${escapeHtml(state.selectedBusiness.name)}</span>` : ""}
           </div>
           <div class="inline-actions">
-            <button class="ghost-button" id="create-business">Add institute</button>
             <button class="ghost-button" id="refresh-dashboard">Refresh</button>
             <button class="danger-button" id="logout-button">Log out</button>
           </div>
@@ -1511,22 +1509,6 @@ function renderDashboard() {
 
         <section class="dashboard-grid">
           <aside class="sidebar">
-            <div class="sidebar-biz-card">
-              <div class="sidebar-biz-label">Active institute</div>
-              <div class="sidebar-biz-name">${escapeHtml(state.selectedBusiness?.name || "—")}</div>
-              ${(state.userBusinesses || []).length > 1 ? `
-                <select id="business-switcher" class="sidebar-biz-switcher">
-                  ${(state.userBusinesses || []).map((business) => `
-                    <option value="${escapeHtml(business.id)}" ${business.id === state.selectedBusiness?.id ? "selected" : ""}>${escapeHtml(business.name)}</option>
-                  `).join("")}
-                </select>
-              ` : ""}
-              <div class="sidebar-biz-meta">
-                <span class="pill">${escapeHtml(state.selectedBusiness?.plan || "basic")} plan</span>
-                <span class="sidebar-biz-readiness">Readiness: ${escapeHtml(`${state.readiness?.score || 0}/${state.readiness?.total || 0}`)}</span>
-              </div>
-            </div>
-
             <div class="sidebar-section-label">Main</div>
             <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">📊 Overview</button>
             <button class="tab-button ${state.tab === "analytics" ? "active" : ""}" data-tab="analytics">📈 Analytics</button>
