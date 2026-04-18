@@ -7,7 +7,9 @@ const { Pool } = pg;
 
 const fileWriteQueues = new Map();
 let pool = null;
+let poolSignature = "";
 let initPromise = null;
+let activeSslOption;
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -40,39 +42,182 @@ function isLocalDatabaseHost(hostname = "") {
   return value === "localhost" || value === "127.0.0.1" || value === "::1";
 }
 
-function resolveSslOption() {
-  const mode = cleanText(config.databaseSsl).toLowerCase();
-  if (mode === "disable" || mode === "false" || mode === "off") {
+function isPrivateIpv4Host(hostname = "") {
+  const match = cleanText(hostname).match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!match) {
     return false;
-  }
-  if (mode === "require" || mode === "true" || mode === "on") {
-    return { rejectUnauthorized: false };
   }
 
-  try {
-    const url = new URL(config.databaseUrl);
-    return isLocalDatabaseHost(url.hostname)
-      ? false
-      : { rejectUnauthorized: false };
-  } catch {
+  const parts = match.slice(1).map((value) => Number.parseInt(value, 10));
+  if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
     return false;
+  }
+
+  const [first, second] = parts;
+  if (first === 10 || first === 127) {
+    return true;
+  }
+  if (first === 192 && second === 168) {
+    return true;
+  }
+  if (first === 172 && second >= 16 && second <= 31) {
+    return true;
+  }
+  if (first === 169 && second === 254) {
+    return true;
+  }
+  if (first === 100 && second >= 64 && second <= 127) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPrivateDatabaseHost(hostname = "") {
+  const value = cleanText(hostname).toLowerCase();
+  if (!value) {
+    return false;
+  }
+
+  return (
+    isLocalDatabaseHost(value) ||
+    isPrivateIpv4Host(value) ||
+    value.endsWith(".railway.internal") ||
+    value.endsWith(".internal") ||
+    value.endsWith(".local") ||
+    value.startsWith("fc") ||
+    value.startsWith("fd") ||
+    value.startsWith("fe80:")
+  );
+}
+
+function parseDatabaseUrl() {
+  try {
+    return new URL(config.databaseUrl);
+  } catch {
+    return null;
   }
 }
 
-function getPool() {
+function buildSslOption(enabled) {
+  return enabled ? { rejectUnauthorized: false } : false;
+}
+
+function sslSignature(sslOption) {
+  return sslOption ? "tls" : "plain";
+}
+
+function describeSslOption(sslOption) {
+  return sslOption ? "SSL" : "non-SSL";
+}
+
+function getExplicitSslOption() {
+  const mode = cleanText(config.databaseSsl).toLowerCase();
+  if (mode === "disable" || mode === "false" || mode === "off") {
+    return buildSslOption(false);
+  }
+  if (mode === "require" || mode === "true" || mode === "on") {
+    return buildSslOption(true);
+  }
+
+  const url = parseDatabaseUrl();
+  const urlMode = cleanText(url?.searchParams.get("sslmode")).toLowerCase();
+  if (urlMode === "disable" || urlMode === "allow") {
+    return buildSslOption(false);
+  }
+  if (
+    urlMode === "prefer" ||
+    urlMode === "require" ||
+    urlMode === "verify-ca" ||
+    urlMode === "verify-full"
+  ) {
+    return buildSslOption(true);
+  }
+
+  return null;
+}
+
+function resolveSslVariants() {
+  if (typeof activeSslOption !== "undefined") {
+    return [activeSslOption];
+  }
+
+  const explicit = getExplicitSslOption();
+  if (explicit !== null) {
+    return [explicit];
+  }
+
+  const url = parseDatabaseUrl();
+  const preferSsl = url ? !isPrivateDatabaseHost(url.hostname) : false;
+  const variants = [buildSslOption(preferSsl), buildSslOption(!preferSsl)];
+  return variants.filter(
+    (sslOption, index, list) => index === 0 || sslSignature(sslOption) !== sslSignature(list[0])
+  );
+}
+
+async function resetPool() {
+  const current = pool;
+  pool = null;
+  poolSignature = "";
+  if (current) {
+    await current.end().catch(() => {});
+  }
+}
+
+function getPool(sslOption) {
   if (!hasDatabaseStorage()) {
     return null;
   }
 
-  if (!pool) {
+  const resolvedSslOption =
+    typeof sslOption === "undefined"
+      ? (typeof activeSslOption === "undefined" ? resolveSslVariants()[0] : activeSslOption)
+      : sslOption;
+  const signature = sslSignature(resolvedSslOption);
+
+  if (!pool || poolSignature !== signature) {
+    void resetPool();
     pool = new Pool({
       connectionString: config.databaseUrl,
-      ssl: resolveSslOption(),
-      max: 10
+      ssl: resolvedSslOption,
+      max: 10,
+      connectionTimeoutMillis: config.databaseConnectTimeoutMs,
+      idleTimeoutMillis: 30000
+    });
+    poolSignature = signature;
+    pool.on("error", (error) => {
+      console.warn(`[json-store] PostgreSQL pool error: ${error.message}`);
     });
   }
 
   return pool;
+}
+
+async function connectDatabaseClient() {
+  const variants = resolveSslVariants();
+  let lastError = null;
+
+  for (let index = 0; index < variants.length; index += 1) {
+    const sslOption = variants[index];
+
+    try {
+      const client = await getPool(sslOption).connect();
+      activeSslOption = sslOption;
+      return client;
+    } catch (error) {
+      lastError = error;
+      await resetPool();
+
+      if (index < variants.length - 1) {
+        const nextSslOption = variants[index + 1];
+        console.warn(
+          `[json-store] PostgreSQL connection failed with ${describeSslOption(sslOption)}; retrying with ${describeSslOption(nextSslOption)}. ${error.message}`
+        );
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function ensureDatabaseReady() {
@@ -82,7 +227,7 @@ async function ensureDatabaseReady() {
 
   if (!initPromise) {
     initPromise = (async () => {
-      const client = await getPool().connect();
+      const client = await connectDatabaseClient();
       try {
         await client.query(`
           CREATE TABLE IF NOT EXISTS app_json_store (
@@ -97,7 +242,10 @@ async function ensureDatabaseReady() {
         client.release();
       }
       return true;
-    })();
+    })().catch((error) => {
+      initPromise = null;
+      throw error;
+    });
   }
 
   return initPromise;

@@ -47,6 +47,7 @@ export const config = {
   dataDir: path.resolve(process.cwd(), process.env.CLAW_DATA_DIR || "./data"),
   databaseUrl: process.env.DATABASE_URL || "",
   databaseSsl: process.env.DATABASE_SSL || "auto",
+  databaseConnectTimeoutMs: toInt(process.env.DATABASE_CONNECT_TIMEOUT_MS, 5000),
   botName: process.env.BOT_NAME || "Claw Cloud",
   appBaseUrl: process.env.APP_BASE_URL || "",
   appCookieSecure:
