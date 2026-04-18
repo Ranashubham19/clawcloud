@@ -60,7 +60,11 @@ const state = {
   resetToken: "",
   authSubMode: "",
   selectedProduct: pageParams.get("product") || "whatsapp",
-  telegramSetup: false
+  telegramSetup: false,
+  showPaymentPopup: false,
+  pendingPlatformSetup: null,
+  setupStep: "choice",
+  billingActivated: false
 };
 
 function escapeHtml(value) {
@@ -279,8 +283,8 @@ function renderLanding() {
         <div class="shell">
           <div class="nav-inner">
             <div class="logo">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
-              <span class="logo-name">ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <span class="logo-name">swift-deploy.in</span>
             </div>
             <div class="nav-links">
               <a href="#features">Features</a>
@@ -298,9 +302,9 @@ function renderLanding() {
       <section class="lp-hero">
         <div class="shell">
           <div class="lp-hero-inner">
-            <span class="eyebrow">AI Bot Platform for Businesses</span>
+            <span class="eyebrow">AI Bot Platform — swift-deploy.in</span>
             <h1 class="lp-h1">One AI. Every platform.<br>Zero manual work.</h1>
-            <p class="lp-sub">ClawCloud gives your business an AI-powered assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — on WhatsApp and Telegram.</p>
+            <p class="lp-sub">swift-deploy.in gives your business an AI-powered bot that replies 24/7, supports any language, and works on WhatsApp and Telegram — live in under 2 minutes.</p>
           </div>
         </div>
       </section>
@@ -365,33 +369,33 @@ function renderLanding() {
           <div class="lp-features">
             <div class="lp-feature-card">
               <div class="lp-feature-icon">⚡</div>
-              <h3>Instant Lead Capture</h3>
-              <p>Name, phone, course interest, and preferred timing — captured automatically the moment a customer messages you on WhatsApp.</p>
+              <h3>Instant AI Replies</h3>
+              <p>Your bot replies to every message in under 2 seconds — any question, any time of day, no manual effort required.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">📅</div>
-              <h3>Demo Booking Flow</h3>
-              <p>The AI handles the full booking conversation, records the slot, and stores it in your dashboard — zero manual effort.</p>
+              <div class="lp-feature-icon">🌍</div>
+              <h3>Any Language, Anytime</h3>
+              <p>Hindi, Tamil, Arabic, Spanish — your bot automatically matches the language of whoever is messaging it. Zero setup.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">🤖</div>
-              <h3>Custom AI per Workspace</h3>
-              <p>Each business gets its own AI prompt, FAQ library, WhatsApp number, and brand voice — fully isolated and configurable.</p>
+              <div class="lp-feature-icon">📲</div>
+              <h3>WhatsApp + Telegram</h3>
+              <p>One subscription. Connect both WhatsApp and Telegram. Your AI bot works across both platforms simultaneously.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">📊</div>
-              <h3>Real-time Analytics</h3>
-              <p>Track leads, conversations, demo requests, and conversion rates from a single premium dashboard updated in real time.</p>
+              <div class="lp-feature-icon">🚀</div>
+              <h3>Zero Setup</h3>
+              <p>Sign up, paste your credentials, subscribe — your bot is live in under 2 minutes. No technical knowledge required.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">👥</div>
-              <h3>Team Collaboration</h3>
-              <p>Invite team members, assign roles, and manage permissions — everyone works from the same live data without stepping on each other.</p>
+              <div class="lp-feature-icon">💡</div>
+              <h3>No Coding Needed</h3>
+              <p>Everything is managed from a clean dashboard. Change bot behavior, monitor activity, and manage billing — all in one place.</p>
             </div>
             <div class="lp-feature-card">
               <div class="lp-feature-icon">🔒</div>
-              <h3>Secure & Compliant</h3>
-              <p>End-to-end encrypted sessions, rate limiting, audit logs, and GDPR-ready data deletion — enterprise-grade security out of the box.</p>
+              <h3>Secure & Private</h3>
+              <p>Your credentials are encrypted at rest. All webhook traffic is verified. Your users' conversations are never shared.</p>
             </div>
           </div>
         </div>
@@ -414,8 +418,8 @@ function renderLanding() {
         <div class="shell">
           <div class="lp-footer-inner">
             <div class="logo">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
-              <span class="logo-name">ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <span class="logo-name">swift-deploy.in</span>
             </div>
             <div class="lp-footer-links">
               <a href="/privacy">Privacy Policy</a>
@@ -423,7 +427,7 @@ function renderLanding() {
               <a href="/data-deletion">Data Deletion</a>
               <a href="/app?mode=login">Dashboard</a>
             </div>
-            <div class="lp-footer-copy">© 2026 ClawCloud. All rights reserved.</div>
+            <div class="lp-footer-copy">© 2026 swift-deploy.in. All rights reserved.</div>
           </div>
         </div>
       </footer>
@@ -438,8 +442,8 @@ function renderPlatformChoice() {
         <div class="shell">
           <div class="nav-inner">
             <a class="logo" href="/">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
-              <span class="logo-name">ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <span class="logo-name">swift-deploy.in</span>
             </a>
           </div>
         </div>
@@ -494,8 +498,8 @@ function renderAuth() {
     <div class="auth-page">
       <div class="auth-left">
         <a class="logo" href="/">
-          <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="28" height="28" />
-          <span class="logo-name">ClawCloud</span>
+          <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
+          <span class="logo-name">swift-deploy.in</span>
         </a>
         <div class="auth-left-content">
           <h2 class="auth-left-title">The smartest way to handle WhatsApp at scale.</h2>
@@ -515,7 +519,7 @@ function renderAuth() {
             </div>
           </div>
         </div>
-        <div class="auth-left-footer">© 2026 ClawCloud · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
+        <div class="auth-left-footer">© 2026 swift-deploy.in · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
       </div>
 
       <div class="auth-right">
@@ -755,7 +759,7 @@ function dashboardSection() {
 
           <div class="billing-plan-card">
             <div class="billing-plan-top">
-              <div class="billing-plan-badge">ClawCloud AI Bot</div>
+              <div class="billing-plan-badge">swift-deploy.in AI Bot</div>
               <div class="billing-plan-name">All Platforms. All Features.</div>
               <div class="billing-plan-desc">Connect WhatsApp and Telegram. AI replies to every message 24/7 in any language. Unlimited conversations.</div>
             </div>
@@ -1459,8 +1463,8 @@ function renderDashboard() {
         <div class="app-topbar">
           <div class="topbar-left">
             <div class="logo">
-              <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="32" height="32" />
-              <span class="logo-name">ClawCloud</span>
+              <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <span class="logo-name">swift-deploy.in</span>
             </div>
           </div>
           <div class="inline-actions">
@@ -1808,8 +1812,8 @@ function renderTelegramSetup() {
     <div class="tg-setup-page">
       <div class="tg-setup-left">
         <a class="logo" href="/">
-          <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="28" height="28" />
-          <span class="logo-name">ClawCloud</span>
+          <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
+          <span class="logo-name">swift-deploy.in</span>
         </a>
         <div class="tg-setup-left-content">
           <div class="tg-platform-badge">
@@ -1905,6 +1909,276 @@ function renderTelegramSetup() {
   });
 }
 
+function renderSetupFlow() {
+  const userName = state.user?.name?.split(" ")[0] || "there";
+  const biz = state.selectedBusiness;
+  const step = state.setupStep || "choice";
+
+  const paymentPopupHtml = state.showPaymentPopup ? `
+    <div class="payment-overlay" id="payment-overlay">
+      <div class="payment-popup">
+        <div class="payment-popup-close" id="payment-popup-close">✕</div>
+        <div class="payment-popup-icon">⚡</div>
+        <div class="payment-popup-badge">One Plan · Everything Included</div>
+        <h2 class="payment-popup-title">Activate your AI bot</h2>
+        <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
+        <div class="payment-popup-price">
+          <span class="payment-price-big">₹2,999</span><span class="payment-price-period">/month</span>
+          <span class="payment-price-or">or</span>
+          <span class="payment-price-big payment-price-usd">$49</span><span class="payment-price-period">/month</span>
+        </div>
+        <ul class="payment-popup-features">
+          <li>✓ WhatsApp AI Bot (24/7)</li>
+          <li>✓ Telegram AI Bot (instant)</li>
+          <li>✓ Unlimited AI replies — any language</li>
+          <li>✓ Cancel anytime</li>
+        </ul>
+        <div class="payment-popup-buttons">
+          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">🇮🇳 Pay ₹2,999/mo</button>
+          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">🌍 Pay $49/mo</button>
+        </div>
+        <div class="payment-popup-note">Secure payment · Cancel anytime · Instant activation</div>
+      </div>
+    </div>
+  ` : "";
+
+  const waForm = step === "wa-form" ? `
+    <div class="setup-form-wrap">
+      <div class="setup-form-back" id="setup-back">← Back</div>
+      <div class="setup-platform-header">
+        <div class="setup-platform-icon setup-platform-icon--wa">
+          <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+        </div>
+        <div>
+          <h2 class="setup-platform-name">WhatsApp AI Bot</h2>
+          <p class="setup-platform-sub">Enter your Meta WhatsApp credentials to connect your number</p>
+        </div>
+      </div>
+      <div class="setup-wa-steps">
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> → create a WhatsApp app</div>
+        <div class="setup-step-item"><span class="setup-step-num">2</span>Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong></div>
+        <div class="setup-step-item"><span class="setup-step-num">3</span>Paste them below — subscribe to go live</div>
+      </div>
+      <form id="setup-wa-form" class="setup-form">
+        <div class="setup-split">
+          <div class="setup-field">
+            <label>Your WhatsApp number</label>
+            <input class="input" name="whatsappDisplayPhoneNumber" placeholder="+91 98765 43210" required />
+          </div>
+          <div class="setup-field">
+            <label>Phone Number ID</label>
+            <input class="input" name="whatsappPhoneNumberId" placeholder="From Meta app dashboard" required />
+          </div>
+        </div>
+        <div class="setup-field">
+          <label>Access Token</label>
+          <input class="input" name="whatsappAccessToken" placeholder="EAA..." required />
+        </div>
+        <input type="hidden" name="whatsappProvider" value="meta" />
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">Continue to Payment →</button>
+      </form>
+    </div>
+  ` : "";
+
+  const tgForm = step === "tg-form" ? `
+    <div class="setup-form-wrap">
+      <div class="setup-form-back" id="setup-back">← Back</div>
+      <div class="setup-platform-header">
+        <div class="setup-platform-icon setup-platform-icon--tg">
+          <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+        </div>
+        <div>
+          <h2 class="setup-platform-name">Telegram AI Bot</h2>
+          <p class="setup-platform-sub">Paste your BotFather token — no Meta approval needed</p>
+        </div>
+      </div>
+      <div class="setup-wa-steps">
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram → search <strong>@BotFather</strong></div>
+        <div class="setup-step-item"><span class="setup-step-num">2</span>Send <code>/newbot</code> and follow the steps to create your bot</div>
+        <div class="setup-step-item"><span class="setup-step-num">3</span>Copy the token BotFather gives you and paste it below</div>
+      </div>
+      <form id="setup-tg-form" class="setup-form">
+        <div class="setup-field">
+          <label>BotFather Token</label>
+          <input class="input" id="setup-tg-token" name="token" placeholder="1234567890:ABCDefGHIjklMNOpqrSTUvwxYZ" required />
+          <small style="color:rgba(255,255,255,0.4);font-size:0.78rem;margin-top:4px;display:block;">Looks like: 1234567890:ABCDefGHI...</small>
+        </div>
+        <div id="setup-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">Continue to Payment →</button>
+      </form>
+    </div>
+  ` : "";
+
+  const choiceGrid = step === "choice" ? `
+    <div class="setup-choice-grid">
+      <button class="setup-choice-card setup-choice-wa" id="setup-pick-wa">
+        <div class="setup-choice-icon">
+          <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+        </div>
+        <div class="setup-choice-info">
+          <h3>WhatsApp AI Bot</h3>
+          <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+          <ul class="setup-choice-features">
+            <li>Works on any WhatsApp number</li>
+            <li>Instant AI replies, any language</li>
+            <li>Meta Cloud API (free tier available)</li>
+          </ul>
+        </div>
+        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp →</div>
+      </button>
+      <button class="setup-choice-card setup-choice-tg" id="setup-pick-tg">
+        <div class="setup-choice-icon">
+          <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+        </div>
+        <div class="setup-choice-info">
+          <h3>Telegram AI Bot</h3>
+          <p>Paste your BotFather token and your AI bot goes live instantly — no approval, no waiting.</p>
+          <ul class="setup-choice-features">
+            <li>Live in under 60 seconds</li>
+            <li>No Meta approval needed</li>
+            <li>Same powerful AI as WhatsApp</li>
+          </ul>
+        </div>
+        <div class="setup-choice-cta setup-choice-cta--tg">Connect Telegram →</div>
+      </button>
+    </div>
+  ` : "";
+
+  app.innerHTML = `
+    ${paymentPopupHtml}
+    <div class="setup-flow-page">
+      <div class="setup-flow-topbar">
+        <div class="logo">
+          <img src="/logo.svg" class="logo-img" alt="swift-deploy.in" width="30" height="30" />
+          <span class="logo-name">swift-deploy.in</span>
+        </div>
+        <div class="setup-flow-topbar-right">
+          <span class="setup-flow-welcome">Welcome, <strong>${escapeHtml(userName)}</strong></span>
+          <button class="ghost-button" id="setup-logout" style="font-size:0.82rem;padding:6px 14px;">Log out</button>
+        </div>
+      </div>
+
+      <div class="setup-flow-body">
+        ${step === "choice" ? `
+          <div class="setup-flow-header">
+            <span class="eyebrow">Step 1 of 2 — Choose Platform</span>
+            <h1 class="setup-flow-title">Where should your AI bot reply?</h1>
+            <p class="setup-flow-sub">Pick a platform to connect. You can add the other one after subscribing.</p>
+          </div>
+        ` : `
+          <div class="setup-flow-header">
+            <span class="eyebrow">Step 2 of 2 — Connect & Subscribe</span>
+            <h1 class="setup-flow-title">${step === "wa-form" ? "Connect your WhatsApp" : "Connect your Telegram bot"}</h1>
+            <p class="setup-flow-sub">Fill in your credentials below, then subscribe to activate.</p>
+          </div>
+        `}
+        ${choiceGrid}
+        ${waForm}
+        ${tgForm}
+      </div>
+    </div>
+  `;
+
+  // Logout
+  document.querySelector("#setup-logout")?.addEventListener("click", async () => {
+    await api("/api/auth/logout", { method: "POST" });
+    state.user = null; state.selectedBusiness = null; state.userBusinesses = [];
+    state.setupStep = "choice"; state.showPaymentPopup = false; state.pendingPlatformSetup = null;
+    render();
+  });
+
+  // Platform choice
+  document.querySelector("#setup-pick-wa")?.addEventListener("click", () => {
+    state.setupStep = "wa-form"; renderSetupFlow();
+  });
+  document.querySelector("#setup-pick-tg")?.addEventListener("click", () => {
+    state.setupStep = "tg-form"; renderSetupFlow();
+  });
+  document.querySelector("#setup-back")?.addEventListener("click", () => {
+    state.setupStep = "choice"; state.showPaymentPopup = false; renderSetupFlow();
+  });
+
+  // WA form submit → show payment popup
+  document.querySelector("#setup-wa-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = formToObject(e.target);
+    state.pendingPlatformSetup = { platform: "whatsapp", config: data };
+    state.showPaymentPopup = true;
+    renderSetupFlow();
+  });
+
+  // TG form submit → show payment popup
+  document.querySelector("#setup-tg-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const token = document.querySelector("#setup-tg-token")?.value?.trim();
+    if (!token) return;
+    state.pendingPlatformSetup = { platform: "telegram", token };
+    state.showPaymentPopup = true;
+    renderSetupFlow();
+  });
+
+  // Payment popup close
+  document.querySelector("#payment-popup-close")?.addEventListener("click", () => {
+    state.showPaymentPopup = false; renderSetupFlow();
+  });
+  document.querySelector("#payment-overlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "payment-overlay") { state.showPaymentPopup = false; renderSetupFlow(); }
+  });
+
+  // Razorpay payment
+  document.querySelector("#setup-razorpay-btn")?.addEventListener("click", async () => {
+    const btn = document.querySelector("#setup-razorpay-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Opening payment..."; }
+    try {
+      const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/razorpay`, { method: "POST", body: { plan: "pro" } });
+      if (payload.subscriptionId && payload.keyId) {
+        if (!window.Razorpay) { alert("Razorpay is still loading, please try again."); return; }
+        const rzp = new window.Razorpay({
+          key: payload.keyId,
+          subscription_id: payload.subscriptionId,
+          name: payload.businessName || "swift-deploy.in",
+          description: "AI Bot Subscription",
+          prefill: { email: payload.userEmail, name: payload.userName },
+          theme: { color: "#8b7fff" },
+          handler: async () => {
+            const pending = state.pendingPlatformSetup;
+            if (pending) {
+              try {
+                if (pending.platform === "telegram") {
+                  await api(`/api/businesses/${encodeURIComponent(biz.id)}/telegram`, { method: "POST", body: { token: pending.token } });
+                } else {
+                  await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: pending.config });
+                }
+              } catch (err) { /* ignore */ }
+            }
+            await loadBootstrap(biz.id);
+            state.showPaymentPopup = false;
+            state.pendingPlatformSetup = null;
+            state.showBotLivePopup = true;
+            state.billingActivated = true;
+            render();
+          }
+        });
+        rzp.open();
+      }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🇮🇳 Pay ₹2,999/mo"; } }
+  });
+
+  // Stripe payment
+  document.querySelector("#setup-stripe-btn")?.addEventListener("click", async () => {
+    const btn = document.querySelector("#setup-stripe-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Redirecting..."; }
+    try {
+      // Save pending setup to sessionStorage for after redirect
+      if (state.pendingPlatformSetup) {
+        sessionStorage.setItem("pendingPlatformSetup", JSON.stringify(state.pendingPlatformSetup));
+      }
+      const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/checkout`, { method: "POST", body: { plan: "pro" } });
+      if (payload.url) window.location.href = payload.url;
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🌍 Pay $49/mo"; } }
+  });
+}
+
 function render() {
   if (state.route === "landing") {
     renderLanding();
@@ -1937,6 +2211,13 @@ function render() {
     return;
   }
 
+  const billing = state.selectedBusiness?.billing;
+  const activeBilling = state.billingActivated || ["active", "trialing"].includes((billing?.status || "").toLowerCase());
+  if (!activeBilling) {
+    renderSetupFlow();
+    return;
+  }
+
   renderDashboard();
 }
 
@@ -1951,6 +2232,23 @@ async function init() {
     await loadAuth();
     if (state.user) {
       await loadBootstrap(pageParams.get("businessId") || "");
+      // If returning from Stripe after payment, apply any pending platform setup
+      if (pageParams.get("billing") === "success") {
+        state.billingActivated = true;
+        const pending = (() => { try { return JSON.parse(sessionStorage.getItem("pendingPlatformSetup") || "null"); } catch { return null; } })();
+        if (pending && state.selectedBusiness?.id) {
+          sessionStorage.removeItem("pendingPlatformSetup");
+          try {
+            if (pending.platform === "telegram") {
+              await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, { method: "POST", body: { token: pending.token } });
+            } else if (pending.platform === "whatsapp") {
+              await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}`, { method: "PATCH", body: pending.config });
+            }
+            await loadBootstrap(state.selectedBusiness.id);
+            state.showBotLivePopup = true;
+          } catch (err) { /* ignore, bot connect failed, user can reconnect from dashboard */ }
+        }
+      }
     }
     render();
   } catch (error) {
