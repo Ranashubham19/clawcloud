@@ -481,50 +481,6 @@ function renderLanding() {
         </div>
       </section>
 
-      <!-- FEATURES -->
-      <section class="lp-section" id="features">
-        <div class="shell">
-          <div class="lp-section-header">
-            <span class="eyebrow">Platform Features</span>
-            <h2 class="lp-h2">Everything your team needs,<br>nothing you don't.</h2>
-            <p class="lp-section-sub">Built for businesses that rely on WhatsApp to drive sales, bookings, and customer conversations.</p>
-          </div>
-          <div class="lp-features">
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">âš¡</div>
-              <h3>Instant AI Replies</h3>
-              <p>Your bot replies to every message in under 2 seconds — any question, any time of day, no manual effort required.</p>
-            </div>
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">ðŸŒ</div>
-              <h3>Any Language, Anytime</h3>
-              <p>Hindi, Tamil, Arabic, Spanish — your bot automatically matches the language of whoever is messaging it. Zero setup.</p>
-            </div>
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">ðŸ"²</div>
-              <h3>WhatsApp + Telegram</h3>
-              <p>One subscription. Connect both WhatsApp and Telegram. Your AI bot works across both platforms simultaneously.</p>
-            </div>
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">ðŸš€</div>
-              <h3>Zero Setup</h3>
-              <p>Sign up, paste your credentials, subscribe — your bot is live in under 2 minutes. No technical knowledge required.</p>
-            </div>
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">ðŸ'¡</div>
-              <h3>No Coding Needed</h3>
-              <p>Everything is managed from a clean dashboard. Change bot behavior, monitor activity, and manage billing — all in one place.</p>
-            </div>
-            <div class="lp-feature-card">
-              <div class="lp-feature-icon">ðŸ"'</div>
-              <h3>Secure & Private</h3>
-              <p>Your credentials are encrypted at rest. All webhook traffic is verified. Your users' conversations are never shared.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CTA BANNER -->
       <section class="lp-cta-banner">
         <div class="shell">
           <div class="lp-cta-banner-inner">
@@ -629,15 +585,15 @@ function renderAuth() {
           <p class="auth-left-sub">Automate lead capture, demo bookings, and customer replies — powered by AI, delivered on WhatsApp.</p>
           <div class="auth-left-features">
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">âš¡</span>
+              <span class="auth-left-feature-icon">⚡</span>
               <span>Replies in under 60 seconds, 24/7</span>
             </div>
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">ðŸ"Š</span>
+              <span class="auth-left-feature-icon">📊</span>
               <span>Live dashboard for leads & bookings</span>
             </div>
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">ðŸ"'</span>
+              <span class="auth-left-feature-icon">🔒</span>
               <span>Secure, encrypted, GDPR-ready</span>
             </div>
           </div>
@@ -941,10 +897,10 @@ function dashboardSection() {
             ` : `
               <div class="payment-buttons" style="margin-top:4px;">
                 <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
-                  ðŸ‡®ðŸ‡³ Pay ₹2,999/mo
+                  🇮🇳 Pay ₹2,999/mo
                 </button>
                 <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
-                  ðŸŒ Pay $49/mo
+                  🌍 Pay $49/mo
                 </button>
               </div>
             `}
@@ -1473,7 +1429,7 @@ function renderOnboarding() {
         </div>
         <div class="ob2-field">
           <label class="ob2-label">Welcome message <span class="ob2-hint-inline">first thing bot says</span></label>
-          <input class="ob2-input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. ðŸ'‹ Hi! Welcome to Apex Coaching. I'm your AI admissions assistant. How can I help you today?" />
+          <input class="ob2-input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. 👋 Hi! Welcome to Apex Coaching. I'm your AI admissions assistant. How can I help you today?" />
           <span class="ob2-hint">Sent the moment a student first messages your WhatsApp number.</span>
         </div>
         <div class="ob2-actions">
@@ -1555,28 +1511,28 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
 
         <div class="ob2-live-grid">
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">ðŸ¤–</div>
+            <div class="ob2-live-icon">🤖</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">AI Bot</div>
               <div class="ob2-live-card-val ob2-green">Active</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">ðŸ"²</div>
+            <div class="ob2-live-icon">📲</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">WhatsApp</div>
               <div class="ob2-live-card-val ob2-green">Connected</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">ðŸŽ¯</div>
+            <div class="ob2-live-icon">🎯</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">Lead Capture</div>
               <div class="ob2-live-card-val ob2-green">On</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">ðŸ"…</div>
+            <div class="ob2-live-icon">📅</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">Demo Booking</div>
               <div class="ob2-live-card-val ob2-green">On</div>
@@ -1763,9 +1719,9 @@ function renderDashboard() {
 
         <section class="dashboard-grid">
           <aside class="sidebar">
-            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">ðŸ  Dashboard</button>
-            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">ðŸ'³ Billing</button>
-            ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">ðŸ›¡ï¸ Admin</button>` : ""}
+            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">🏠 Dashboard</button>
+            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">💳 Billing</button>
+            ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">🛡️ Admin</button>` : ""}
           </aside>
 
           <div class="main-column">
@@ -2258,7 +2214,7 @@ function renderSetupFlow() {
     <div class="payment-overlay" id="payment-overlay">
       <div class="payment-popup">
         <div class="payment-popup-close" id="payment-popup-close">âœ•</div>
-        <div class="payment-popup-icon">âš¡</div>
+        <div class="payment-popup-icon">⚡</div>
         <div class="payment-popup-badge">One Plan Â· Everything Included</div>
         <h2 class="payment-popup-title">Activate your AI bot</h2>
         <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
@@ -2274,8 +2230,8 @@ function renderSetupFlow() {
           <li>âœ" Cancel anytime</li>
         </ul>
         <div class="payment-popup-buttons">
-          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">ðŸ‡®ðŸ‡³ Pay ₹2,999/mo</button>
-          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">ðŸŒ Pay $49/mo</button>
+          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">🇮🇳 Pay ₹2,999/mo</button>
+          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">🌍 Pay $49/mo</button>
         </div>
         <div class="payment-popup-note">Secure payment Â· Cancel anytime Â· Instant activation</div>
       </div>
@@ -2565,7 +2521,7 @@ function renderSetupFlow() {
         });
         rzp.open();
       }
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸ‡®ðŸ‡³ Pay ₹2,999/mo"; } }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🇮🇳 Pay ₹2,999/mo"; } }
   });
 
   // Stripe payment
@@ -2579,7 +2535,7 @@ function renderSetupFlow() {
       }
       const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/checkout`, { method: "POST", body: { plan: "pro" } });
       if (payload.url) window.location.href = payload.url;
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸŒ Pay $49/mo"; } }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🌍 Pay $49/mo"; } }
   });
 }
 
