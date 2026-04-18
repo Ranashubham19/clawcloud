@@ -10,6 +10,7 @@ import {
 import { config } from "../src/config.js";
 import {
   cleanUserFacingText,
+  formatProfessionalReply,
   formatSourceAttribution,
   insertInlineSourceCitations,
   sanitizeForWhatsApp
@@ -533,6 +534,39 @@ await run("sanitizeForWhatsApp strips decorative symbols and keeps clean spacing
   assert.equal(cleaned.includes("•"), false);
   assert.match(cleaned, /\*Answer\*/);
   assert.match(cleaned, /- First point/);
+});
+
+await run("formatProfessionalReply turns long plain answers into structured format", async () => {
+  const formatted = formatProfessionalReply(
+    "Haldi is the common name for turmeric. It is widely used in Indian cooking. It is known for its bright yellow color. It is also used in traditional remedies and ceremonies.",
+    { languageStyle: "english" }
+  );
+
+  assert.match(formatted, /^\*Answer\*/);
+  assert.match(formatted, /Haldi is the common name for turmeric\./);
+  assert.match(formatted, /- It is widely used in Indian cooking\./);
+  assert.match(formatted, /- It is known for its bright yellow color\./);
+});
+
+await run("formatProfessionalReply strips generic follow-up questions", async () => {
+  const formatted = formatProfessionalReply(
+    "Mehandi is a natural dye made from henna leaves. It is used for temporary skin designs during celebrations. Would you like to know more about its uses or benefits?",
+    { languageStyle: "english" }
+  );
+
+  assert.doesNotMatch(formatted, /Would you like to know more/i);
+  assert.match(formatted, /^\*Answer\*/);
+});
+
+await run("formatProfessionalReply preserves trailing source blocks", async () => {
+  const formatted = formatProfessionalReply(
+    "Gold prices are higher today. Analysts say demand remains strong.\n\n1. https://www.reuters.com/example\n2. https://www.bbc.com/example",
+    { languageStyle: "english" }
+  );
+
+  assert.match(formatted, /^\*Answer\*/);
+  assert.match(formatted, /\n\n1\. https:\/\/www\.reuters\.com\/example/);
+  assert.match(formatted, /2\. https:\/\/www\.bbc\.com\/example$/);
 });
 
 await run("extractGeminiGroundingSources keeps grounded web sources in support order", async () => {

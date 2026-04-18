@@ -16,6 +16,7 @@ import {
 } from "./lib/language.js";
 import {
   cleanUserFacingText,
+  formatProfessionalReply,
   formatSourceAttribution,
   safeJsonParse,
   sanitizeForWhatsApp
@@ -66,8 +67,8 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
   return null;
 }
 
-function formatGroundedAnswer(text, sources = [], supports = [], channel = "default") {
-  const answerText = cleanUserFacingText(text);
+function formatGroundedAnswer(text, sources = [], supports = [], channel = "default", languageStyle = "english") {
+  const answerText = formatProfessionalReply(text, { languageStyle });
   if (!answerText) {
     return "";
   }
@@ -268,8 +269,10 @@ function buildGeneralReplyPrompt(context) {
     "",
     "Formatting rules:",
     "- Start with a direct answer.",
-    "- For simple questions, use 1 to 3 short paragraphs.",
-    "- For longer answers, use one short bold heading like *Key Points*, *Explanation*, or *Answer*.",
+    "- Never send one large unbroken paragraph when the answer has multiple facts.",
+    "- For simple questions, use one short bold heading and 1 to 3 short paragraphs.",
+    "- For longer answers, use one short bold heading like *Answer*, *Key Points*, or *Explanation*.",
+    "- After the opening sentence, use short bullets or numbered points whenever the answer contains multiple facts, uses, benefits, steps, examples, or features.",
     "- Leave one blank line between paragraphs and sections.",
     "- Use numbered points or '-' bullets only when they improve clarity.",
     "- Bold only short headings or key terms. Never bold full paragraphs.",
@@ -279,6 +282,7 @@ function buildGeneralReplyPrompt(context) {
     "- Be professional, calm, and easy to read.",
     "- Do not repeat or mention the user's name unless the user explicitly asks for it.",
     "- Do not include unnecessary greetings once the conversation is already underway.",
+    "- Do not end with generic follow-up questions like 'Would you like to know more?' unless clarification is truly required.",
     "- Do not mention tools, models, searching, or internal workflow.",
     "- If you are unsure, say so briefly and answer as helpfully as possible.",
     "- Never leave the answer empty."
@@ -581,16 +585,19 @@ export async function handleIncomingText({
 
   const smallTalkReply = directSmallTalkReply(text, languageStyle);
   if (smallTalkReply) {
+    const formattedSmallTalkReply = formatProfessionalReply(smallTalkReply, {
+      languageStyle
+    });
     await appendConversationMessage(
       from,
       {
         role: "assistant",
-        text: smallTalkReply,
+        text: formattedSmallTalkReply,
         meta: { source: "small-talk-direct" }
       },
       { businessId }
     );
-    return smallTalkReply;
+    return formattedSmallTalkReply;
   }
 
   let history = [];
@@ -613,7 +620,8 @@ export async function handleIncomingText({
             geminiAnswer.text,
             geminiAnswer.sources || [],
             geminiAnswer.supports || [],
-            deliveryChannel
+            deliveryChannel,
+            languageStyle
           )
         );
         await appendConversationMessage(
@@ -650,12 +658,13 @@ export async function handleIncomingText({
     const directReply = preResult
       .replace(/^TOOL RESULT — /, "")
       .trim();
+    const formattedDirectReply = formatProfessionalReply(directReply, { languageStyle });
     await appendConversationMessage(
       from,
-      { role: "assistant", text: directReply, meta: { source: "pre-execute-direct" } },
+      { role: "assistant", text: formattedDirectReply, meta: { source: "pre-execute-direct" } },
       { businessId }
     );
-    return directReply;
+    return formattedDirectReply;
   }
 
   const messages = [
@@ -817,7 +826,9 @@ export async function handleIncomingText({
     assistantText = fallbacks[languageStyle] || "Sorry, I couldn't generate a response right now. Please try again in a moment.";
   }
 
-  assistantText = sanitizeForWhatsApp(assistantText);
+  assistantText = sanitizeForWhatsApp(
+    formatProfessionalReply(assistantText, { languageStyle })
+  );
 
   await appendConversationMessage(
     from,
@@ -1000,7 +1011,9 @@ export async function handleIncomingMedia({
     return fallback;
   }
 
-  const assistantText = sanitizeForWhatsApp(cleanUserFacingText(answer));
+  const assistantText = sanitizeForWhatsApp(
+    formatProfessionalReply(answer, { languageStyle })
+  );
 
   await appendConversationMessage(
     from,

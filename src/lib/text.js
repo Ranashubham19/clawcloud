@@ -61,6 +61,147 @@ function uniqueNumbers(values = []) {
   );
 }
 
+function splitSentences(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return [];
+  }
+
+  const matches = text.match(/[^.!?।！？\n]+(?:[.!?।！？]+|$)/g);
+  return (matches || [text])
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+}
+
+function answerHeading(languageStyle = "english") {
+  const headings = {
+    hindi: "उत्तर",
+    hinglish: "Answer",
+    bengali: "উত্তর",
+    gujarati: "જવાબ",
+    punjabi: "ਜਵਾਬ",
+    tamil: "பதில்",
+    telugu: "సమాధానం",
+    kannada: "ಉತ್ತರ",
+    malayalam: "ഉത്തരം",
+    arabic: "الإجابة",
+    urdu: "جواب",
+    persian: "پاسخ",
+    thai: "คำตอบ",
+    chinese: "回答",
+    japanese: "回答",
+    korean: "답변",
+    russian: "Ответ",
+    greek: "Απάντηση",
+    hebrew: "תשובה",
+    french: "Réponse",
+    spanish: "Respuesta",
+    portuguese: "Resposta",
+    german: "Antwort",
+    italian: "Risposta",
+    polish: "Odpowiedz",
+    turkish: "Yanıt",
+    vietnamese: "Tra loi",
+    indonesian: "Jawaban",
+    malay: "Jawapan",
+    filipino: "Sagot",
+    swahili: "Jibu"
+  };
+
+  return headings[String(languageStyle || "").toLowerCase()] || "Answer";
+}
+
+function splitTrailingSourceBlock(text) {
+  const value = String(text || "").trim();
+  if (!value) {
+    return { body: "", sources: "" };
+  }
+
+  const headingMatch = value.match(/\n\n(\*Sources\*[\s\S]+)$/i);
+  if (headingMatch) {
+    return {
+      body: value.slice(0, headingMatch.index).trim(),
+      sources: headingMatch[1].trim()
+    };
+  }
+
+  const numberedUrlBlock = value.match(/\n\n((?:\d+\.\s+https?:\/\/\S+(?:\n|$))+)\s*$/i);
+  if (numberedUrlBlock) {
+    return {
+      body: value.slice(0, numberedUrlBlock.index).trim(),
+      sources: numberedUrlBlock[1].trim()
+    };
+  }
+
+  return { body: value, sources: "" };
+}
+
+function stripGenericFollowUp(text) {
+  const sentences = splitSentences(text);
+  if (sentences.length < 2) {
+    return String(text || "").trim();
+  }
+
+  const genericFollowUpPatterns = [
+    /would you like to know more/i,
+    /would you like more details/i,
+    /what would you like to know/i,
+    /feel free to ask/i,
+    /let me know if you(?:'d| would) like/i,
+    /if you want,? i can/i,
+    /is there anything else/i,
+    /koi aur sawaal/i,
+    /aap kya jaanna chahte/i,
+    /agar aap.*jaanna chahte/i
+  ];
+
+  const lastSentence = sentences[sentences.length - 1];
+  if (!genericFollowUpPatterns.some((pattern) => pattern.test(lastSentence))) {
+    return String(text || "").trim();
+  }
+
+  return sentences.slice(0, -1).join(" ").trim();
+}
+
+export function formatProfessionalReply(value, options = {}) {
+  const cleaned = cleanUserFacingText(value);
+  if (!cleaned) {
+    return "";
+  }
+
+  const { body: rawBody, sources } = splitTrailingSourceBlock(cleaned);
+  let body = stripGenericFollowUp(rawBody);
+  if (!body) {
+    return cleaned;
+  }
+
+  const hasHeading = /^\*[^*\n]{1,60}\*/.test(body);
+  const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
+  const sentences = splitSentences(body);
+  const heading = `*${answerHeading(options.languageStyle)}*`;
+
+  if (!hasList && !hasHeading) {
+    if (sentences.length >= 3) {
+      const intro = sentences[0];
+      const points = sentences
+        .slice(1, 5)
+        .map((sentence) => `- ${sentence}`);
+      body = `${heading}\n\n${intro}\n\n${points.join("\n")}`;
+    } else if (body.length >= 45 || sentences.length >= 2) {
+      body = `${heading}\n\n${body}`;
+    }
+  } else if (!hasHeading && body.length >= 45) {
+    body = `${heading}\n\n${body}`;
+  }
+
+  body = sanitizeForWhatsApp(body);
+  if (!sources) {
+    return body;
+  }
+
+  return `${body}\n\n${sources}`.trim();
+}
+
 export function sanitizeForWhatsApp(value) {
   let text = stripDecorativeSymbols(value);
   if (!text.trim()) return "";
