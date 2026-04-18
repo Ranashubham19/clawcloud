@@ -28,7 +28,10 @@ import {
   sendTelegramChatAction,
   sendTelegramMessage
 } from "./telegram.js";
-import { getBusinessByTelegramToken } from "./saas-store.js";
+import {
+  getBusinessByTelegramToken,
+  updateBusinessWhatsAppById
+} from "./saas-store.js";
 import {
   getDataDeletionHtml,
   getPrivacyPolicyHtml,
@@ -385,7 +388,7 @@ function routeProviderHint(url) {
 async function handleMessagingWebhookGet(request, response, providerHint = "") {
   const url = parseUrl(request);
   const provider = detectMessagingProvider({ url, providerHint });
-  const verification = verifyMessagingWebhookGet({
+  const verification = await verifyMessagingWebhookGet({
     provider,
     headers: request.headers,
     url
@@ -442,6 +445,13 @@ async function handleMessagingWebhookGet(request, response, providerHint = "") {
     return;
   }
 
+  if (provider === "meta" && verification.businessId) {
+    await updateBusinessWhatsAppById(verification.businessId, {
+      webhookVerifiedAt: new Date().toISOString(),
+      lastError: ""
+    }).catch(() => {});
+  }
+
   sendFormatted(
     response,
     verification
@@ -460,11 +470,12 @@ async function handleMessagingWebhookPost(request, response, providerHint = "", 
   }
 
   const provider = detectMessagingProvider({ url, payload, providerHint });
-  const verification = verifyMessagingWebhookPost({
+  const verification = await verifyMessagingWebhookPost({
     provider,
     rawBody,
     headers: request.headers,
-    url
+    url,
+    payload
   });
   if (!verification.ok) {
     sendFormatted(response, verification);

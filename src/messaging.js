@@ -2,13 +2,17 @@ import { config } from "./config.js";
 import { extractAiSensyFlowInput } from "./aisensy-flow.js";
 import { hashText } from "./lib/text.js";
 import {
+  findBusinessByWhatsAppVerifyToken,
+  getBusinessByInboundChannel
+} from "./saas-store.js";
+import {
   downloadWhatsAppMedia,
   extractIncomingMessages as extractMetaIncomingMessages,
   outboundDedupKey,
   sendTypingIndicator as sendProviderTypingIndicator,
   sendWhatsAppText,
   sendWhatsAppTextChunked,
-  verifyWhatsAppSignature
+  verifyWhatsAppSignatureWithSecret
 } from "./whatsapp.js";
 
 const SUPPORTED_PROVIDERS = new Set(["aisensy", "meta"]);
@@ -177,7 +181,7 @@ export function usesInlineReply(provider) {
   return normalizeMessagingProvider(provider) === "aisensy";
 }
 
-export function verifyMessagingWebhookGet({ provider, headers = {}, url }) {
+export async function verifyMessagingWebhookGet({ provider, headers = {}, url }) {
   const normalizedProvider = normalizeMessagingProvider(provider);
 
   if (normalizedProvider === "aisensy") {
@@ -223,8 +227,21 @@ export function verifyMessagingWebhookGet({ provider, headers = {}, url }) {
       ok: true,
       statusCode: 200,
       format: "text",
-      body: challenge || ""
-    };
+        body: challenge || ""
+      };
+  }
+
+  if (mode === "subscribe") {
+    const business = await findBusinessByWhatsAppVerifyToken(token);
+    if (business) {
+      return {
+        ok: true,
+        statusCode: 200,
+        format: "text",
+        body: challenge || "",
+        businessId: business.id
+      };
+    }
   }
 
   return {
@@ -235,7 +252,13 @@ export function verifyMessagingWebhookGet({ provider, headers = {}, url }) {
   };
 }
 
-export function verifyMessagingWebhookPost({ provider, rawBody, headers = {}, url }) {
+export async function verifyMessagingWebhookPost({
+  provider,
+  rawBody,
+  headers = {},
+  url,
+  payload = {}
+}) {
   const normalizedProvider = normalizeMessagingProvider(provider);
 
   if (normalizedProvider === "aisensy") {
@@ -263,7 +286,17 @@ export function verifyMessagingWebhookPost({ provider, rawBody, headers = {}, ur
     return { ok: true };
   }
 
-  if (!verifyWhatsAppSignature(rawBody, headers["x-hub-signature-256"])) {
+  const metaInbound = extractMetaIncomingMessages(payload);
+  const firstMessage = metaInbound[0] || {};
+  const business = await getBusinessByInboundChannel({
+    provider: "meta",
+    phoneNumberId: firstMessage.phoneNumberId,
+    displayPhoneNumber: firstMessage.displayPhoneNumber
+  });
+  const appSecret =
+    cleanText(business?.whatsapp?.appSecret) || cleanText(config.whatsappAppSecret);
+
+  if (!verifyWhatsAppSignatureWithSecret(rawBody, headers["x-hub-signature-256"], appSecret)) {
     return {
       ok: false,
       statusCode: 401,

@@ -128,6 +128,10 @@ function maskSecret(value) {
   return `${text.slice(0, 4)}***${text.slice(-4)}`;
 }
 
+function generateWebhookVerifyToken() {
+  return crypto.randomBytes(18).toString("hex");
+}
+
 function normalizeFaqItems(items = []) {
   return (Array.isArray(items) ? items : [])
     .map((item) => ({
@@ -230,12 +234,44 @@ function sanitizeUser(user) {
   };
 }
 
+export function sanitizeWhatsAppIntegration(whatsapp = {}) {
+  const provider = cleanText(whatsapp.provider || config.messagingProvider || "meta").toLowerCase();
+  const accessTokenConfigured = Boolean(cleanText(whatsapp.accessToken));
+  const appSecretConfigured =
+    provider === "meta"
+      ? Boolean(cleanText(whatsapp.appSecret) || cleanText(config.whatsappAppSecret))
+      : false;
+
+  return {
+    provider,
+    displayPhoneNumber: whatsapp.displayPhoneNumber || "",
+    phoneNumberId: whatsapp.phoneNumberId || "",
+    businessAccountId: whatsapp.businessAccountId || "",
+    accessTokenMask: maskSecret(whatsapp.accessToken || ""),
+    accessTokenConfigured,
+    appSecretMask: maskSecret(whatsapp.appSecret || ""),
+    appSecretConfigured,
+    webhookUrl: cleanText(whatsapp.webhookUrl),
+    webhookVerifyToken: cleanText(whatsapp.webhookVerifyToken),
+    connectedAt: cleanText(whatsapp.connectedAt),
+    webhookVerifiedAt: cleanText(whatsapp.webhookVerifiedAt),
+    lastError: cleanText(whatsapp.lastError),
+    configured:
+      provider === "aisensy"
+        ? Boolean(
+            cleanText(config.aisensyApiKey) &&
+              cleanText(config.aisensyCampaignName) &&
+              cleanText(config.aisensyFlowToken)
+          )
+        : Boolean(cleanText(whatsapp.phoneNumberId) && accessTokenConfigured && appSecretConfigured),
+    webhookReady: Boolean(cleanText(whatsapp.webhookVerifiedAt))
+  };
+}
+
 function sanitizeBusiness(business) {
   if (!business) {
     return null;
   }
-
-  const provider = business.whatsapp?.provider || config.messagingProvider;
 
   return {
     id: business.id,
@@ -253,22 +289,7 @@ function sanitizeBusiness(business) {
     plan: business.plan,
     status: business.status,
     billing: business.billing || normalizeBilling({}, { plan: business.plan }),
-    whatsapp: {
-      provider,
-      displayPhoneNumber: business.whatsapp?.displayPhoneNumber || "",
-      phoneNumberId: business.whatsapp?.phoneNumberId || "",
-      businessAccountId: business.whatsapp?.businessAccountId || "",
-      accessToken: business.whatsapp?.accessToken || "",
-      accessTokenMask: maskSecret(business.whatsapp?.accessToken || ""),
-      configured:
-        provider === "aisensy"
-          ? Boolean(
-              cleanText(config.aisensyApiKey) &&
-                cleanText(config.aisensyCampaignName) &&
-                cleanText(config.aisensyFlowToken)
-            )
-          : Boolean(business.whatsapp?.accessToken && business.whatsapp?.phoneNumberId)
-    },
+    whatsapp: sanitizeWhatsAppIntegration(business.whatsapp || {}),
     telegram: sanitizeTelegramIntegration(business.telegram),
     settings: business.settings || {},
     createdAt: business.createdAt,
@@ -303,6 +324,12 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
   )
     ? cleanText(patch.whatsappAccessToken)
     : current.whatsapp?.accessToken || "";
+  const appSecret = Object.prototype.hasOwnProperty.call(
+    patch,
+    "whatsappAppSecret"
+  )
+    ? cleanText(patch.whatsappAppSecret)
+    : current.whatsapp?.appSecret || "";
 
   return {
     name: baseName,
@@ -353,7 +380,27 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
         cleanText(patch.whatsappBusinessAccountId) ||
         current.whatsapp?.businessAccountId ||
         "",
-      accessToken
+      accessToken,
+      appSecret,
+      webhookUrl:
+        cleanText(patch.whatsappWebhookUrl) ||
+        current.whatsapp?.webhookUrl ||
+        "",
+      webhookVerifyToken:
+        cleanText(patch.whatsappWebhookVerifyToken) ||
+        current.whatsapp?.webhookVerifyToken ||
+        "",
+      connectedAt:
+        cleanText(patch.whatsappConnectedAt) ||
+        current.whatsapp?.connectedAt ||
+        "",
+      webhookVerifiedAt:
+        cleanText(patch.whatsappWebhookVerifiedAt) ||
+        current.whatsapp?.webhookVerifiedAt ||
+        "",
+      lastError: Object.prototype.hasOwnProperty.call(patch, "whatsappLastError")
+        ? cleanText(patch.whatsappLastError)
+        : current.whatsapp?.lastError || ""
     },
     settings: {
       autoReplyEnabled:
@@ -370,6 +417,37 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
           : current.settings?.demoBookingEnabled !== false
     }
   };
+}
+
+function assertUniqueWhatsAppChannel(businesses, currentId, whatsapp = {}) {
+  const phoneNumberId = cleanText(whatsapp.phoneNumberId);
+  const displayPhone = comparablePhone(whatsapp.displayPhoneNumber || "");
+
+  const conflict = businesses.find((business) => {
+    if (String(business.id) === String(currentId || "")) {
+      return false;
+    }
+
+    return (
+      (phoneNumberId && cleanText(business.whatsapp?.phoneNumberId) === phoneNumberId) ||
+      (displayPhone &&
+        comparablePhone(business.whatsapp?.displayPhoneNumber || "") === displayPhone)
+    );
+  });
+
+  if (!conflict) {
+    return;
+  }
+
+  if (phoneNumberId && cleanText(conflict.whatsapp?.phoneNumberId) === phoneNumberId) {
+    throw new Error(
+      "This WhatsApp Phone Number ID is already connected to another workspace. Disconnect it there first."
+    );
+  }
+
+  throw new Error(
+    "This WhatsApp display number is already connected to another workspace. Disconnect it there first."
+  );
 }
 
 async function pruneExpiredSessions() {
@@ -537,6 +615,7 @@ export async function listBusinessesForUser(userId) {
 export async function createBusinessForUser(userId, payload = {}) {
   const businesses = await readJson("businesses");
   const normalized = normalizeBusinessPatch(payload, {}, businesses);
+  assertUniqueWhatsAppChannel(businesses, "", normalized.whatsapp);
 
   const business = {
     id: crypto.randomUUID(),
@@ -662,6 +741,7 @@ export async function updateBusinessForUser(userId, businessId, patch = {}) {
 
     const current = businesses[index];
     const normalized = normalizeBusinessPatch(patch, current, businesses);
+    assertUniqueWhatsAppChannel(businesses, businessId, normalized.whatsapp);
     updated = {
       ...current,
       ...normalized,
@@ -672,6 +752,47 @@ export async function updateBusinessForUser(userId, businessId, patch = {}) {
   });
 
   return sanitizeBusiness(updated);
+}
+
+export async function findBusinessByWhatsAppChannel({
+  phoneNumberId = "",
+  displayPhoneNumber = "",
+  excludeBusinessId = ""
+} = {}) {
+  const businesses = await readJson("businesses");
+  const normalizedPhoneNumberId = cleanText(phoneNumberId);
+  const normalizedDisplay = comparablePhone(displayPhoneNumber || "");
+
+  return (
+    businesses.find(
+      (business) =>
+        String(business.id) !== String(excludeBusinessId || "") &&
+        normalizedPhoneNumberId &&
+        cleanText(business.whatsapp?.phoneNumberId) === normalizedPhoneNumberId
+    ) ||
+    businesses.find(
+      (business) =>
+        String(business.id) !== String(excludeBusinessId || "") &&
+        normalizedDisplay &&
+        comparablePhone(business.whatsapp?.displayPhoneNumber || "") === normalizedDisplay
+    ) ||
+    null
+  );
+}
+
+export async function findBusinessByWhatsAppVerifyToken(token) {
+  const normalizedToken = cleanText(token);
+  if (!normalizedToken) {
+    return null;
+  }
+
+  const businesses = await readJson("businesses");
+  return (
+    businesses.find(
+      (business) =>
+        cleanText(business.whatsapp?.webhookVerifyToken) === normalizedToken
+    ) || null
+  );
 }
 
 export async function getBusinessByTelegramToken(businessId) {
@@ -709,6 +830,70 @@ export async function updateBusinessTelegram(userId, businessId, telegramPatch =
     return businesses;
   });
   return updated;
+}
+
+export async function updateBusinessWhatsApp(userId, businessId, whatsappPatch = {}) {
+  let updated = null;
+  await withWriteLock("businesses", (businesses) => {
+    const index = businesses.findIndex(
+      (entry) => entry.id === businessId && entry.userId === userId
+    );
+    if (index === -1) {
+      throw new Error("Business not found.");
+    }
+
+    const current = businesses[index];
+    const merged = {
+      ...current,
+      whatsapp: {
+        ...(current.whatsapp || {}),
+        ...whatsappPatch,
+        webhookVerifyToken:
+          cleanText(whatsappPatch.webhookVerifyToken) ||
+          current.whatsapp?.webhookVerifyToken ||
+          generateWebhookVerifyToken()
+      },
+      updatedAt: nowIso()
+    };
+
+    assertUniqueWhatsAppChannel(businesses, businessId, merged.whatsapp);
+    updated = merged;
+    businesses[index] = merged;
+    return businesses;
+  });
+
+  return sanitizeBusiness(updated);
+}
+
+export async function updateBusinessWhatsAppById(businessId, whatsappPatch = {}) {
+  let updated = null;
+  await withWriteLock("businesses", (businesses) => {
+    const index = businesses.findIndex((entry) => entry.id === businessId);
+    if (index === -1) {
+      throw new Error("Business not found.");
+    }
+
+    const current = businesses[index];
+    const merged = {
+      ...current,
+      whatsapp: {
+        ...(current.whatsapp || {}),
+        ...whatsappPatch,
+        webhookVerifyToken:
+          cleanText(whatsappPatch.webhookVerifyToken) ||
+          current.whatsapp?.webhookVerifyToken ||
+          generateWebhookVerifyToken()
+      },
+      updatedAt: nowIso()
+    };
+
+    assertUniqueWhatsAppChannel(businesses, businessId, merged.whatsapp);
+    updated = merged;
+    businesses[index] = merged;
+    return businesses;
+  });
+
+  return sanitizeBusiness(updated);
 }
 
 export async function listLeadsForBusiness(businessId) {

@@ -1,4 +1,4 @@
-const app = document.querySelector("#app");
+﻿const app = document.querySelector("#app");
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
 const PRICING_ENABLED = false; // set to true to re-enable payment popup before platform connect
@@ -82,6 +82,28 @@ function isTelegramConnected(business = state.selectedBusiness) {
   return Boolean(telegram.configured || telegram.tokenConfigured || telegram.token);
 }
 
+function isWhatsAppConfigured(business = state.selectedBusiness) {
+  const whatsapp = business?.whatsapp || {};
+  return Boolean(whatsapp.configured || (whatsapp.phoneNumberId && whatsapp.accessTokenConfigured));
+}
+
+function isWhatsAppReady(business = state.selectedBusiness) {
+  const whatsapp = business?.whatsapp || {};
+  return Boolean(isWhatsAppConfigured(business) && whatsapp.webhookVerifiedAt);
+}
+
+function showWhatsAppSetupAlert(setup = {}) {
+  if (!setup.callbackUrl || !setup.verifyToken) {
+    return;
+  }
+  const steps = Array.isArray(setup.steps) && setup.steps.length
+    ? `\n\nNext steps:\n${setup.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`
+    : "";
+  alert(
+    `WhatsApp connected. Complete the Meta webhook setup before replies can start.\n\nCallback URL:\n${setup.callbackUrl}\n\nVerify Token:\n${setup.verifyToken}${steps}`
+  );
+}
+
 function formatDate(value) {
   if (!value) {
     return "-";
@@ -148,7 +170,7 @@ function serializeCourses(items = []) {
 function formatPlanPrice(value) {
   const amount = Number(value || 0);
   if (!amount) return "Custom";
-  return `₹${amount.toLocaleString("en-IN", { useGrouping: true })}`;
+  return `â‚¹${amount.toLocaleString("en-IN", { useGrouping: true })}`;
 }
 
 function syncDashboardUrl() {
@@ -305,9 +327,9 @@ function renderLanding() {
       <section class="lp-hero">
         <div class="shell">
           <div class="lp-hero-inner">
-            <span class="eyebrow">AI Bot Platform — swift-deploy.in</span>
+            <span class="eyebrow">AI Bot Platform â€” swift-deploy.in</span>
             <h1 class="lp-h1">One AI. Every platform.<br>Zero manual work.</h1>
-            <p class="lp-sub">swift-deploy.in gives your business an AI-powered bot that replies 24/7, supports any language, and works on WhatsApp and Telegram — live in under 2 minutes.</p>
+            <p class="lp-sub">swift-deploy.in gives your business an AI-powered bot that replies 24/7, supports any language, and works on WhatsApp and Telegram â€” live in under 2 minutes.</p>
           </div>
         </div>
       </section>
@@ -329,14 +351,14 @@ function renderLanding() {
               </div>
               <div class="lp-platform-info">
                 <h3>WhatsApp AI Bot</h3>
-                <p>AI assistant for WhatsApp Business. Capture leads, book demos, answer FAQs — all automatically.</p>
+                <p>AI assistant for WhatsApp Business. Capture leads, book demos, answer FAQs â€” all automatically.</p>
                 <ul class="lp-platform-features">
                   <li>Lead capture &amp; CRM dashboard</li>
                   <li>Demo booking automation</li>
                   <li>Multi-language AI replies</li>
                 </ul>
               </div>
-              <div class="lp-platform-cta">Get started free →</div>
+              <div class="lp-platform-cta">Get started free â†’</div>
             </a>
             <a href="/app?mode=signup&product=telegram" class="lp-platform-card lp-platform-telegram">
               <div class="lp-platform-icon">
@@ -354,10 +376,10 @@ function renderLanding() {
                   <li>No extra setup needed</li>
                 </ul>
               </div>
-              <div class="lp-platform-cta">Connect Telegram →</div>
+              <div class="lp-platform-cta">Connect Telegram â†’</div>
             </a>
           </div>
-          <div class="lp-platforms-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
+          <div class="lp-platforms-login">Already have an account? <a href="/app?mode=login">Sign in â†’</a></div>
         </div>
       </section>
 
@@ -371,32 +393,32 @@ function renderLanding() {
           </div>
           <div class="lp-features">
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">⚡</div>
+              <div class="lp-feature-icon">âš¡</div>
               <h3>Instant AI Replies</h3>
-              <p>Your bot replies to every message in under 2 seconds — any question, any time of day, no manual effort required.</p>
+              <p>Your bot replies to every message in under 2 seconds â€” any question, any time of day, no manual effort required.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">🌍</div>
+              <div class="lp-feature-icon">ðŸŒ</div>
               <h3>Any Language, Anytime</h3>
-              <p>Hindi, Tamil, Arabic, Spanish — your bot automatically matches the language of whoever is messaging it. Zero setup.</p>
+              <p>Hindi, Tamil, Arabic, Spanish â€” your bot automatically matches the language of whoever is messaging it. Zero setup.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">📲</div>
+              <div class="lp-feature-icon">ðŸ“²</div>
               <h3>WhatsApp + Telegram</h3>
               <p>One subscription. Connect both WhatsApp and Telegram. Your AI bot works across both platforms simultaneously.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">🚀</div>
+              <div class="lp-feature-icon">ðŸš€</div>
               <h3>Zero Setup</h3>
-              <p>Sign up, paste your credentials, subscribe — your bot is live in under 2 minutes. No technical knowledge required.</p>
+              <p>Sign up, paste your credentials, subscribe â€” your bot is live in under 2 minutes. No technical knowledge required.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">💡</div>
+              <div class="lp-feature-icon">ðŸ’¡</div>
               <h3>No Coding Needed</h3>
-              <p>Everything is managed from a clean dashboard. Change bot behavior, monitor activity, and manage billing — all in one place.</p>
+              <p>Everything is managed from a clean dashboard. Change bot behavior, monitor activity, and manage billing â€” all in one place.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">🔒</div>
+              <div class="lp-feature-icon">ðŸ”’</div>
               <h3>Secure & Private</h3>
               <p>Your credentials are encrypted at rest. All webhook traffic is verified. Your users' conversations are never shared.</p>
             </div>
@@ -410,8 +432,8 @@ function renderLanding() {
           <div class="lp-cta-banner-inner">
             <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
             <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Connect WhatsApp or Telegram in under 2 minutes. No technical skills required.</p>
-            <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>₹2,999/month</strong></div>
-            <a class="button lp-cta-btn" href="/app?mode=platform" style="margin-top:24px;">Choose your platform →</a>
+            <div class="lp-cta-price-tag">One simple plan â€” <strong>$49/month</strong> or <strong>â‚¹2,999/month</strong></div>
+            <a class="button lp-cta-btn" href="/app?mode=platform" style="margin-top:24px;">Choose your platform â†’</a>
           </div>
         </div>
       </section>
@@ -430,7 +452,7 @@ function renderLanding() {
               <a href="/data-deletion">Data Deletion</a>
               <a href="/app?mode=login">Dashboard</a>
             </div>
-            <div class="lp-footer-copy">© 2026 swift-deploy.in. All rights reserved.</div>
+            <div class="lp-footer-copy">Â© 2026 swift-deploy.in. All rights reserved.</div>
           </div>
         </div>
       </footer>
@@ -464,14 +486,14 @@ function renderPlatformChoice() {
             </div>
             <div class="platform-choice-info">
               <h2>WhatsApp AI Bot</h2>
-              <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+              <p>Connect your WhatsApp number. AI replies to every message automatically â€” 24/7, any language.</p>
               <ul class="platform-choice-features">
                 <li>Instant AI replies to any question</li>
                 <li>Works on any WhatsApp number</li>
                 <li>Multi-language support</li>
               </ul>
             </div>
-            <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
+            <div class="platform-choice-cta platform-choice-cta--wa">Get started â†’</div>
           </a>
           <a href="/app?mode=signup&product=telegram" class="platform-choice-card platform-choice-tg">
             <div class="platform-choice-icon">
@@ -479,17 +501,17 @@ function renderPlatformChoice() {
             </div>
             <div class="platform-choice-info">
               <h2>Telegram AI Bot</h2>
-              <p>Paste your BotFather token and your AI bot goes live instantly — no approval, no payment method needed to start.</p>
+              <p>Paste your BotFather token and your AI bot goes live instantly â€” no approval, no payment method needed to start.</p>
               <ul class="platform-choice-features">
                 <li>Live in under 60 seconds</li>
                 <li>No Meta approval needed</li>
                 <li>Same powerful AI as WhatsApp</li>
               </ul>
             </div>
-            <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram →</div>
+            <div class="platform-choice-cta platform-choice-cta--tg">Connect Telegram â†’</div>
           </a>
         </div>
-        <div class="platform-choice-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
+        <div class="platform-choice-login">Already have an account? <a href="/app?mode=login">Sign in â†’</a></div>
       </div>
     </div>
   `;
@@ -506,30 +528,30 @@ function renderAuth() {
         </a>
         <div class="auth-left-content">
           <h2 class="auth-left-title">The smartest way to handle WhatsApp at scale.</h2>
-          <p class="auth-left-sub">Automate lead capture, demo bookings, and customer replies — powered by AI, delivered on WhatsApp.</p>
+          <p class="auth-left-sub">Automate lead capture, demo bookings, and customer replies â€” powered by AI, delivered on WhatsApp.</p>
           <div class="auth-left-features">
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">⚡</span>
+              <span class="auth-left-feature-icon">âš¡</span>
               <span>Replies in under 60 seconds, 24/7</span>
             </div>
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">📊</span>
+              <span class="auth-left-feature-icon">ðŸ“Š</span>
               <span>Live dashboard for leads & bookings</span>
             </div>
             <div class="auth-left-feature">
-              <span class="auth-left-feature-icon">🔒</span>
+              <span class="auth-left-feature-icon">ðŸ”’</span>
               <span>Secure, encrypted, GDPR-ready</span>
             </div>
           </div>
         </div>
-        <div class="auth-left-footer">© 2026 swift-deploy.in · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
+        <div class="auth-left-footer">Â© 2026 swift-deploy.in Â· <a href="/privacy">Privacy</a> Â· <a href="/terms">Terms</a></div>
       </div>
 
       <div class="auth-right">
         <div class="auth-form-wrap">
           <div class="auth-form-header">
             <h1 class="auth-form-title">${isSignup ? "Create your account" : "Welcome back"}</h1>
-            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your ClawCloud dashboard."}</p>
+            <p class="auth-form-sub">${isSignup ? "Start your free workspace â€” no credit card required." : "Sign in to your ClawCloud dashboard."}</p>
           </div>
 
           <a class="google-button" href="/api/auth/google">
@@ -568,7 +590,7 @@ function renderAuth() {
                 <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" id="signup-btn" style="width:100%;justify-content:center;">Create account →</button>
+                <button class="button" type="submit" id="signup-btn" style="width:100%;justify-content:center;">Create account â†’</button>
               </div>
             </form>
           ` : `
@@ -585,7 +607,7 @@ function renderAuth() {
                 <span class="field-error" id="err-password"></span>
               </div>
               <div class="form-actions">
-                <button class="button" type="submit" id="login-btn" style="width:100%;justify-content:center;">Log in →</button>
+                <button class="button" type="submit" id="login-btn" style="width:100%;justify-content:center;">Log in â†’</button>
               </div>
             </form>
           `}
@@ -629,7 +651,7 @@ function renderAuth() {
         render();
       } catch (error) {
         if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Create account →"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Create account â†’"; }
       }
     });
   }
@@ -654,7 +676,7 @@ function renderAuth() {
         render();
       } catch (error) {
         if (errEl) { errEl.textContent = error.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Log in →"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Log in â†’"; }
       }
     });
   }
@@ -787,10 +809,10 @@ function dashboardSection() {
 
           ${activeBilling ? `
             <div class="billing-active-banner">
-              <div class="billing-active-icon">✅</div>
+              <div class="billing-active-icon">âœ…</div>
               <div>
                 <div class="billing-active-title">Your subscription is active</div>
-                <div class="muted" style="font-size:0.85rem;">Renews on ${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "—")}</div>
+                <div class="muted" style="font-size:0.85rem;">Renews on ${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "â€”")}</div>
               </div>
               ${state.billingEnabled && billing.stripeCustomerId ? `<button class="ghost-button" id="billing-portal" style="margin-left:auto;">Manage</button>` : ""}
             </div>
@@ -804,27 +826,27 @@ function dashboardSection() {
             </div>
             <div class="billing-plan-pricing">
               <div class="billing-plan-price">
-                <span class="billing-price-big">₹2,999</span><span class="billing-price-period">/month</span>
+                <span class="billing-price-big">â‚¹2,999</span><span class="billing-price-period">/month</span>
                 <span class="billing-price-or">or</span>
                 <span class="billing-price-big billing-price-usd">$49</span><span class="billing-price-period">/month</span>
               </div>
               <ul class="billing-plan-features">
-                <li>✓ WhatsApp AI Bot</li>
-                <li>✓ Telegram AI Bot</li>
-                <li>✓ Unlimited AI replies</li>
-                <li>✓ Any language support</li>
-                <li>✓ 24/7 always-on</li>
+                <li>âœ“ WhatsApp AI Bot</li>
+                <li>âœ“ Telegram AI Bot</li>
+                <li>âœ“ Unlimited AI replies</li>
+                <li>âœ“ Any language support</li>
+                <li>âœ“ 24/7 always-on</li>
               </ul>
             </div>
             ${activeBilling ? `
-              <div class="status-badge ok" style="width:fit-content;">Active — Bot is running</div>
+              <div class="status-badge ok" style="width:fit-content;">Active â€” Bot is running</div>
             ` : `
               <div class="payment-buttons" style="margin-top:4px;">
                 <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
-                  🇮🇳 Pay ₹2,999/mo
+                  ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo
                 </button>
                 <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
-                  🌍 Pay $49/mo
+                  ðŸŒ Pay $49/mo
                 </button>
               </div>
             `}
@@ -950,14 +972,14 @@ function dashboardSection() {
             <div class="card">
               <h3 class="section-title">Usage This Month</h3>
               ${state.usage ? `
-                <div class="status-row"><span class="muted">Messages</span><span>${escapeHtml(String(state.usage.messages || 0))} / ${escapeHtml(String(state.usageLimits?.messagesPerMonth || "∞"))}</span></div>
-                <div class="status-row"><span class="muted">Leads</span><span>${escapeHtml(String(state.usage.leads || 0))} / ${escapeHtml(String(state.usageLimits?.leadsMax || "∞"))}</span></div>
+                <div class="status-row"><span class="muted">Messages</span><span>${escapeHtml(String(state.usage.messages || 0))} / ${escapeHtml(String(state.usageLimits?.messagesPerMonth || "âˆž"))}</span></div>
+                <div class="status-row"><span class="muted">Leads</span><span>${escapeHtml(String(state.usage.leads || 0))} / ${escapeHtml(String(state.usageLimits?.leadsMax || "âˆž"))}</span></div>
                 <div class="usage-bar"><div class="usage-fill" style="width:${Math.min(100, Math.round(((state.usage.messages || 0) / (state.usageLimits?.messagesPerMonth || 1)) * 100))}%"></div></div>
               ` : `<div class="empty">Loading usage...</div>`}
             </div>
           </div>
           <div class="card section">
-            <h3 class="section-title">Leads — Last 30 Days</h3>
+            <h3 class="section-title">Leads â€” Last 30 Days</h3>
             <div class="bar-chart">
               ${leadsPerDay.map((d) => `
                 <div class="bar-col" title="${escapeHtml(d.date)}: ${escapeHtml(String(d.count))} leads">
@@ -1016,9 +1038,10 @@ function dashboardSection() {
           </div>
         </section>
       `;
-    case "settings":
+    case "settings": {
       const waConn = state.selectedBusiness?.whatsapp;
-      const waIsLive = Boolean(waConn?.phoneNumberId && waConn?.accessToken);
+      const waIsLive = isWhatsAppReady(state.selectedBusiness);
+      const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
       return `
         <section class="card">
           <div class="settings-wa-header">
@@ -1027,25 +1050,25 @@ function dashboardSection() {
             </div>
             <div>
               <div class="settings-wa-title">Connect WhatsApp</div>
-              <div class="muted" style="font-size:0.85rem;">Enter your WhatsApp Cloud API credentials to let your AI bot reply to messages</div>
+              <div class="muted" style="font-size:0.85rem;">Connect your own Meta WhatsApp app with verified credentials and webhook setup details</div>
             </div>
-            <div class="platform-card-badge ${waIsLive ? "badge--live" : "badge--idle"}" style="margin-left:auto;">
-              ${waIsLive ? "● Live" : "○ Not connected"}
+            <div class="platform-card-badge ${waIsLive ? "badge--live" : waConfigured ? "badge--warn" : "badge--idle"}" style="margin-left:auto;">
+              ${waIsLive ? "â— Live" : waConfigured ? "â—‹ Connected" : "â—‹ Not connected"}
             </div>
           </div>
 
-          ${waIsLive ? `
+          ${waConfigured ? `
             <div class="platform-connected-info" style="margin:18px 0;">
               <div class="pci-row"><span>Phone Number</span><strong>${escapeHtml(waConn.displayPhoneNumber || waConn.phoneNumberId || "Connected")}</strong></div>
-              <div class="pci-row"><span>Status</span><strong style="color:#25d366;">Active — AI replying to messages</strong></div>
+              <div class="pci-row"><span>Status</span><strong style="color:${waIsLive ? "#25d366" : "#f5c451"};">${waIsLive ? "Active â€” AI replying to messages" : "Connected â€” complete Meta webhook verification"}</strong></div>
             </div>
           ` : ""}
 
           <form id="settings-form" class="section">
             <div class="settings-wa-steps" style="margin-bottom:20px;">
-              <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Meta for Developers</strong> → Create a WhatsApp app</div>
-              <div class="pc-step"><span class="pc-step-n">2</span>Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong> from the app dashboard</div>
-              <div class="pc-step"><span class="pc-step-n">3</span>Paste them below and save — your bot goes live instantly</div>
+              <div class="pc-step"><span class="pc-step-n">1</span>Go to <strong>Meta for Developers</strong> â†’ Create a WhatsApp app</div>
+              <div class="pc-step"><span class="pc-step-n">2</span>Copy your <strong>Phone Number ID</strong>, <strong>Access Token</strong>, and <strong>App Secret</strong></div>
+              <div class="pc-step"><span class="pc-step-n">3</span>Paste them below, then finish the Meta webhook using the callback URL and verify token shown here</div>
             </div>
             <div class="split">
               <div class="field">
@@ -1061,34 +1084,59 @@ function dashboardSection() {
             <div class="split">
               <div class="field">
                 <label>Access Token</label>
-                <input class="input" name="whatsappAccessToken" placeholder="EAA..." value="${escapeHtml(waConn?.accessToken || "")}" />
-                <small>Permanent token from Meta app</small>
+                <input class="input" name="whatsappAccessToken" placeholder="${escapeHtml(waConn?.accessTokenMask || "EAA...")}" value="" />
+                <small>${waConn?.accessTokenConfigured ? "Leave blank to keep the saved token, or paste a new permanent Meta token." : "Permanent token from your Meta app."}</small>
               </div>
+              <div class="field">
+                <label>App Secret</label>
+                <input class="input" name="whatsappAppSecret" placeholder="${escapeHtml(waConn?.appSecretMask || "Meta App Secret")}" value="" />
+                <small>${waConn?.appSecretConfigured ? "Leave blank to keep the saved app secret, or paste a new one." : "Required when each customer uses their own Meta app."}</small>
+              </div>
+            </div>
+            <div class="split">
               <div class="field">
                 <label>Business Account ID <span class="muted">(optional)</span></label>
                 <input class="input" name="whatsappBusinessAccountId" placeholder="From Meta Business Suite" value="${escapeHtml(waConn?.businessAccountId || "")}" />
               </div>
+              <div class="field">
+                <label>Callback URL</label>
+                <input class="input" value="${escapeHtml(waConn?.webhookUrl || "")}" readonly />
+                <small>Paste this into your Meta webhook callback URL field.</small>
+              </div>
+            </div>
+            <div class="split">
+              <div class="field">
+                <label>Verify Token</label>
+                <input class="input" value="${escapeHtml(waConn?.webhookVerifyToken || "")}" readonly />
+                <small>Paste this exact token into Meta during webhook verification.</small>
+              </div>
+              <div class="field">
+                <label>Webhook Status</label>
+                <input class="input" value="${escapeHtml(waConn?.webhookVerifiedAt ? `Verified at ${formatDate(waConn.webhookVerifiedAt)}` : "Waiting for Meta webhook verification")}" readonly />
+                <small>After Meta verifies the webhook, this updates automatically.</small>
+              </div>
             </div>
             <input type="hidden" name="whatsappProvider" value="meta" />
             <div class="form-actions">
-              <button class="button" type="submit">${waIsLive ? "Update WhatsApp" : "Connect WhatsApp"}</button>
+              <button class="button" type="submit">${waConfigured ? "Update WhatsApp" : "Connect WhatsApp"}</button>
+              ${waConfigured ? `<button class="ghost-button" type="button" id="settings-wa-disconnect">Disconnect</button>` : ""}
             </div>
           </form>
         </section>
       `;
-          `}
-        </section>
-      `;
+    }
     default: {
       const tg = state.selectedBusiness?.telegram;
       const tgConnected = isTelegramConnected(state.selectedBusiness);
-      const waConnected = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId || state.selectedBusiness?.whatsapp?.apiKey);
+      const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
+      const waReady = isWhatsAppReady(state.selectedBusiness);
+      const waConnected = waReady;
       const totalChats = state.analytics?.totalChats || 0;
       return `
         <div class="dash-hero">
           <div class="dash-hero-left">
             <div class="dash-hero-greeting">Welcome back, <span class="dash-hero-name">${escapeHtml(state.user?.name?.split(" ")[0] || "there")}</span></div>
-            <div class="dash-hero-sub">Your AI bot is ${(tgConnected || waConnected) ? "running 24/7 ✦" : "ready to connect"}</div>
+            <div class="dash-hero-sub">Your AI bot is ${(tgConnected || waConnected) ? "running 24/7 âœ¦" : "ready to connect"}</div>
           </div>
           <div class="dash-hero-stats">
             <div class="dash-stat-pill">
@@ -1096,7 +1144,7 @@ function dashboardSection() {
               <span class="dash-stat-lbl">Conversations</span>
             </div>
             <div class="dash-stat-pill">
-              <span class="dash-stat-num">${(tgConnected ? 1 : 0) + (waConnected ? 1 : 0)}</span>
+              <span class="dash-stat-num">${(tgConnected ? 1 : 0) + (waReady ? 1 : 0)}</span>
               <span class="dash-stat-lbl">Active bots</span>
             </div>
           </div>
@@ -1113,24 +1161,30 @@ function dashboardSection() {
               </div>
               <div class="pcard-title-wrap">
                 <div class="pcard-platform">WhatsApp</div>
-                <div class="pcard-status ${waConnected ? "pcard-status--live" : "pcard-status--idle"}">
-                  <span class="pcard-dot"></span>${waConnected ? "Live — AI replying" : "Not connected"}
+                <div class="pcard-status ${waReady ? "pcard-status--live" : "pcard-status--idle"}">
+                  <span class="pcard-dot"></span>${waReady ? "Live — AI replying" : waConfigured ? "Connected — finish webhook" : "Not connected"}
                 </div>
               </div>
             </div>
             <div class="pcard-body">
-              ${waConnected ? `
+              ${waReady ? `
                 <div class="pcard-info-rows">
                   <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
                   <div class="pcard-info-row"><span>Replies</span><strong style="color:#25d366;">24/7 automated</strong></div>
                 </div>
                 <p class="pcard-desc">Your WhatsApp AI bot is live and replying to every message instantly. Share your number with users to start conversations.</p>
+              ` : waConfigured ? `
+                <div class="pcard-info-rows">
+                  <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || state.selectedBusiness?.whatsapp?.phoneNumberId || "Connected")}</strong></div>
+                  <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Webhook setup pending</strong></div>
+                </div>
+                <p class="pcard-desc">Your credentials are saved. Complete the Meta webhook in Settings using the callback URL and verify token, then replies will start automatically.</p>
               ` : `
-                <p class="pcard-desc">Connect your WhatsApp Business number. Your AI bot will reply to every message automatically — any language, any time.</p>
+                <p class="pcard-desc">Connect your WhatsApp Business number. Your AI bot will reply to every message automatically â€” any language, any time.</p>
                 <div class="pcard-steps">
                   <div class="pcard-step"><span class="pcard-step-n">1</span>Get your Meta WhatsApp API credentials</div>
                   <div class="pcard-step"><span class="pcard-step-n">2</span>Go to <strong>Settings</strong> and enter them</div>
-                  <div class="pcard-step"><span class="pcard-step-n">3</span>Bot activates instantly — no waiting</div>
+                  <div class="pcard-step"><span class="pcard-step-n">3</span>Bot activates instantly â€” no waiting</div>
                 </div>
                 <button class="pcard-btn pcard-btn--wa" id="ov-wa-connect-btn">
                   <svg width="16" height="16" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm7.24 20.313c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4.175-.812.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012s-.688.1-1.05.487c-.362.387-1.387 1.35-1.387 3.3s1.425 3.837 1.625 4.1c.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
@@ -1150,7 +1204,7 @@ function dashboardSection() {
               <div class="pcard-title-wrap">
                 <div class="pcard-platform">Telegram</div>
                 <div class="pcard-status ${tgConnected ? "pcard-status--live pcard-status--tg" : "pcard-status--idle"}">
-                  <span class="pcard-dot"></span>${tgConnected ? "Live — AI replying" : "Not connected"}
+                  <span class="pcard-dot"></span>${tgConnected ? "Live â€” AI replying" : "Not connected"}
                 </div>
               </div>
             </div>
@@ -1160,13 +1214,13 @@ function dashboardSection() {
                   <div class="pcard-info-row"><span>Bot</span><strong>@${escapeHtml(tg.botUsername || "")}</strong></div>
                   <div class="pcard-info-row"><span>Replies</span><strong style="color:#2aabee;">24/7 automated</strong></div>
                 </div>
-                <p class="pcard-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users — the AI handles every message instantly.</p>
+                <p class="pcard-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users â€” the AI handles every message instantly.</p>
                 <button class="pcard-btn pcard-btn--danger" id="ov-tg-disconnect">Disconnect bot</button>
               ` : `
-                <p class="pcard-desc">Paste your BotFather token to go live in under 60 seconds — no Meta approval, no waiting, no extra cost.</p>
+                <p class="pcard-desc">Paste your BotFather token to go live in under 60 seconds â€” no Meta approval, no waiting, no extra cost.</p>
                 <div class="pcard-steps">
-                  <div class="pcard-step"><span class="pcard-step-n">1</span>Open Telegram → search <strong>@BotFather</strong></div>
-                  <div class="pcard-step"><span class="pcard-step-n">2</span>Send <code>/newbot</code> → follow the steps</div>
+                  <div class="pcard-step"><span class="pcard-step-n">1</span>Open Telegram â†’ search <strong>@BotFather</strong></div>
+                  <div class="pcard-step"><span class="pcard-step-n">2</span>Send <code>/newbot</code> â†’ follow the steps</div>
                   <div class="pcard-step"><span class="pcard-step-n">3</span>Paste the token below and go live</div>
                 </div>
                 <div id="ov-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
@@ -1244,7 +1298,7 @@ function renderOnboarding() {
       <div class="ob2-panel-head">
         <div class="ob2-badge">Step 1 of 3</div>
         <h2 class="ob2-title">Set up your institute profile</h2>
-        <p class="ob2-sub">This is the identity your AI bot will use when talking to students on WhatsApp. Make it specific — the more context you give, the smarter the bot replies.</p>
+        <p class="ob2-sub">This is the identity your AI bot will use when talking to students on WhatsApp. Make it specific â€” the more context you give, the smarter the bot replies.</p>
       </div>
       <form id="ob-form-1" class="ob2-form">
         <div class="ob2-field">
@@ -1254,17 +1308,17 @@ function renderOnboarding() {
         </div>
         <div class="ob2-field">
           <label class="ob2-label">What do you offer? <span class="ob2-hint-inline">optional</span></label>
-          <textarea class="ob2-textarea" name="description" rows="2" placeholder="e.g. Premium JEE & NEET coaching for Class 9–12. 15 years of results, expert faculty, small batches.">${escapeHtml(biz?.description || "")}</textarea>
+          <textarea class="ob2-textarea" name="description" rows="2" placeholder="e.g. Premium JEE & NEET coaching for Class 9â€“12. 15 years of results, expert faculty, small batches.">${escapeHtml(biz?.description || "")}</textarea>
           <span class="ob2-hint">Students see this when they ask "What is this institute about?"</span>
         </div>
         <div class="ob2-field">
           <label class="ob2-label">Bot personality <span class="ob2-hint-inline">how should it talk?</span></label>
           <textarea class="ob2-textarea" name="aiPrompt" rows="3" placeholder="e.g. You are a warm and professional admissions counselor. Answer clearly, keep replies concise, and always guide students toward booking a free demo class.">${escapeHtml(biz?.aiPrompt || "")}</textarea>
-          <span class="ob2-hint">Think of this as the tone of voice — friendly, formal, Hinglish-mix, etc.</span>
+          <span class="ob2-hint">Think of this as the tone of voice â€” friendly, formal, Hinglish-mix, etc.</span>
         </div>
         <div class="ob2-field">
           <label class="ob2-label">Welcome message <span class="ob2-hint-inline">first thing bot says</span></label>
-          <input class="ob2-input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. 👋 Hi! Welcome to Apex Coaching. I'm your AI admissions assistant. How can I help you today?" />
+          <input class="ob2-input" name="welcomeMessage" value="${escapeHtml(biz?.welcomeMessage || "")}" placeholder="e.g. ðŸ‘‹ Hi! Welcome to Apex Coaching. I'm your AI admissions assistant. How can I help you today?" />
           <span class="ob2-hint">Sent the moment a student first messages your WhatsApp number.</span>
         </div>
         <div class="ob2-actions">
@@ -1286,9 +1340,9 @@ function renderOnboarding() {
         <div class="ob2-field">
           <label class="ob2-label">Course catalog</label>
           <div class="ob2-format-pill">Format: <code>Course Name | Timings | Fee | Keywords | Description</code></div>
-          <textarea class="ob2-textarea ob2-textarea--code" name="courseText" rows="8" placeholder="JEE Main & Advanced | Mon Wed Fri 5–7 pm | ₹8,000/month | jee,iit,engineering | Comprehensive 2-year JEE prep with test series
-NEET | Tue Thu Sat 4–6 pm | ₹7,500/month | neet,medical,biology | NEET coaching for Class 11–12 with biology focus
-Foundation (Class 8–10) | Daily 4–5 pm | ₹5,000/month | foundation,school,cbse | School subject coaching with competitive exam base">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
+          <textarea class="ob2-textarea ob2-textarea--code" name="courseText" rows="8" placeholder="JEE Main & Advanced | Mon Wed Fri 5â€“7 pm | â‚¹8,000/month | jee,iit,engineering | Comprehensive 2-year JEE prep with test series
+NEET | Tue Thu Sat 4â€“6 pm | â‚¹7,500/month | neet,medical,biology | NEET coaching for Class 11â€“12 with biology focus
+Foundation (Class 8â€“10) | Daily 4â€“5 pm | â‚¹5,000/month | foundation,school,cbse | School subject coaching with competitive exam base">${escapeHtml(serializeCourses(biz?.courseItems || []))}</textarea>
           <span class="ob2-hint">One course per line. Keywords help the bot match student questions to the right course.</span>
         </div>
         <div class="ob2-actions">
@@ -1308,19 +1362,19 @@ Foundation (Class 8–10) | Daily 4–5 pm | ₹5,000/month | foundation,school,
       <div class="ob2-panel-head">
         <div class="ob2-badge">Step 3 of 3</div>
         <h2 class="ob2-title">Add your FAQs</h2>
-        <p class="ob2-sub">Every institute gets the same 20 questions asked 100 times. Add them once — your bot handles them forever, at any hour, in any language.</p>
+        <p class="ob2-sub">Every institute gets the same 20 questions asked 100 times. Add them once â€” your bot handles them forever, at any hour, in any language.</p>
       </div>
       <form id="ob-form-3" class="ob2-form">
         <div class="ob2-field">
           <label class="ob2-label">Frequently asked questions</label>
           <div class="ob2-format-pill">Format: <code>Question | Answer</code></div>
-          <textarea class="ob2-textarea ob2-textarea--code" name="faqText" rows="9" placeholder="What is the fee for JEE? | The JEE batch fee is ₹8,000/month with flexible EMI options available.
+          <textarea class="ob2-textarea ob2-textarea--code" name="faqText" rows="9" placeholder="What is the fee for JEE? | The JEE batch fee is â‚¹8,000/month with flexible EMI options available.
 Do you offer demo classes? | Yes! We offer a free 1-hour demo class. Just share your name and preferred timing.
-What are the batch timings? | Morning 6–8 am, Afternoon 2–4 pm, Evening 5–7 pm batches available.
+What are the batch timings? | Morning 6â€“8 am, Afternoon 2â€“4 pm, Evening 5â€“7 pm batches available.
 Is there a hostel facility? | Yes, hostel accommodation is available for outstation students.
 How many students per batch? | We maintain small batches of max 20 students for personal attention.
 What is the success rate? | Our students have a 94% selection rate in JEE & NEET over the last 5 years.">${escapeHtml(serializeFaqs(biz?.faqItems || []))}</textarea>
-          <span class="ob2-hint">One FAQ per line. These are answered instantly — no human needed, 24/7.</span>
+          <span class="ob2-hint">One FAQ per line. These are answered instantly â€” no human needed, 24/7.</span>
         </div>
         <div class="ob2-actions">
           <button class="ob2-btn-ghost" type="button" id="ob-back-3">
@@ -1342,32 +1396,32 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#22c55e" opacity="0.15"/><path d="M9 16.5L13.5 21L23 11" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <h2 class="ob2-done-title">${bizName} is live on WhatsApp</h2>
-        <p class="ob2-done-sub">Your AI admissions bot is now active. Students who message your WhatsApp number will get instant, intelligent replies — 24 hours a day, in any language.</p>
+        <p class="ob2-done-sub">Your AI admissions bot is now active. Students who message your WhatsApp number will get instant, intelligent replies â€” 24 hours a day, in any language.</p>
 
         <div class="ob2-live-grid">
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">🤖</div>
+            <div class="ob2-live-icon">ðŸ¤–</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">AI Bot</div>
               <div class="ob2-live-card-val ob2-green">Active</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">📲</div>
+            <div class="ob2-live-icon">ðŸ“²</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">WhatsApp</div>
               <div class="ob2-live-card-val ob2-green">Connected</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">🎯</div>
+            <div class="ob2-live-icon">ðŸŽ¯</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">Lead Capture</div>
               <div class="ob2-live-card-val ob2-green">On</div>
             </div>
           </div>
           <div class="ob2-live-card">
-            <div class="ob2-live-icon">📅</div>
+            <div class="ob2-live-icon">ðŸ“…</div>
             <div class="ob2-live-card-body">
               <div class="ob2-live-card-title">Demo Booking</div>
               <div class="ob2-live-card-val ob2-green">On</div>
@@ -1379,7 +1433,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
           <div class="ob2-next-title">What's next</div>
           <div class="ob2-next-item">
             <span class="ob2-next-num">1</span>
-            <span>Share your WhatsApp number with students — the bot handles all replies automatically.</span>
+            <span>Share your WhatsApp number with students â€” the bot handles all replies automatically.</span>
           </div>
           <div class="ob2-next-item">
             <span class="ob2-next-num">2</span>
@@ -1434,7 +1488,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Savingâ€¦';
     try {
       const data = formToObject(e.target);
       await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
@@ -1448,7 +1502,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Saving…';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Savingâ€¦';
     try {
       const data = formToObject(e.target);
       const courseItems = parseCourseText(data.courseText);
@@ -1464,7 +1518,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     e.preventDefault();
     const btn = e.target.querySelector(".ob2-btn-primary");
     const orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Launching…';
+    btn.disabled = true; btn.innerHTML = '<span class="ob2-spinner"></span> Launchingâ€¦';
     try {
       const data = formToObject(e.target);
       const faqItems = parseFaqText(data.faqText);
@@ -1487,19 +1541,20 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
 
 function renderDashboard() {
   const tgLive = isTelegramConnected(state.selectedBusiness);
-  const waLive = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId && state.selectedBusiness?.whatsapp?.accessToken);
+  const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
+  const waLive = isWhatsAppReady(state.selectedBusiness);
   const anyLive = tgLive || waLive;
 
   app.innerHTML = `
-    ${state.showBotLivePopup ? `
+    ${state.showBotLivePopup && anyLive ? `
       <div class="bot-live-overlay" id="bot-live-overlay">
         <div class="bot-live-popup">
-          <div class="bot-live-popup-icon">🚀</div>
+          <div class="bot-live-popup-icon">ðŸš€</div>
           <h2>Your bot is live!</h2>
           <p>${tgLive ? `<strong>@${escapeHtml(state.selectedBusiness?.telegram?.botUsername || "")}</strong> is now active on Telegram.` : ""}
              ${waLive ? `Your WhatsApp number <strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "")}</strong> is now active.` : ""}</p>
-          <p class="bot-live-popup-sub">Your AI bot is running 24/7. Share your bot/number with users — it replies instantly to every message.</p>
-          <button class="button" id="bot-live-close" style="width:100%;justify-content:center;">Go to Dashboard →</button>
+          <p class="bot-live-popup-sub">Your AI bot is running 24/7. Share your bot/number with users â€” it replies instantly to every message.</p>
+          <button class="button" id="bot-live-close" style="width:100%;justify-content:center;">Go to Dashboard â†’</button>
         </div>
       </div>
     ` : ""}
@@ -1520,9 +1575,9 @@ function renderDashboard() {
 
         <section class="dashboard-grid">
           <aside class="sidebar">
-            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">🏠 Dashboard</button>
-            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">💳 Billing</button>
-            ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">🛡️ Admin</button>` : ""}
+            <button class="tab-button ${state.tab === "overview" ? "active" : ""}" data-tab="overview">ðŸ  Dashboard</button>
+            <button class="tab-button ${state.tab === "billing" ? "active" : ""}" data-tab="billing">ðŸ’³ Billing</button>
+            ${state.user?.isAdmin ? `<div class="sidebar-section-label">Admin</div><button class="tab-button ${state.tab === "admin" ? "active" : ""}" data-tab="admin">ðŸ›¡ï¸ Admin</button>` : ""}
           </aside>
 
           <div class="main-column">
@@ -1599,7 +1654,7 @@ function renderDashboard() {
     }
   });
 
-  // Overview tab — WhatsApp connect button
+  // Overview tab â€” WhatsApp connect button
   document.querySelector("#ov-wa-connect-btn")?.addEventListener("click", () => {
     state.tab = "settings";
     render();
@@ -1608,7 +1663,7 @@ function renderDashboard() {
     }, 100);
   });
 
-  // Overview tab — Telegram connect form
+  // Overview tab â€” Telegram connect form
   document.querySelector("#ov-tg-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const token = document.querySelector("#ov-tg-token")?.value?.trim();
@@ -1671,24 +1726,33 @@ function renderDashboard() {
       event.preventDefault();
       try {
         const payload = formToObject(settingsForm);
-        payload.faqItems = parseFaqText(payload.faqText);
-        payload.courseItems = parseCourseText(payload.courseText);
-        delete payload.faqText;
-        delete payload.courseText;
-
-        await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}`, {
-          method: "PATCH",
+        const result = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/whatsapp`, {
+          method: "POST",
           body: payload
         });
         await loadBootstrap(state.selectedBusiness.id);
-        const waNowLive = Boolean(state.selectedBusiness?.whatsapp?.phoneNumberId && state.selectedBusiness?.whatsapp?.accessToken);
+        const waNowLive = isWhatsAppReady(state.selectedBusiness);
         if (waNowLive) state.showBotLivePopup = true;
+        if (!waNowLive) showWhatsAppSetupAlert(result?.setup);
         render();
       } catch (error) {
         alert(error.message);
       }
     });
   }
+
+  document.querySelector("#settings-wa-disconnect")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect this WhatsApp number? It will stop replying until you reconnect it.")) return;
+    try {
+      await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/whatsapp`, {
+        method: "DELETE"
+      });
+      await loadBootstrap(state.selectedBusiness.id);
+      render();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
 
   // Team invite
   document.querySelector("#invite-form")?.addEventListener("submit", async (e) => {
@@ -1719,7 +1783,7 @@ function renderDashboard() {
     try {
       const result = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/api-keys`, { method: "POST", body: data });
       const display = document.querySelector("#new-key-display");
-      if (display) display.innerHTML = `<div class="notice success">New key (copy now — shown once): <code>${escapeHtml(result.key)}</code></div>`;
+      if (display) display.innerHTML = `<div class="notice success">New key (copy now â€” shown once): <code>${escapeHtml(result.key)}</code></div>`;
       await loadBootstrap(state.selectedBusiness.id);
       render();
     } catch (error) { alert(error.message); }
@@ -1887,17 +1951,17 @@ function renderTelegramSetup() {
         <div class="tg-setup-form-wrap">
           ${botConnected ? `
             <div class="tg-connected-state">
-              <div class="tg-connected-icon">✅</div>
+              <div class="tg-connected-icon">âœ…</div>
               <h2>Telegram bot connected!</h2>
               <p>Your bot <strong>@${escapeHtml(bot.botUsername)}</strong> is live and ready.</p>
-              <p class="tg-connected-sub">Students can now message your Telegram bot and your AI will reply instantly — no pre-messages, no delays.</p>
-              <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard →</button>
+              <p class="tg-connected-sub">Students can now message your Telegram bot and your AI will reply instantly â€” no pre-messages, no delays.</p>
+              <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard â†’</button>
               <button class="ghost-button" style="margin-top:12px;" id="tg-disconnect-btn">Disconnect bot</button>
             </div>
           ` : `
             <div class="tg-setup-form-header">
               <h1>Connect your Telegram bot</h1>
-              <p>Paste your BotFather token below — your AI goes live in seconds.</p>
+              <p>Paste your BotFather token below â€” your AI goes live in seconds.</p>
             </div>
             <div id="tg-error" class="form-error" style="display:none;"></div>
             <form id="tg-token-form">
@@ -1907,11 +1971,11 @@ function renderTelegramSetup() {
                 <div class="field-hint">Looks like: 1234567890:ABCdef...</div>
               </div>
               <button class="button" type="submit" style="width:100%;justify-content:center;" id="tg-submit-btn">
-                Connect Telegram Bot →
+                Connect Telegram Bot â†’
               </button>
             </form>
             <div class="tg-skip-link">
-              <a href="#" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render();return false;">Skip for now → Use WhatsApp instead</a>
+              <a href="#" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render();return false;">Skip for now â†’ Use WhatsApp instead</a>
             </div>
           `}
         </div>
@@ -1942,7 +2006,7 @@ function renderTelegramSetup() {
       errEl.textContent = err.message;
       errEl.style.display = "block";
       btn.disabled = false;
-      btn.textContent = "Connect Telegram Bot →";
+      btn.textContent = "Connect Telegram Bot â†’";
     }
   });
 
@@ -1962,47 +2026,47 @@ function renderSetupFlow() {
   const paymentPopupHtml = state.showPaymentPopup ? `
     <div class="payment-overlay" id="payment-overlay">
       <div class="payment-popup">
-        <div class="payment-popup-close" id="payment-popup-close">✕</div>
-        <div class="payment-popup-icon">⚡</div>
-        <div class="payment-popup-badge">One Plan · Everything Included</div>
+        <div class="payment-popup-close" id="payment-popup-close">âœ•</div>
+        <div class="payment-popup-icon">âš¡</div>
+        <div class="payment-popup-badge">One Plan Â· Everything Included</div>
         <h2 class="payment-popup-title">Activate your AI bot</h2>
         <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
         <div class="payment-popup-price">
-          <span class="payment-price-big">₹2,999</span><span class="payment-price-period">/month</span>
+          <span class="payment-price-big">â‚¹2,999</span><span class="payment-price-period">/month</span>
           <span class="payment-price-or">or</span>
           <span class="payment-price-big payment-price-usd">$49</span><span class="payment-price-period">/month</span>
         </div>
         <ul class="payment-popup-features">
-          <li>✓ WhatsApp AI Bot (24/7)</li>
-          <li>✓ Telegram AI Bot (instant)</li>
-          <li>✓ Unlimited AI replies — any language</li>
-          <li>✓ Cancel anytime</li>
+          <li>âœ“ WhatsApp AI Bot (24/7)</li>
+          <li>âœ“ Telegram AI Bot (instant)</li>
+          <li>âœ“ Unlimited AI replies â€” any language</li>
+          <li>âœ“ Cancel anytime</li>
         </ul>
         <div class="payment-popup-buttons">
-          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">🇮🇳 Pay ₹2,999/mo</button>
-          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">🌍 Pay $49/mo</button>
+          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo</button>
+          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">ðŸŒ Pay $49/mo</button>
         </div>
-        <div class="payment-popup-note">Secure payment · Cancel anytime · Instant activation</div>
+        <div class="payment-popup-note">Secure payment Â· Cancel anytime Â· Instant activation</div>
       </div>
     </div>
   ` : "";
 
   const waForm = step === "wa-form" ? `
     <div class="setup-form-wrap">
-      <div class="setup-form-back" id="setup-back">← Back</div>
+      <div class="setup-form-back" id="setup-back">â† Back</div>
       <div class="setup-platform-header">
         <div class="setup-platform-icon setup-platform-icon--wa">
           <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
         </div>
         <div>
           <h2 class="setup-platform-name">WhatsApp AI Bot</h2>
-          <p class="setup-platform-sub">Enter your Meta WhatsApp credentials to connect your number</p>
+          <p class="setup-platform-sub">Enter your Meta WhatsApp credentials to connect your number professionally</p>
         </div>
       </div>
       <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> → create a WhatsApp app</div>
-        <div class="setup-step-item"><span class="setup-step-num">2</span>Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong></div>
-        <div class="setup-step-item"><span class="setup-step-num">3</span>Paste them below — subscribe to go live</div>
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> â†’ create a WhatsApp app</div>
+        <div class="setup-step-item"><span class="setup-step-num">2</span>Copy your <strong>Phone Number ID</strong>, <strong>Access Token</strong>, and <strong>App Secret</strong></div>
+        <div class="setup-step-item"><span class="setup-step-num">3</span>Paste them below â€” subscribe to go live</div>
       </div>
       <form id="setup-wa-form" class="setup-form">
         <div class="setup-split">
@@ -2019,26 +2083,30 @@ function renderSetupFlow() {
           <label>Access Token</label>
           <input class="input" name="whatsappAccessToken" placeholder="EAA..." required />
         </div>
+        <div class="setup-field">
+          <label>App Secret</label>
+          <input class="input" name="whatsappAppSecret" placeholder="Meta App Secret" required />
+        </div>
         <input type="hidden" name="whatsappProvider" value="meta" />
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment â†’" : "Connect WhatsApp â†’"}</button>
       </form>
     </div>
   ` : "";
 
   const tgForm = step === "tg-form" ? `
     <div class="setup-form-wrap">
-      <div class="setup-form-back" id="setup-back">← Back</div>
+      <div class="setup-form-back" id="setup-back">â† Back</div>
       <div class="setup-platform-header">
         <div class="setup-platform-icon setup-platform-icon--tg">
           <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
         </div>
         <div>
           <h2 class="setup-platform-name">Telegram AI Bot</h2>
-          <p class="setup-platform-sub">Paste your BotFather token — no Meta approval needed</p>
+          <p class="setup-platform-sub">Paste your BotFather token â€” no Meta approval needed</p>
         </div>
       </div>
       <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram → search <strong>@BotFather</strong></div>
+        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram â†’ search <strong>@BotFather</strong></div>
         <div class="setup-step-item"><span class="setup-step-num">2</span>Send <code>/newbot</code> and follow the steps to create your bot</div>
         <div class="setup-step-item"><span class="setup-step-num">3</span>Copy the token BotFather gives you and paste it below</div>
       </div>
@@ -2049,7 +2117,7 @@ function renderSetupFlow() {
           <small style="color:rgba(255,255,255,0.4);font-size:0.78rem;margin-top:4px;display:block;">Looks like: 1234567890:ABCDefGHI...</small>
         </div>
         <div id="setup-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment â†’" : "Connect & Go Live â†’"}</button>
       </form>
     </div>
   ` : "";
@@ -2062,14 +2130,14 @@ function renderSetupFlow() {
         </div>
         <div class="setup-choice-info">
           <h3>WhatsApp AI Bot</h3>
-          <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+          <p>Connect your WhatsApp number. AI replies to every message automatically â€” 24/7, any language.</p>
           <ul class="setup-choice-features">
             <li>Works on any WhatsApp number</li>
             <li>Instant AI replies, any language</li>
             <li>Meta Cloud API (free tier available)</li>
           </ul>
         </div>
-        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp →</div>
+        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp â†’</div>
       </button>
       <button class="setup-choice-card setup-choice-tg" id="setup-pick-tg">
         <div class="setup-choice-icon">
@@ -2077,14 +2145,14 @@ function renderSetupFlow() {
         </div>
         <div class="setup-choice-info">
           <h3>Telegram AI Bot</h3>
-          <p>Paste your BotFather token and your AI bot goes live instantly — no approval, no waiting.</p>
+          <p>Paste your BotFather token and your AI bot goes live instantly â€” no approval, no waiting.</p>
           <ul class="setup-choice-features">
             <li>Live in under 60 seconds</li>
             <li>No Meta approval needed</li>
             <li>Same powerful AI as WhatsApp</li>
           </ul>
         </div>
-        <div class="setup-choice-cta setup-choice-cta--tg">Connect Telegram →</div>
+        <div class="setup-choice-cta setup-choice-cta--tg">Connect Telegram â†’</div>
       </button>
     </div>
   ` : "";
@@ -2106,13 +2174,13 @@ function renderSetupFlow() {
       <div class="setup-flow-body">
         ${step === "choice" ? `
           <div class="setup-flow-header">
-            <span class="eyebrow">Step 1 of 2 — Choose Platform</span>
+            <span class="eyebrow">Step 1 of 2 â€” Choose Platform</span>
             <h1 class="setup-flow-title">Where should your AI bot reply?</h1>
             <p class="setup-flow-sub">Pick a platform to connect. You can add the other one after subscribing.</p>
           </div>
         ` : `
           <div class="setup-flow-header">
-            <span class="eyebrow">Step 2 of 2 — Connect & Subscribe</span>
+            <span class="eyebrow">Step 2 of 2 â€” Connect & Subscribe</span>
             <h1 class="setup-flow-title">${step === "wa-form" ? "Connect your WhatsApp" : "Connect your Telegram bot"}</h1>
             <p class="setup-flow-sub">Fill in your credentials below, then subscribe to activate.</p>
           </div>
@@ -2143,18 +2211,20 @@ function renderSetupFlow() {
     state.setupStep = "choice"; state.showPaymentPopup = false; renderSetupFlow();
   });
 
-  // WA form submit → validate then show payment popup (or connect directly if pricing disabled)
+  // WA form submit â†’ validate then show payment popup (or connect directly if pricing disabled)
   document.querySelector("#setup-wa-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = formToObject(e.target);
     const numEl = e.target.querySelector("[name=whatsappDisplayPhoneNumber]");
     const idEl = e.target.querySelector("[name=whatsappPhoneNumberId]");
     const tokEl = e.target.querySelector("[name=whatsappAccessToken]");
+    const secretEl = e.target.querySelector("[name=whatsappAppSecret]");
     let valid = true;
-    [numEl, idEl, tokEl].forEach((el) => { if (el) el.classList.remove("input--error"); });
+    [numEl, idEl, tokEl, secretEl].forEach((el) => { if (el) el.classList.remove("input--error"); });
     if (!data.whatsappDisplayPhoneNumber?.trim()) { if (numEl) numEl.classList.add("input--error"); valid = false; }
     if (!data.whatsappPhoneNumberId?.trim()) { if (idEl) idEl.classList.add("input--error"); valid = false; }
     if (!data.whatsappAccessToken?.trim()) { if (tokEl) tokEl.classList.add("input--error"); valid = false; }
+    if (!data.whatsappAppSecret?.trim()) { if (secretEl) secretEl.classList.add("input--error"); valid = false; }
     if (!valid) return;
     if (PRICING_ENABLED) {
       state.pendingPlatformSetup = { platform: "whatsapp", config: data };
@@ -2164,16 +2234,20 @@ function renderSetupFlow() {
       const btn = e.target.querySelector("button[type=submit]");
       if (btn) { btn.disabled = true; btn.textContent = "Connecting..."; }
       try {
-        await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: data });
+        const result = await api(`/api/businesses/${encodeURIComponent(biz.id)}/whatsapp`, { method: "POST", body: data });
         await loadBootstrap(biz.id);
         state.billingActivated = true;
-        state.showBotLivePopup = true;
+        if (isWhatsAppReady(state.selectedBusiness)) {
+          state.showBotLivePopup = true;
+        } else {
+          showWhatsAppSetupAlert(result?.setup);
+        }
         render();
-      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; } }
+      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Connect WhatsApp â†’"; } }
     }
   });
 
-  // TG form submit → validate then show payment popup (or connect directly if pricing disabled)
+  // TG form submit â†’ validate then show payment popup (or connect directly if pricing disabled)
   document.querySelector("#setup-tg-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const tokenInput = document.querySelector("#setup-tg-token");
@@ -2202,7 +2276,7 @@ function renderSetupFlow() {
         render();
       } catch (err) {
         if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment â†’"; }
       }
     }
   });
@@ -2232,26 +2306,35 @@ function renderSetupFlow() {
           theme: { color: "#8b7fff" },
           handler: async () => {
             const pending = state.pendingPlatformSetup;
+            let connectResult = null;
             if (pending) {
               try {
                 if (pending.platform === "telegram") {
                   await api(`/api/businesses/${encodeURIComponent(biz.id)}/telegram`, { method: "POST", body: { token: pending.token } });
                 } else {
-                  await api(`/api/businesses/${encodeURIComponent(biz.id)}`, { method: "PATCH", body: pending.config });
+                  connectResult = await api(`/api/businesses/${encodeURIComponent(biz.id)}/whatsapp`, { method: "POST", body: pending.config });
                 }
               } catch (err) { /* ignore */ }
             }
             await loadBootstrap(biz.id);
             state.showPaymentPopup = false;
             state.pendingPlatformSetup = null;
-            state.showBotLivePopup = true;
+            if (pending?.platform === "telegram") {
+              state.showBotLivePopup = true;
+            } else if (pending?.platform === "whatsapp") {
+              if (isWhatsAppReady(state.selectedBusiness)) {
+                state.showBotLivePopup = true;
+              } else {
+                showWhatsAppSetupAlert(connectResult?.setup);
+              }
+            }
             state.billingActivated = true;
             render();
           }
         });
         rzp.open();
       }
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🇮🇳 Pay ₹2,999/mo"; } }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸ‡®ðŸ‡³ Pay â‚¹2,999/mo"; } }
   });
 
   // Stripe payment
@@ -2265,7 +2348,7 @@ function renderSetupFlow() {
       }
       const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/checkout`, { method: "POST", body: { plan: "pro" } });
       if (payload.url) window.location.href = payload.url;
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🌍 Pay $49/mo"; } }
+    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "ðŸŒ Pay $49/mo"; } }
   });
 }
 
@@ -2329,13 +2412,22 @@ async function init() {
         if (pending && state.selectedBusiness?.id) {
           sessionStorage.removeItem("pendingPlatformSetup");
           try {
+            let connectResult = null;
             if (pending.platform === "telegram") {
               await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, { method: "POST", body: { token: pending.token } });
             } else if (pending.platform === "whatsapp") {
-              await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}`, { method: "PATCH", body: pending.config });
+              connectResult = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/whatsapp`, { method: "POST", body: pending.config });
             }
             await loadBootstrap(state.selectedBusiness.id);
-            state.showBotLivePopup = true;
+            if (pending.platform === "telegram") {
+              state.showBotLivePopup = true;
+            } else if (pending.platform === "whatsapp") {
+              if (isWhatsAppReady(state.selectedBusiness)) {
+                state.showBotLivePopup = true;
+              } else {
+                showWhatsAppSetupAlert(connectResult?.setup);
+              }
+            }
           } catch (err) { /* ignore, bot connect failed, user can reconnect from dashboard */ }
         }
       }

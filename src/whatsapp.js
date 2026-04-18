@@ -12,6 +12,7 @@ function resolveIntegration(overrides = {}) {
   return {
     provider: cleanText(overrides.provider || config.whatsappProvider || "meta").toLowerCase(),
     accessToken: cleanText(overrides.accessToken || config.whatsappAccessToken),
+    appSecret: cleanText(overrides.appSecret || overrides.whatsappAppSecret || config.whatsappAppSecret),
     phoneNumberId: cleanText(overrides.phoneNumberId || config.whatsappPhoneNumberId),
     businessAccountId: cleanText(
       overrides.businessAccountId || config.whatsappBusinessAccountId
@@ -29,8 +30,9 @@ function resolveIntegration(overrides = {}) {
   };
 }
 
-export function verifyWhatsAppSignature(rawBody, signatureHeader) {
-  if (!config.whatsappAppSecret) {
+export function verifyWhatsAppSignatureWithSecret(rawBody, signatureHeader, appSecret) {
+  const secret = cleanText(appSecret);
+  if (!secret) {
     return true;
   }
 
@@ -39,7 +41,7 @@ export function verifyWhatsAppSignature(rawBody, signatureHeader) {
   }
 
   const expected = crypto
-    .createHmac("sha256", config.whatsappAppSecret)
+    .createHmac("sha256", secret)
     .update(rawBody)
     .digest("hex");
 
@@ -47,6 +49,10 @@ export function verifyWhatsAppSignature(rawBody, signatureHeader) {
     Buffer.from(signatureHeader.slice("sha256=".length)),
     Buffer.from(expected)
   );
+}
+
+export function verifyWhatsAppSignature(rawBody, signatureHeader) {
+  return verifyWhatsAppSignatureWithSecret(rawBody, signatureHeader, config.whatsappAppSecret);
 }
 
 function extractMedia(message) {
@@ -143,6 +149,37 @@ export async function downloadWhatsAppMedia(mediaId, integration = {}) {
     data: buffer,
     mimeType: info.mime_type || "application/octet-stream"
   };
+}
+
+export async function getWhatsAppPhoneNumberInfo(phoneNumberId, integration = {}) {
+  const runtime = resolveIntegration(integration);
+  const targetPhoneNumberId = cleanText(phoneNumberId || runtime.phoneNumberId);
+  requireConfig("WHATSAPP_ACCESS_TOKEN", runtime.accessToken);
+  if (!targetPhoneNumberId) {
+    throw new Error("WhatsApp Phone Number ID is required.");
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${runtime.graphVersion}/${targetPhoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating,name_status`,
+    {
+      headers: { Authorization: `Bearer ${runtime.accessToken}` }
+    }
+  );
+
+  const details = await response.text();
+  let parsed = {};
+  try {
+    parsed = details ? JSON.parse(details) : {};
+  } catch {
+    parsed = { raw: details };
+  }
+
+  if (!response.ok) {
+    const reason = parsed?.error?.message || details || "Unknown Meta error";
+    throw new Error(`WhatsApp connect failed: ${String(reason).slice(0, 240)}`);
+  }
+
+  return parsed;
 }
 
 function asAiSensyDestination(to) {

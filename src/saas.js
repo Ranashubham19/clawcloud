@@ -144,9 +144,12 @@ export function getBusinessWhatsAppConfig(business) {
   return {
     provider: business.whatsapp?.provider || config.messagingProvider,
     accessToken: business.whatsapp?.accessToken || "",
+    appSecret: business.whatsapp?.appSecret || "",
     phoneNumberId: business.whatsapp?.phoneNumberId || "",
     businessAccountId: business.whatsapp?.businessAccountId || "",
-    displayPhoneNumber: business.whatsapp?.displayPhoneNumber || ""
+    displayPhoneNumber: business.whatsapp?.displayPhoneNumber || "",
+    webhookUrl: business.whatsapp?.webhookUrl || "",
+    webhookVerifyToken: business.whatsapp?.webhookVerifyToken || ""
   };
 }
 
@@ -296,7 +299,11 @@ export function getBusinessReadiness(business) {
             cleanText(config.aisensyCampaignName) &&
             cleanText(config.aisensyFlowToken)
         )
-      : Boolean(business.whatsapp?.phoneNumberId && business.whatsapp?.accessToken);
+      : Boolean(
+          business.whatsapp?.phoneNumberId &&
+            business.whatsapp?.accessToken &&
+            (business.whatsapp?.appSecret || config.whatsappAppSecret)
+        );
 
   const items = [
     {

@@ -38,6 +38,7 @@ import {
   adminListAllBusinesses,
   adminSuspendBusiness,
   getAdvancedAnalytics,
+  updateBusinessWhatsApp,
   updateBusinessTelegram,
   getRawBusinessById,
   findBusinessByTelegramToken
@@ -49,6 +50,7 @@ import {
   getTelegramWebhookInfo,
   deleteTelegramWebhook
 } from "./telegram.js";
+import { getWhatsAppPhoneNumberInfo } from "./whatsapp.js";
 import { sendWelcomeEmail, sendPasswordResetEmail, sendTeamInviteEmail } from "./mailer.js";
 import {
   authRateLimit,
@@ -764,6 +766,147 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   // ── Telegram Integration ─────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "whatsapp" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "write")) return true;
+    try {
+      const parsedBody = await readJsonBody(request, readRawBody);
+      const body =
+        typeof parsedBody === "string"
+          ? JSON.parse(parsedBody)
+          : parsedBody;
+
+      const provider = String(body.whatsappProvider || body.provider || "meta").trim().toLowerCase();
+      if (provider !== "meta") {
+        throw new Error("Self-serve multi-user WhatsApp setup currently supports Meta Cloud API only.");
+      }
+
+      const phoneNumberId = String(body.whatsappPhoneNumberId || body.phoneNumberId || "").trim();
+      const accessToken = String(body.whatsappAccessToken || body.accessToken || "").trim();
+      const displayPhoneNumber = String(
+        body.whatsappDisplayPhoneNumber || body.displayPhoneNumber || ""
+      ).trim();
+      const businessAccountId = String(
+        body.whatsappBusinessAccountId || body.businessAccountId || ""
+      ).trim();
+      const appSecret = String(body.whatsappAppSecret || body.appSecret || "").trim();
+
+      const rawBusiness = await getRawBusinessById(businessId);
+      if (!rawBusiness || rawBusiness.userId !== auth.user.id) {
+        throw new Error("Business not found.");
+      }
+
+      const resolvedPhoneNumberId = phoneNumberId || String(rawBusiness.whatsapp?.phoneNumberId || "").trim();
+      const resolvedAccessToken = accessToken || String(rawBusiness.whatsapp?.accessToken || "").trim();
+      const resolvedAppSecret = appSecret || String(rawBusiness.whatsapp?.appSecret || "").trim();
+      const resolvedDisplayPhoneNumber =
+        displayPhoneNumber || String(rawBusiness.whatsapp?.displayPhoneNumber || "").trim();
+      const resolvedBusinessAccountId =
+        businessAccountId || String(rawBusiness.whatsapp?.businessAccountId || "").trim();
+
+      if (!resolvedPhoneNumberId) throw new Error("WhatsApp Phone Number ID is required.");
+      if (!resolvedAccessToken) throw new Error("WhatsApp Access Token is required.");
+      if (!resolvedAppSecret && !String(config.whatsappAppSecret || "").trim()) {
+        throw new Error("WhatsApp App Secret is required for multi-user Meta webhook verification.");
+      }
+
+      const appBase = String(config.appBaseUrl || requestOrigin(request) || "").replace(/\/$/, "");
+      let parsedAppBase;
+      try {
+        parsedAppBase = new URL(appBase);
+      } catch {
+        throw new Error("APP_BASE_URL is invalid. Set it to your live backend URL before connecting WhatsApp.");
+      }
+
+      if (
+        parsedAppBase.protocol !== "https:" &&
+        !["localhost", "127.0.0.1"].includes(parsedAppBase.hostname)
+      ) {
+        throw new Error("WhatsApp needs a public HTTPS backend URL. Set APP_BASE_URL to your live backend domain and try again.");
+      }
+
+      const phoneInfo = await getWhatsAppPhoneNumberInfo(resolvedPhoneNumberId, {
+        provider,
+        phoneNumberId: resolvedPhoneNumberId,
+        accessToken: resolvedAccessToken
+      });
+      const verifiedDisplayPhoneNumber =
+        String(phoneInfo.display_phone_number || "").trim() || resolvedDisplayPhoneNumber;
+
+      const refreshed = await updateBusinessWhatsApp(auth.user.id, businessId, {
+        provider,
+        phoneNumberId: resolvedPhoneNumberId,
+        accessToken: resolvedAccessToken,
+        appSecret: resolvedAppSecret,
+        businessAccountId: resolvedBusinessAccountId,
+        displayPhoneNumber: verifiedDisplayPhoneNumber,
+        webhookUrl: `${appBase}/webhooks/whatsapp`,
+        connectedAt: new Date().toISOString(),
+        lastError: ""
+      });
+
+      await appendAuditLog({
+        businessId,
+        userId: auth.user.id,
+        action: "whatsapp.connect",
+        details: {
+          provider,
+          phoneNumberId: resolvedPhoneNumberId,
+          displayPhoneNumber: verifiedDisplayPhoneNumber
+        }
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        whatsapp: refreshed?.whatsapp || {},
+        setup: {
+          callbackUrl: refreshed?.whatsapp?.webhookUrl || `${appBase}/webhooks/whatsapp`,
+          verifyToken: refreshed?.whatsapp?.webhookVerifyToken || "",
+          phoneNumberId: resolvedPhoneNumberId,
+          displayPhoneNumber: verifiedDisplayPhoneNumber,
+          steps: [
+            "Open your Meta app webhook settings.",
+            "Set the callback URL to the value shown here.",
+            "Set the verify token exactly as shown here.",
+            "Subscribe the app to WhatsApp message events."
+          ]
+        }
+      });
+    } catch (error) {
+      await updateBusinessWhatsApp(auth.user.id, businessId, {
+        lastError: error.message
+      }).catch(() => {});
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "whatsapp" && request.method === "DELETE") {
+    try {
+      const rawBusiness = await getRawBusinessById(businessId);
+      if (!rawBusiness || rawBusiness.userId !== auth.user.id) {
+        throw new Error("Business not found.");
+      }
+
+      const refreshed = await updateBusinessWhatsApp(auth.user.id, businessId, {
+        provider: "meta",
+        displayPhoneNumber: "",
+        phoneNumberId: "",
+        businessAccountId: "",
+        accessToken: "",
+        appSecret: "",
+        webhookUrl: "",
+        webhookVerifiedAt: "",
+        connectedAt: "",
+        lastError: ""
+      });
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "whatsapp.disconnect", details: {} });
+      sendJson(response, 200, { ok: true, whatsapp: refreshed?.whatsapp || {} });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
   if (parts.length === 4 && parts[3] === "telegram" && request.method === "POST") {
     if (rejectIfRateLimited(request, response, "write")) return true;
     try {

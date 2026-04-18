@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -24,7 +25,8 @@ import {
 import {
   detectMessagingProvider,
   extractInboundMessages,
-  verifyMessagingWebhookGet
+  verifyMessagingWebhookGet,
+  verifyMessagingWebhookPost
 } from "../src/messaging.js";
 import { buildMessagingWebhookSuccessResponse } from "../src/messaging.js";
 import {
@@ -417,7 +419,7 @@ await run("verifyMessagingWebhookGet accepts AiSensy token on GET routes", async
   config.aisensyFlowToken = "test-flow-token";
 
   try {
-    const verification = verifyMessagingWebhookGet({
+    const verification = await verifyMessagingWebhookGet({
       provider: "aisensy",
       headers: {
         authorization: "Bearer test-flow-token"
@@ -1109,6 +1111,165 @@ await run("saas store creates a workspace and resolves inbound WhatsApp mapping"
   assert.equal(loadedSession.user.email, "shubham@example.com");
   assert.equal(resolvedBusiness.id, business.id);
   assert.equal(resolvedBusiness.whatsapp.phoneNumberId, "pn_123");
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("saas store blocks duplicate WhatsApp phone ownership across workspaces", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const userOne = await saasStore.createSaasUser({
+    name: "Meta One",
+    email: "meta-one@example.com",
+    password: "supersecure123"
+  });
+  const userTwo = await saasStore.createSaasUser({
+    name: "Meta Two",
+    email: "meta-two@example.com",
+    password: "supersecure123"
+  });
+
+  await saasStore.createBusinessForUser(userOne.id, {
+    name: "Workspace One",
+    whatsappPhoneNumberId: "meta_phone_1",
+    whatsappDisplayPhoneNumber: "+15550001111",
+    whatsappAccessToken: "meta-token-one",
+    whatsappAppSecret: "meta-secret-one"
+  });
+
+  const businessTwo = await saasStore.createBusinessForUser(userTwo.id, {
+    name: "Workspace Two"
+  });
+
+  await assert.rejects(
+    () =>
+      saasStore.updateBusinessWhatsApp(userTwo.id, businessTwo.id, {
+        provider: "meta",
+        phoneNumberId: "meta_phone_1",
+        displayPhoneNumber: "+15550002222",
+        accessToken: "meta-token-two",
+        appSecret: "meta-secret-two"
+      }),
+    /already connected to another workspace/i
+  );
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("verifyMessagingWebhookPost accepts business-specific Meta app secrets", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const user = await saasStore.createSaasUser({
+    name: "Meta Owner",
+    email: "meta-owner@example.com",
+    password: "supersecure123"
+  });
+
+  const business = await saasStore.createBusinessForUser(user.id, {
+    name: "Meta Workspace"
+  });
+
+  await saasStore.updateBusinessWhatsApp(user.id, business.id, {
+    provider: "meta",
+    phoneNumberId: "meta_phone_99",
+    displayPhoneNumber: "+15551112222",
+    accessToken: "meta-access-token",
+    appSecret: "business-specific-secret",
+    webhookUrl: "https://example.com/webhooks/whatsapp"
+  });
+
+  const rawBody = Buffer.from(
+    JSON.stringify({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: {
+                  phone_number_id: "meta_phone_99",
+                  display_phone_number: "+15551112222"
+                },
+                contacts: [{ profile: { name: "Riya" } }],
+                messages: [
+                  {
+                    id: "wamid.meta.99",
+                    from: "15551112222",
+                    type: "text",
+                    text: { body: "Hello from Meta" }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    })
+  );
+  const signature =
+    "sha256=" +
+    crypto
+      .createHmac("sha256", "business-specific-secret")
+      .update(rawBody)
+      .digest("hex");
+
+  const verification = await verifyMessagingWebhookPost({
+    provider: "meta",
+    rawBody,
+    headers: {
+      "x-hub-signature-256": signature
+    },
+    url: new URL("http://localhost/webhooks/whatsapp"),
+    payload: JSON.parse(rawBody.toString("utf8"))
+  });
+
+  assert.equal(verification.ok, true);
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+await run("verifyMessagingWebhookGet accepts per-business WhatsApp verify tokens", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const user = await saasStore.createSaasUser({
+    name: "Webhook Owner",
+    email: "webhook-owner@example.com",
+    password: "supersecure123"
+  });
+
+  const business = await saasStore.createBusinessForUser(user.id, {
+    name: "Webhook Workspace"
+  });
+
+  await saasStore.updateBusinessWhatsApp(user.id, business.id, {
+    provider: "meta",
+    phoneNumberId: "meta_phone_77",
+    accessToken: "meta-access-token",
+    appSecret: "meta-app-secret",
+    webhookVerifyToken: "biz-verify-token"
+  });
+
+  const verification = await verifyMessagingWebhookGet({
+    provider: "meta",
+    url: new URL(
+      "http://localhost/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=biz-verify-token&hub.challenge=challenge-123"
+    )
+  });
+
+  assert.equal(verification.ok, true);
+  assert.equal(verification.body, "challenge-123");
+  assert.equal(verification.businessId, business.id);
 
   await rm(tempDir, { recursive: true, force: true });
 });
