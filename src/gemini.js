@@ -90,6 +90,82 @@ export function hasGeminiProvider() {
   return Boolean(config.geminiApiKey);
 }
 
+function cleanText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeSourceDomain(uri) {
+  try {
+    return new URL(uri).hostname.replace(/^www\./i, "").trim();
+  } catch {
+    return "";
+  }
+}
+
+export function extractGeminiGroundingSources(candidate, maxSources = 6) {
+  const grounding = candidate?.groundingMetadata || {};
+  const chunks = Array.isArray(grounding.groundingChunks)
+    ? grounding.groundingChunks
+    : [];
+
+  if (!chunks.length) {
+    return [];
+  }
+
+  const preferredIndices = [];
+  const supports = Array.isArray(grounding.groundingSupports)
+    ? grounding.groundingSupports
+    : [];
+
+  for (const support of supports) {
+    for (const index of support?.groundingChunkIndices || []) {
+      if (
+        Number.isInteger(index) &&
+        index >= 0 &&
+        index < chunks.length &&
+        !preferredIndices.includes(index)
+      ) {
+        preferredIndices.push(index);
+      }
+    }
+  }
+
+  const orderedIndices = preferredIndices.slice();
+  for (let index = 0; index < chunks.length; index += 1) {
+    if (!orderedIndices.includes(index)) {
+      orderedIndices.push(index);
+    }
+  }
+
+  const seenUris = new Set();
+  const sources = [];
+
+  for (const index of orderedIndices) {
+    const chunk = chunks[index] || {};
+    const web = chunk?.web || {};
+    const uri = cleanText(web.uri || web.url || chunk.uri || "");
+    if (!uri || seenUris.has(uri)) {
+      continue;
+    }
+
+    seenUris.add(uri);
+
+    const domain = normalizeSourceDomain(uri);
+    const title = cleanText(web.title || domain || uri);
+    sources.push({
+      title,
+      uri,
+      domain
+    });
+
+    if (sources.length >= maxSources) {
+      break;
+    }
+  }
+
+  return sources;
+}
+
 async function requestGeminiSearchAnswer({
   query,
   languageStyle,
@@ -110,7 +186,8 @@ async function requestGeminiSearchAnswer({
     "ACCURACY RULE: Use Google Search to get the most up-to-date, factual information. If the question asks for a list (e.g. '10 conditions', '5 demands', '3 reasons'), provide ALL items numbered clearly.",
     "DEPTH RULE: For news/events questions, include: what happened, who is involved, key details, current status. Be specific — use real names, numbers, dates.",
     "SPEED RULE: Answer directly. No preamble, no 'Great question!', no 'Let me search for that'. Start with the answer immediately.",
-    "Never mention searching, tools, or internal workflow. Never output raw JSON or placeholder text."
+    "Never mention searching, tools, or internal workflow. Never output raw JSON or placeholder text.",
+    "Do not add citation markers, footnotes, or a sources section in the answer text."
   ]
     .filter(Boolean)
     .join("\n");
@@ -167,7 +244,14 @@ async function requestGeminiSearchAnswer({
       .join("")
       .trim();
 
-    return text || null;
+    if (!text) {
+      return null;
+    }
+
+    return {
+      text,
+      sources: extractGeminiGroundingSources(candidate)
+    };
   } catch (error) {
     const message =
       error?.name === "AbortError"
@@ -382,7 +466,7 @@ export async function geminiSearchAnswer({
     maxOutputTokens,
     timeoutMs: Math.min(config.geminiTimeoutMs, remainingMs)
   });
-  if (answer && isLanguageCompatible(answer, languageStyle)) {
+  if (answer?.text && isLanguageCompatible(answer.text, languageStyle)) {
     return answer;
   }
 

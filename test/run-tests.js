@@ -7,11 +7,16 @@ import {
   isLanguageCompatible
 } from "../src/lib/language.js";
 import { config } from "../src/config.js";
-import { cleanUserFacingText, sanitizeForWhatsApp } from "../src/lib/text.js";
+import {
+  cleanUserFacingText,
+  formatSourceAttribution,
+  sanitizeForWhatsApp
+} from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import { buildAiSensyCampaignPayload, splitWhatsAppMessage } from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 import { extractAiSensyFlowInput } from "../src/aisensy-flow.js";
+import { extractGeminiGroundingSources } from "../src/gemini.js";
 import {
   detectMessagingProvider,
   extractInboundMessages,
@@ -472,6 +477,74 @@ await run("sanitizeForWhatsApp strips decorative symbols and keeps clean spacing
   assert.equal(cleaned.includes("•"), false);
   assert.match(cleaned, /\*Answer\*/);
   assert.match(cleaned, /- First point/);
+});
+
+await run("extractGeminiGroundingSources keeps grounded web sources in support order", async () => {
+  const sources = extractGeminiGroundingSources({
+    groundingMetadata: {
+      groundingChunks: [
+        {
+          web: {
+            uri: "https://www.reuters.com/world/example-story",
+            title: "Reuters story"
+          }
+        },
+        {
+          web: {
+            uri: "https://apnews.com/article/example",
+            title: "AP story"
+          }
+        },
+        {
+          web: {
+            uri: "https://www.bbc.com/news/example",
+            title: "BBC story"
+          }
+        }
+      ],
+      groundingSupports: [
+        { groundingChunkIndices: [1, 0] },
+        { groundingChunkIndices: [1, 2] }
+      ]
+    }
+  });
+
+  assert.deepEqual(
+    sources.map((source) => source.domain),
+    ["apnews.com", "reuters.com", "bbc.com"]
+  );
+});
+
+await run("formatSourceAttribution builds compact source summary", async () => {
+  const formatted = formatSourceAttribution([
+    {
+      title: "Reuters story",
+      domain: "reuters.com",
+      uri: "https://www.reuters.com/world/example-story"
+    },
+    {
+      title: "AP story",
+      domain: "apnews.com",
+      uri: "https://apnews.com/article/example"
+    },
+    {
+      title: "BBC story",
+      domain: "bbc.com",
+      uri: "https://www.bbc.com/news/example"
+    },
+    {
+      title: "CNN story",
+      domain: "cnn.com",
+      uri: "https://www.cnn.com/world/example"
+    }
+  ]);
+
+  assert.match(formatted, /\*Sources\*: reuters\.com, apnews\.com, bbc\.com \+1 more/);
+  assert.match(formatted, /\*See details\*/);
+  assert.match(
+    formatted,
+    /1\. Reuters story \(reuters\.com\): https:\/\/www\.reuters\.com\/world\/example-story/
+  );
 });
 
 await run("beginInboundProcessing dedupes repeated message ids", async () => {

@@ -23,6 +23,38 @@ function stripDecorativeSymbols(value) {
     .replace(/[\p{Extended_Pictographic}]/gu, "");
 }
 
+function cleanInlineText(value) {
+  return String(value || "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shortenInlineText(value, maxLen = 48) {
+  const text = cleanInlineText(value);
+  if (text.length <= maxLen) {
+    return text;
+  }
+  return `${text.slice(0, maxLen - 3).trim()}...`;
+}
+
+function sourceSummaryLabel(source = {}) {
+  return (
+    cleanInlineText(source.domain).replace(/^www\./i, "") ||
+    shortenInlineText(source.title, 40) ||
+    shortenInlineText(source.uri, 48)
+  );
+}
+
+function sourceDetailLabel(source = {}) {
+  const title = shortenInlineText(source.title, 90);
+  const domain = cleanInlineText(source.domain).replace(/^www\./i, "");
+  if (title && domain && !title.toLowerCase().includes(domain.toLowerCase())) {
+    return `${title} (${domain})`;
+  }
+  return title || domain || "Source";
+}
+
 export function sanitizeForWhatsApp(value) {
   let text = stripDecorativeSymbols(value);
   if (!text.trim()) return "";
@@ -90,6 +122,47 @@ export function cleanUserFacingText(value) {
   text = cleanedLines.join("\n");
   text = text.replace(/\n{3,}/g, "\n\n").trim();
   return text;
+}
+
+export function formatSourceAttribution(sources, options = {}) {
+  const items = Array.isArray(sources)
+    ? sources
+        .filter((source) => cleanInlineText(source?.uri))
+        .slice(0, Math.max(1, options.maxSources || 6))
+    : [];
+
+  if (!items.length) {
+    return "";
+  }
+
+  const summaryLabels = [];
+  for (const source of items) {
+    const label = sourceSummaryLabel(source);
+    if (label && !summaryLabels.includes(label)) {
+      summaryLabels.push(label);
+    }
+    if (summaryLabels.length >= 3) {
+      break;
+    }
+  }
+
+  if (!summaryLabels.length) {
+    return "";
+  }
+
+  const extraCount = Math.max(0, items.length - summaryLabels.length);
+  const sourcesHeading = cleanInlineText(options.sourcesHeading || "Sources") || "Sources";
+  const detailsHeading = cleanInlineText(options.detailsHeading || "See details") || "See details";
+  const summaryLine = `*${sourcesHeading}*: ${summaryLabels.join(", ")}${
+    extraCount ? ` +${extraCount} more` : ""
+  }`;
+
+  const detailLines = items.slice(0, 3).map((source, index) => {
+    const label = sourceDetailLabel(source);
+    return `${index + 1}. ${label}: ${cleanInlineText(source.uri)}`;
+  });
+
+  return `${summaryLine}\n\n*${detailsHeading}*\n${detailLines.join("\n")}`.trim();
 }
 
 export function toModelText(content) {

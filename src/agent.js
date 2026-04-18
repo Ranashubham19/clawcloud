@@ -14,7 +14,12 @@ import {
   languageInstruction,
   languageLabel
 } from "./lib/language.js";
-import { cleanUserFacingText, safeJsonParse, sanitizeForWhatsApp } from "./lib/text.js";
+import {
+  cleanUserFacingText,
+  formatSourceAttribution,
+  safeJsonParse,
+  sanitizeForWhatsApp
+} from "./lib/text.js";
 import {
   geminiSearchAnswer,
   geminiMediaAnswer,
@@ -59,6 +64,20 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
     }
   }
   return null;
+}
+
+function formatGroundedAnswer(text, sources = []) {
+  const answerText = cleanUserFacingText(text);
+  if (!answerText) {
+    return "";
+  }
+
+  const attribution = formatSourceAttribution(sources);
+  if (!attribution) {
+    return answerText;
+  }
+
+  return `${answerText}\n\n${attribution}`;
 }
 
 function pickMaxTokens(text) {
@@ -579,22 +598,31 @@ export async function handleIncomingText({
       Date.now() + config.geminiTimeoutMs
     );
     if (geminiAnswer) {
-      const geminiText = cleanUserFacingText(geminiAnswer);
+      const geminiText = cleanUserFacingText(geminiAnswer.text);
       if (
         geminiText &&
         !isToolLeakText(geminiText) &&
         isLanguageCompatible(geminiText, languageStyle)
       ) {
+        const groundedReply = sanitizeForWhatsApp(
+          formatGroundedAnswer(geminiText, geminiAnswer.sources || [])
+        );
         await appendConversationMessage(
           from,
           {
             role: "assistant",
-            text: geminiText,
-            meta: { source: "gemini-first" }
+            text: groundedReply,
+            meta: {
+              source: "gemini-first",
+              grounded: Array.isArray(geminiAnswer.sources) && geminiAnswer.sources.length > 0,
+              sources: Array.isArray(geminiAnswer.sources)
+                ? geminiAnswer.sources.slice(0, 6)
+                : []
+            }
           },
           { businessId }
         );
-        return geminiText;
+        return groundedReply;
       }
     }
     nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
