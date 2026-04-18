@@ -31,6 +31,7 @@ import {
   extractTelegramInbound,
   getTelegramBotInfo,
   getTelegramWebhookInfo,
+  sendTelegramChatAction,
   sendTelegramMessage,
   setTelegramWebhook
 } from "../src/telegram.js";
@@ -271,6 +272,27 @@ await run("getTelegramWebhookInfo returns Telegram webhook metadata", async () =
   try {
     const info = await getTelegramWebhookInfo("token");
     assert.equal(info.result.url, "https://example.com/webhooks/telegram/biz-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("sendTelegramChatAction sends typing status", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: true })
+    };
+  };
+
+  try {
+    await sendTelegramChatAction("token", "123456", "typing");
+    assert.equal(requestBody.chat_id, "123456");
+    assert.equal(requestBody.action, "typing");
   } finally {
     globalThis.fetch = originalFetch;
   }

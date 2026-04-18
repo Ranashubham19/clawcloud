@@ -23,7 +23,11 @@ import {
 } from "./messaging.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
-import { extractTelegramInbound, sendTelegramMessage } from "./telegram.js";
+import {
+  extractTelegramInbound,
+  sendTelegramChatAction,
+  sendTelegramMessage
+} from "./telegram.js";
 import { getBusinessByTelegramToken } from "./saas-store.js";
 import {
   getDataDeletionHtml,
@@ -289,6 +293,14 @@ async function processInboundMessage(message, options = {}) {
 
   let assistantReply = "";
   try {
+    if (
+      replyMode === "provider-send" &&
+      message.provider === "meta" &&
+      message.providerMessageId
+    ) {
+      await sendTypingPresence(message.providerMessageId, replyIntegration).catch(() => {});
+    }
+
     if (message.mediaId) {
       assistantReply = await handleIncomingMedia({
         ...message,
@@ -567,6 +579,8 @@ async function handleTelegramWebhook(request, response, url) {
   }
 
   try {
+    await sendTelegramChatAction(token, inbound.chatId, "typing").catch(() => {});
+
     const reply = await handleIncomingText({
       ...message,
       businessContext: business,
