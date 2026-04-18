@@ -709,6 +709,29 @@ export async function updateBusinessForUser(userId, businessId, patch = {}) {
   return sanitizeBusiness(updated);
 }
 
+export async function getBusinessByTelegramToken(businessId) {
+  const businesses = await readJson("businesses");
+  return businesses.find((b) => b.id === businessId) || null;
+}
+
+export async function updateBusinessTelegram(userId, businessId, telegramPatch = {}) {
+  let updated = null;
+  await withWriteLock("businesses", (businesses) => {
+    const index = businesses.findIndex(
+      (entry) => entry.id === businessId && entry.userId === userId
+    );
+    if (index === -1) throw new Error("Business not found.");
+    updated = {
+      ...businesses[index],
+      telegram: { ...businesses[index].telegram, ...telegramPatch },
+      updatedAt: new Date().toISOString()
+    };
+    businesses[index] = updated;
+    return businesses;
+  });
+  return updated;
+}
+
 export async function listLeadsForBusiness(businessId) {
   const leads = await readJson("leads");
   return leads

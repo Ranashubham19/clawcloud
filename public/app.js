@@ -57,7 +57,9 @@ const state = {
   onboardingStep: 0,
   showOnboarding: false,
   resetToken: "",
-  authSubMode: ""
+  authSubMode: "",
+  selectedProduct: pageParams.get("product") || "whatsapp",
+  telegramSetup: false
 };
 
 function escapeHtml(value) {
@@ -296,35 +298,59 @@ function renderLanding() {
       <section class="lp-hero">
         <div class="shell">
           <div class="lp-hero-inner">
-            <span class="eyebrow">WhatsApp AI Platform for Businesses</span>
-            <h1 class="lp-h1">Convert every WhatsApp inquiry<br>into a qualified lead — automatically.</h1>
-            <p class="lp-sub">ClawCloud gives your business an AI-powered WhatsApp assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — all from one clean dashboard.</p>
-            <div class="lp-cta">
-              <a class="button lp-cta-btn" href="/app?mode=signup">Start for free →</a>
-              <a class="ghost-button" href="/app?mode=login">Sign in to dashboard</a>
-            </div>
-            <div class="lp-stats">
-              <div class="lp-stat">
-                <div class="lp-stat-value">&lt; 1 min</div>
-                <div class="lp-stat-label">Average reply time</div>
-              </div>
-              <div class="lp-stat-div"></div>
-              <div class="lp-stat">
-                <div class="lp-stat-value">24 / 7</div>
-                <div class="lp-stat-label">Always-on AI assistant</div>
-              </div>
-              <div class="lp-stat-div"></div>
-              <div class="lp-stat">
-                <div class="lp-stat-value">Multi</div>
-                <div class="lp-stat-label">Workspaces per account</div>
-              </div>
-              <div class="lp-stat-div"></div>
-              <div class="lp-stat">
-                <div class="lp-stat-value">100%</div>
-                <div class="lp-stat-label">WhatsApp native</div>
-              </div>
-            </div>
+            <span class="eyebrow">AI Bot Platform for Businesses</span>
+            <h1 class="lp-h1">One AI. Every platform.<br>Zero manual work.</h1>
+            <p class="lp-sub">ClawCloud gives your business an AI-powered assistant that captures leads, books demos, answers FAQs, and delivers real-time insights — on WhatsApp and Telegram.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- PLATFORM CHOOSER -->
+      <section class="lp-platforms">
+        <div class="shell">
+          <div class="lp-platforms-header">
+            <h2 class="lp-h2">Choose your platform</h2>
+            <p class="lp-section-sub">Pick the messaging app you want to automate. You can add more later.</p>
+          </div>
+          <div class="lp-platform-grid">
+            <a href="/app?mode=signup&product=whatsapp" class="lp-platform-card lp-platform-whatsapp">
+              <div class="lp-platform-icon">
+                <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                  <rect width="52" height="52" rx="14" fill="#25D366"/>
+                  <path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2zm7.25-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/>
+                </svg>
+              </div>
+              <div class="lp-platform-info">
+                <h3>WhatsApp AI Bot</h3>
+                <p>AI assistant for WhatsApp Business. Capture leads, book demos, answer FAQs — all automatically.</p>
+                <ul class="lp-platform-features">
+                  <li>Lead capture &amp; CRM dashboard</li>
+                  <li>Demo booking automation</li>
+                  <li>Multi-language AI replies</li>
+                </ul>
+              </div>
+              <div class="lp-platform-cta">Get started free →</div>
+            </a>
+            <a href="/app?mode=signup&product=telegram" class="lp-platform-card lp-platform-telegram">
+              <div class="lp-platform-icon">
+                <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                  <rect width="52" height="52" rx="14" fill="#229ED9"/>
+                  <path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/>
+                </svg>
+              </div>
+              <div class="lp-platform-info">
+                <h3>Telegram AI Bot</h3>
+                <p>Connect your Telegram bot in seconds. Paste your BotFather token and your AI goes live instantly.</p>
+                <ul class="lp-platform-features">
+                  <li>Instant bot activation</li>
+                  <li>Same AI as WhatsApp</li>
+                  <li>No extra setup needed</li>
+                </ul>
+              </div>
+              <div class="lp-platform-cta">Connect Telegram →</div>
+            </a>
+          </div>
+          <div class="lp-platforms-login">Already have an account? <a href="/app?mode=login">Sign in →</a></div>
         </div>
       </section>
 
@@ -401,8 +427,8 @@ function renderLanding() {
       <section class="lp-cta-banner">
         <div class="shell">
           <div class="lp-cta-banner-inner">
-            <h2 class="lp-h2" style="color:#fff;">Ready to automate your WhatsApp?</h2>
-            <p style="color:rgba(255,255,255,0.65);margin:12px 0 28px;font-size:1rem;">Set up your AI assistant in under 5 minutes. No technical skills required.</p>
+            <h2 class="lp-h2" style="color:#fff;">Ready to automate your business conversations?</h2>
+            <p style="color:rgba(255,255,255,0.65);margin:12px 0 28px;font-size:1rem;">Set up your AI assistant on WhatsApp or Telegram in under 5 minutes. No technical skills required.</p>
             <a class="button lp-cta-btn" href="/app?mode=signup">Create your free workspace →</a>
           </div>
         </div>
@@ -1033,6 +1059,35 @@ function dashboardSection() {
               <button class="button" type="submit">Save settings</button>
             </div>
           </form>
+        </section>
+
+        <section class="card" style="margin-top:20px;">
+          <h2 class="section-title">Telegram Bot</h2>
+          ${state.selectedBusiness?.telegram?.token ? `
+            <div class="tg-connected-banner">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="24" height="24" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+                <div>
+                  <strong>@${escapeHtml(state.selectedBusiness.telegram.botUsername || "")}</strong> is connected and live
+                  <div class="muted" style="font-size:0.8rem;">Students can message this bot on Telegram and your AI will reply instantly</div>
+                </div>
+              </div>
+              <button class="ghost-button" id="tg-disconnect-settings-btn" style="color:#e53e3e;">Disconnect</button>
+            </div>
+          ` : `
+            <p class="muted" style="margin-bottom:16px;">Connect a Telegram bot so your AI can reply to students on Telegram too.</p>
+            <div id="tg-settings-error" class="form-error" style="display:none;margin-bottom:12px;"></div>
+            <form id="tg-settings-form" class="section">
+              <div class="field">
+                <label>BotFather Token</label>
+                <input class="input" id="tg-settings-token" placeholder="1234567890:ABCdefGHIjklMNO..." />
+                <small>Get this from @BotFather on Telegram → /newbot</small>
+              </div>
+              <div class="form-actions">
+                <button class="button" type="submit" id="tg-settings-btn">Connect Telegram Bot</button>
+              </div>
+            </form>
+          `}
         </section>
       `;
     default:
@@ -1700,6 +1755,141 @@ function renderDashboard() {
     state.billingNotice = null;
     render();
   });
+
+  // Telegram settings form (inside Settings tab)
+  document.querySelector("#tg-settings-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = document.querySelector("#tg-settings-token")?.value?.trim();
+    if (!token) return;
+    const btn = e.target.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, {
+        method: "POST",
+        body: { token }
+      });
+      await loadBootstrap(state.selectedBusiness.id);
+      render();
+    } catch (error) {
+      alert(error.message);
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  document.querySelector("#tg-disconnect-settings-btn")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect Telegram bot? Your bot will stop responding to messages.")) return;
+    try {
+      await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, { method: "DELETE" });
+      await loadBootstrap(state.selectedBusiness.id);
+      render();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+}
+
+function renderTelegramSetup() {
+  const bot = state.selectedBusiness?.telegram;
+  const businessId = state.selectedBusiness?.id || "";
+  app.innerHTML = `
+    <div class="tg-setup-page">
+      <div class="tg-setup-left">
+        <a class="logo" href="/">
+          <img src="/logo.svg" class="logo-img" alt="ClawCloud" width="28" height="28" />
+          <span class="logo-name">ClawCloud</span>
+        </a>
+        <div class="tg-setup-left-content">
+          <div class="tg-platform-badge">
+            <svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#229ED9"/><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
+            Telegram AI Bot
+          </div>
+          <h2 class="tg-setup-title">Connect your Telegram bot in 3 steps</h2>
+          <div class="tg-setup-steps">
+            <div class="tg-setup-step">
+              <div class="tg-step-num">1</div>
+              <div>Open <strong>Telegram</strong> and search for <strong>@BotFather</strong></div>
+            </div>
+            <div class="tg-setup-step">
+              <div class="tg-step-num">2</div>
+              <div>Send <code>/newbot</code> and follow the prompts to create your bot</div>
+            </div>
+            <div class="tg-setup-step">
+              <div class="tg-step-num">3</div>
+              <div>Copy the bot token BotFather gives you and paste it here</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tg-setup-right">
+        <div class="tg-setup-form-wrap">
+          ${bot?.token ? `
+            <div class="tg-connected-state">
+              <div class="tg-connected-icon">✅</div>
+              <h2>Telegram bot connected!</h2>
+              <p>Your bot <strong>@${escapeHtml(bot.botUsername)}</strong> is live and ready.</p>
+              <p class="tg-connected-sub">Students can now message your Telegram bot and your AI will reply instantly — no pre-messages, no delays.</p>
+              <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard →</button>
+              <button class="ghost-button" style="margin-top:12px;" id="tg-disconnect-btn">Disconnect bot</button>
+            </div>
+          ` : `
+            <div class="tg-setup-form-header">
+              <h1>Connect your Telegram bot</h1>
+              <p>Paste your BotFather token below — your AI goes live in seconds.</p>
+            </div>
+            <div id="tg-error" class="form-error" style="display:none;"></div>
+            <form id="tg-token-form">
+              <div class="field">
+                <label>Bot Token from BotFather</label>
+                <input class="input" id="tg-token-input" placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ" required />
+                <div class="field-hint">Looks like: 1234567890:ABCdef...</div>
+              </div>
+              <button class="button" type="submit" style="width:100%;justify-content:center;" id="tg-submit-btn">
+                Connect Telegram Bot →
+              </button>
+            </form>
+            <div class="tg-skip-link">
+              <a href="#" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render();return false;">Skip for now → Use WhatsApp instead</a>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("tg-token-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = document.getElementById("tg-token-input").value.trim();
+    const btn = document.getElementById("tg-submit-btn");
+    const errEl = document.getElementById("tg-error");
+    btn.disabled = true;
+    btn.textContent = "Connecting...";
+    errEl.style.display = "none";
+    try {
+      const res = await api(`/api/businesses/${businessId}/telegram`, {
+        method: "POST",
+        body: JSON.stringify({ token })
+      });
+      if (res.ok) {
+        if (!state.selectedBusiness) state.selectedBusiness = {};
+        state.selectedBusiness.telegram = { token, botUsername: res.bot?.username || "", botName: res.bot?.name || "" };
+        renderTelegramSetup();
+      } else {
+        throw new Error(res.error || "Failed to connect.");
+      }
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Connect Telegram Bot →";
+    }
+  });
+
+  document.getElementById("tg-disconnect-btn")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect this Telegram bot?")) return;
+    await api(`/api/businesses/${businessId}/telegram`, { method: "DELETE" });
+    if (state.selectedBusiness) state.selectedBusiness.telegram = {};
+    renderTelegramSetup();
+  });
 }
 
 function render() {
@@ -1721,6 +1911,16 @@ function render() {
 
   if (!state.user) {
     renderAuth();
+    return;
+  }
+
+  if (state.telegramSetup) {
+    renderTelegramSetup();
+    return;
+  }
+
+  if (state.selectedProduct === "telegram" && state.user && !state.selectedBusiness?.telegram?.token) {
+    renderTelegramSetup();
     return;
   }
 

@@ -36,9 +36,11 @@ import {
   adminListAllUsers,
   adminListAllBusinesses,
   adminSuspendBusiness,
-  getAdvancedAnalytics
+  getAdvancedAnalytics,
+  updateBusinessTelegram
 } from "./saas-store.js";
 import { getBusinessDashboardData, saasPlans } from "./saas.js";
+import { setTelegramWebhook, getTelegramBotInfo, deleteTelegramWebhook } from "./telegram.js";
 import { sendWelcomeEmail, sendPasswordResetEmail, sendTeamInviteEmail } from "./mailer.js";
 import {
   authRateLimit,
@@ -746,6 +748,52 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
     try {
       await revokeApiKey(businessId, parts[4]);
       await appendAuditLog({ businessId, userId: auth.user.id, action: "apikey.revoke", details: { keyId: parts[4] } });
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  // ── Telegram Integration ─────────────────────────────────────────────────
+  if (parts.length === 4 && parts[3] === "telegram" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "write")) return true;
+    try {
+      const body = await readJsonBody(request, readRawBody);
+      const token = String(body.token || "").trim();
+      if (!token) throw new Error("Telegram bot token is required.");
+
+      const botInfo = await getTelegramBotInfo(token);
+      if (!botInfo.ok) throw new Error("Invalid Telegram bot token. Please check and try again.");
+
+      const appBase = requestOrigin(request) || String(process.env.APP_BASE_URL || "").replace(/\/$/, "");
+      const webhookUrl = `${appBase}/webhooks/telegram/${businessId}`;
+      await setTelegramWebhook(token, webhookUrl);
+
+      await updateBusinessTelegram(auth.user.id, businessId, {
+        token,
+        botUsername: botInfo.result?.username || "",
+        botName: botInfo.result?.first_name || "",
+        webhookUrl,
+        connectedAt: new Date().toISOString()
+      });
+
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "telegram.connect", details: { username: botInfo.result?.username } });
+      sendJson(response, 200, { ok: true, bot: { username: botInfo.result?.username, name: botInfo.result?.first_name } });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (parts.length === 4 && parts[3] === "telegram" && request.method === "DELETE") {
+    try {
+      const current = business.telegram?.token;
+      if (current) {
+        await deleteTelegramWebhook(current).catch(() => {});
+      }
+      await updateBusinessTelegram(auth.user.id, businessId, { token: "", botUsername: "", webhookUrl: "", connectedAt: "" });
+      await appendAuditLog({ businessId, userId: auth.user.id, action: "telegram.disconnect", details: {} });
       sendJson(response, 200, { ok: true });
     } catch (error) {
       sendJson(response, 400, { error: error.message });

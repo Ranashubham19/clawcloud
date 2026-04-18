@@ -23,6 +23,8 @@ import {
 } from "./messaging.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
+import { extractTelegramInbound, sendTelegramMessage, setTelegramWebhook, getTelegramBotInfo } from "./telegram.js";
+import { getBusinessByTelegramToken, updateBusinessTelegram } from "./saas-store.js";
 import {
   getDataDeletionHtml,
   getPrivacyPolicyHtml,
@@ -433,7 +435,7 @@ async function handleMessagingWebhookGet(request, response, providerHint = "") {
   );
 }
 
-async function handleMessagingWebhookPost(request, response, providerHint = "") {
+async function handleMessagingWebhookPost(request, response, providerHint = "", opts = {}) {
   const url = parseUrl(request);
   const rawBody = await readRawBody(request);
   let payload = {};
@@ -460,7 +462,7 @@ async function handleMessagingWebhookPost(request, response, providerHint = "") 
   const incoming = extracted.filter((message) => message.text || message.mediaId);
   const ignored = extracted.filter((message) => !message.text && !message.mediaId);
 
-  if (usesInlineReply(provider)) {
+  if (usesInlineReply(provider) && !opts.useProviderSend) {
     if (!incoming.length) {
       sendJson(response, 400, { error: "Missing required field: text" });
       return;
@@ -512,6 +514,56 @@ async function handleMessagingWebhookPost(request, response, providerHint = "") 
     await processInboundMessage(message, {
       replyMode: "provider-send"
     });
+  }
+}
+
+async function handleTelegramWebhook(request, response, url) {
+  const businessId = url.pathname.replace("/webhooks/telegram/", "").split("/")[0];
+  if (!businessId) {
+    sendJson(response, 400, { error: "Missing business id" });
+    return;
+  }
+
+  const rawBody = await readRawBody(request);
+  let payload = {};
+  try {
+    payload = rawBody.length ? JSON.parse(rawBody.toString("utf8")) : {};
+  } catch {
+    sendJson(response, 400, { error: "Invalid JSON" });
+    return;
+  }
+
+  sendJson(response, 200, { ok: true });
+
+  const inbound = extractTelegramInbound(payload);
+  if (!inbound || !inbound.text) return;
+
+  const business = await getBusinessByTelegramToken(businessId);
+  if (!business?.telegram?.token) return;
+
+  const token = business.telegram.token;
+
+  try {
+    const message = {
+      ...inbound,
+      businessId: business.id,
+      provider: "telegram",
+      phoneNumberId: "",
+      displayPhoneNumber: ""
+    };
+
+    const { handleIncomingText } = await import("./agent.js");
+    const reply = await handleIncomingText({
+      business,
+      message,
+      replyMode: "return"
+    });
+
+    if (reply) {
+      await sendTelegramMessage(token, inbound.chatId, reply);
+    }
+  } catch (err) {
+    console.error("Telegram webhook error:", err);
   }
 }
 
@@ -726,7 +778,7 @@ async function requestListener(request, response) {
   }
 
   if (url.pathname === "/webhooks/aisensy" && request.method === "POST") {
-    await handleMessagingWebhookPost(request, response, "aisensy");
+    await handleMessagingWebhookPost(request, response, "aisensy", { useProviderSend: true });
     return;
   }
 
@@ -737,6 +789,11 @@ async function requestListener(request, response) {
 
   if (url.pathname === "/integrations/aisensy/answer" && request.method === "POST") {
     await handleMessagingWebhookPost(request, response, "aisensy");
+    return;
+  }
+
+  if (url.pathname.startsWith("/webhooks/telegram/") && request.method === "POST") {
+    await handleTelegramWebhook(request, response, url);
     return;
   }
 
