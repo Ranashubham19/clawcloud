@@ -357,7 +357,7 @@ function renderLanding() {
             <div class="nav-links"></div>
             <div class="nav-actions">
               <a class="ghost-button" href="/app?mode=login">Log in</a>
-              <a class="button" href="/app?mode=signup">Get started</a>
+              <a class="button" href="/app?mode=signup">Get started now</a>
             </div>
           </div>
         </div>
@@ -382,7 +382,6 @@ function renderLanding() {
             <p class="lp-sub">Your business gets an AI bot that replies instantly 24/7, speaks any language, and goes live in under 2 minutes &mdash; no code, no complexity.</p>
 
             <div class="lp-hero-ctas">
-              <a class="button lp-hero-cta-primary" href="/app?mode=signup">Get started &rarr;</a>
               <a class="ghost-button lp-hero-cta-secondary" href="/app?mode=login">Log in to dashboard</a>
             </div>
 
@@ -456,7 +455,7 @@ function renderLanding() {
             <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
             <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Create your workspace in under 2 minutes. No technical skills required.</p>
             <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>₹2,999/month</strong></div>
-            <a class="button lp-cta-btn" href="/app?mode=signup" style="margin-top:24px;">Get started →</a>
+            <a class="button lp-cta-btn" href="/app?mode=signup" style="margin-top:24px;">Get started</a>
           </div>
         </div>
       </section>
