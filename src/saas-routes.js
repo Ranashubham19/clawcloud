@@ -191,6 +191,7 @@ async function serveStaticApp(pathname, response) {
     "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
     "/app.css": { file: "app.css", type: "text/css; charset=utf-8" },
     "/logo.svg": { file: "logo.svg", type: "image/svg+xml" },
+    "/favicon.ico": { file: "favicon.ico", type: "image/x-icon" },
     "/favicon.svg": { file: "favicon.svg", type: "image/svg+xml" },
     "/favicon.png": { file: "favicon.png", type: "image/png" }
   };
