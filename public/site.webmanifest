@@ -1,0 +1,21 @@
+{
+  "name": "swift-deploy.in",
+  "short_name": "Swift Deploy",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090611",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

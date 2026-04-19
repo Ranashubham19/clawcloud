@@ -217,7 +217,22 @@ async function serveStaticApp(pathname, response) {
       type: "image/svg+xml",
       encoding: "utf8"
     },
-    "/favicon.png": { file: "favicon.png", type: "image/png" }
+    "/favicon.png": { file: "favicon.png", type: "image/png" },
+    "/robots.txt": {
+      file: "robots.txt",
+      type: "text/plain; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/sitemap.xml": {
+      file: "sitemap.xml",
+      type: "application/xml; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/site.webmanifest": {
+      file: "site.webmanifest",
+      type: "application/manifest+json; charset=utf-8",
+      encoding: "utf8"
+    }
   };
 
   const target = map[pathname];

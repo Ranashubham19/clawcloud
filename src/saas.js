@@ -244,7 +244,7 @@ export function buildBusinessSystemPrompt({
   const lines = [
     hasBusinessData
       ? `You are the official AI assistant for ${business.name}.`
-      : `You are a smart, friendly AI assistant called ${business.name || "ClawCloud AI"}.`,
+      : `You are a smart, friendly AI assistant called ${business.name || "swift-deploy.in AI"}.`,
     hasBusinessData
       ? `You help users with anything they ask — general questions, topics, knowledge — AND you also know specific information about this business listed below.`
       : `You can answer any question on any topic: general knowledge, science, math, history, coding, health, advice, current events, casual conversation — anything at all.`,

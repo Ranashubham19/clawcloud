@@ -527,7 +527,7 @@ function renderAuth() {
         <div class="auth-form-wrap">
           <div class="auth-form-header">
             <h1 class="auth-form-title">${isSignup ? "Create your account" : "Welcome back"}</h1>
-            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your ClawCloud dashboard."}</p>
+            <p class="auth-form-sub">${isSignup ? "Start your free workspace — no credit card required." : "Sign in to your swift-deploy.in dashboard."}</p>
           </div>
 
           <a class="google-button" href="/api/auth/google">
@@ -1549,8 +1549,8 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     <div class="ob2-shell">
       <aside class="ob2-sidebar">
         <div class="ob2-sidebar-brand">
-          <img src="/logo.svg?v=crab-mark-3" width="28" height="28" class="logo-img" alt="ClawCloud" />
-          <span class="logo-name">ClawCloud</span>
+          <img src="/logo.svg?v=crab-mark-3" width="28" height="28" class="logo-img" alt="swift-deploy.in" />
+          <span class="logo-name">swift-deploy.in</span>
         </div>
         <div class="ob2-sidebar-intro">
           <div class="ob2-sidebar-title">Set up your AI bot</div>
@@ -2014,7 +2014,7 @@ function renderDashboard() {
             const rzp = new window.Razorpay({
               key: payload.keyId,
               subscription_id: payload.subscriptionId,
-              name: payload.businessName || "ClawCloud",
+              name: payload.businessName || "swift-deploy.in",
               description: `${plan} Plan Subscription`,
               prefill: { email: payload.userEmail, name: payload.userName },
               theme: { color: "#7c6fff" },
