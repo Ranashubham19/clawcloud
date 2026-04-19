@@ -3018,6 +3018,8 @@ code {
 }
 
 .setup-choice-card {
+  position: relative;
+  overflow: hidden;
   background: rgba(255,255,255,0.032);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--radius-xl);
@@ -3033,6 +3035,16 @@ code {
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
 }
+.setup-choice-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.setup-choice-wa::before { background: linear-gradient(90deg, #25d366 0%, #128c7e 100%); }
+.setup-choice-tg::before { background: linear-gradient(90deg, #229ed9 0%, #38bdf8 100%); }
 .setup-choice-card:hover {
   transform: translateY(-4px);
   border-color: rgba(255,255,255,0.14);
