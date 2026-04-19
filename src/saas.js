@@ -23,8 +23,8 @@ export const saasPlans = [
   {
     id: "pro",
     name: "Pro",
-    priceInr: 2999,
-    priceUsd: 49,
+    priceInr: 2499,
+    priceUsd: 39,
     summary: "Everything in Basic plus demo booking workflows, analytics, and richer AI controls."
   },
   {

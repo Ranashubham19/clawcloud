@@ -107,7 +107,7 @@ function renderPaymentButtons({ className = "payment-buttons", style = "margin-t
   if (state.billingProviders.razorpay) {
     buttons.push(`
       <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
-        🇮🇳 Pay ₹2,999/mo
+        🇮🇳 Pay ₹2,499/mo
       </button>
     `);
   }
@@ -115,7 +115,7 @@ function renderPaymentButtons({ className = "payment-buttons", style = "margin-t
   if (state.billingProviders.stripe) {
     buttons.push(`
       <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
-        🌍 Pay $49/mo
+        🌍 Pay $39/mo
       </button>
     `);
   }
@@ -603,7 +603,7 @@ function renderLanding() {
           <div class="lp-cta-banner-inner">
             <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
             <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Create your workspace in under 2 minutes. No technical skills required.</p>
-            <div class="lp-cta-price-tag">One simple plan — <strong>$49/month</strong> or <strong>₹2,999/month</strong></div>
+            <div class="lp-cta-price-tag">One simple plan — <strong>$39/month</strong> or <strong>₹2,499/month</strong></div>
             <a class="button lp-cta-btn" href="/app?mode=signup" style="margin-top:24px;">Get started</a>
           </div>
         </div>
@@ -950,9 +950,9 @@ function dashboardSection() {
             </div>
             <div class="billing-plan-pricing">
               <div class="billing-plan-price">
-                <span class="billing-price-big">₹2,999</span><span class="billing-price-period">/month</span>
+                <span class="billing-price-big">₹2,499</span><span class="billing-price-period">/month</span>
                 <span class="billing-price-or">or</span>
-                <span class="billing-price-big billing-price-usd">$49</span><span class="billing-price-period">/month</span>
+                <span class="billing-price-big billing-price-usd">$39</span><span class="billing-price-period">/month</span>
               </div>
               <ul class="billing-plan-features">
                 <li>âœ" WhatsApp AI Bot</li>
@@ -2308,9 +2308,9 @@ function renderSetupFlow() {
         <h2 class="payment-popup-title">Activate your AI bot</h2>
         <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
         <div class="payment-popup-price">
-          <span class="payment-price-big">₹2,999</span><span class="payment-price-period">/month</span>
+          <span class="payment-price-big">₹2,499</span><span class="payment-price-period">/month</span>
           <span class="payment-price-or">or</span>
-          <span class="payment-price-big payment-price-usd">$49</span><span class="payment-price-period">/month</span>
+          <span class="payment-price-big payment-price-usd">$39</span><span class="payment-price-period">/month</span>
         </div>
         <ul class="payment-popup-features">
           <li>âœ" WhatsApp AI Bot (24/7)</li>
