@@ -641,9 +641,9 @@ await run("formatProfessionalReply turns long plain answers into structured form
 
   assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
-  assert.match(formatted, /\*1\.\* It is widely used in Indian cooking\./);
-  assert.match(formatted, /\*2\.\* It is known for its bright yellow color\./);
-  assert.match(formatted, /\n\n\*2\.\*/);
+  assert.match(formatted, /\*\.\*\nIt is widely used in Indian cooking\./);
+  assert.match(formatted, /\*\.\*\nIt is known for its bright yellow color\./);
+  assert.match(formatted, /\n\n\*\.\*\nIt is known for its bright yellow color\./);
 });
 
 await run("formatProfessionalReply strips generic follow-up questions", async () => {
@@ -674,8 +674,8 @@ await run("formatProfessionalReply strips filler headings and lead-in sentences"
 
   assert.doesNotMatch(formatted, /^Chalo\b/i);
   assert.doesNotMatch(formatted, /main kuch suggestions deta hun/i);
-  assert.match(formatted, /\*1\.\* Game khelna:/);
-  assert.match(formatted, /\*2\.\* Kahani sunana:/);
+  assert.match(formatted, /\*\.\*\nGame khelna:/);
+  assert.match(formatted, /\*\.\*\nKahani sunana:/);
 });
 
 await run("formatProfessionalReply preserves trailing source blocks", async () => {
@@ -706,11 +706,11 @@ await run("formatProfessionalReply strips standalone top label lines", async () 
 
   assert.doesNotMatch(formatted, /^- Phone utha\b/i);
   assert.match(formatted, /^Bhai, tune abhi tak kuch nahi kiya\./);
-  assert.match(formatted, /\*1\.\* Ek random song chala de\./);
-  assert.match(formatted, /\*2\.\* Aankhein band karke soch\./);
+  assert.match(formatted, /\*\.\*\nEk random song chala de\./);
+  assert.match(formatted, /\*\.\*\nAankhein band karke soch\./);
 });
 
-await run("formatProfessionalReply converts hyphen lists into bold numbered points", async () => {
+await run("formatProfessionalReply converts hyphen lists into bold dot points", async () => {
   const formatted = formatProfessionalReply(
     "No, I'm not upset.\n\n- I'm just a computer program designed to provide information and assist with tasks.\n- I'm here to help and provide a helpful response to your questions.",
     { languageStyle: "english" }
@@ -719,11 +719,11 @@ await run("formatProfessionalReply converts hyphen lists into bold numbered poin
   assert.match(formatted, /^No, I'm not upset\./);
   assert.match(
     formatted,
-    /\*1\.\* I'm just a computer program designed to provide information and assist with tasks\./
+    /\*\.\*\nI'm just a computer program designed to provide information and assist with tasks\./
   );
   assert.match(
     formatted,
-    /\*2\.\* I'm here to help and provide a helpful response to your questions\./
+    /\*\.\*\nI'm here to help and provide a helpful response to your questions\./
   );
 });
 

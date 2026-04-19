@@ -114,7 +114,7 @@ function styleProfessionalListBlocks(value) {
 
     const styledBlock = items
       .filter(Boolean)
-      .map((item, itemIndex) => `*${itemIndex + 1}.* ${item}`)
+      .map((item) => `*.*\n${item}`)
       .join("\n\n");
 
     if (styledBlock) {
