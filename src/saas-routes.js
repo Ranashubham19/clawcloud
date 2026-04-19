@@ -186,13 +186,37 @@ function rejectIfRateLimited(request, response, kind) {
 
 async function serveStaticApp(pathname, response) {
   const map = {
-    "/": { file: "index.html", type: "text/html; charset=utf-8" },
-    "/app": { file: "index.html", type: "text/html; charset=utf-8" },
-    "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
-    "/app.css": { file: "app.css", type: "text/css; charset=utf-8" },
-    "/logo.svg": { file: "logo.svg", type: "image/svg+xml" },
+    "/": {
+      file: "index.html",
+      type: "text/html; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/app": {
+      file: "index.html",
+      type: "text/html; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/app.js": {
+      file: "app.js",
+      type: "text/javascript; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/app.css": {
+      file: "app.css",
+      type: "text/css; charset=utf-8",
+      encoding: "utf8"
+    },
+    "/logo.svg": {
+      file: "logo.svg",
+      type: "image/svg+xml",
+      encoding: "utf8"
+    },
     "/favicon.ico": { file: "favicon.ico", type: "image/x-icon" },
-    "/favicon.svg": { file: "favicon.svg", type: "image/svg+xml" },
+    "/favicon.svg": {
+      file: "favicon.svg",
+      type: "image/svg+xml",
+      encoding: "utf8"
+    },
     "/favicon.png": { file: "favicon.png", type: "image/png" }
   };
 
@@ -201,7 +225,9 @@ async function serveStaticApp(pathname, response) {
     return false;
   }
 
-  const content = await readFile(publicFilePath(target.file), "utf8");
+  const content = target.encoding
+    ? await readFile(publicFilePath(target.file), target.encoding)
+    : await readFile(publicFilePath(target.file));
   sendFile(response, 200, target.type, content);
   return true;
 }
