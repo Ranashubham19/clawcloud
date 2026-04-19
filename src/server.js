@@ -1,4 +1,5 @@
 import http from "node:http";
+import { injectGoogleAnalyticsHead } from "./analytics.js";
 import { config } from "./config.js";
 import {
   beginInboundProcessing,
@@ -49,7 +50,7 @@ import { resolveBusinessContextForMessage } from "./saas.js";
 import { handleSaasRoute } from "./saas-routes.js";
 import { handleStripeWebhookEvent } from "./billing.js";
 import { handleRazorpayWebhookEvent, verifyRazorpayWebhookSignature } from "./razorpay-billing.js";
-import { verifyStripeSignature } from "./security.js";
+import { defaultSecurityHeaders, verifyStripeSignature } from "./security.js";
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -80,9 +81,10 @@ function sendFormatted(response, result) {
 
 function sendHtml(response, statusCode, payload) {
   response.writeHead(statusCode, {
+    ...defaultSecurityHeaders(),
     "Content-Type": "text/html; charset=utf-8"
   });
-  response.end(payload);
+  response.end(injectGoogleAnalyticsHead(payload));
 }
 
 function sendRedirect(response, statusCode, location) {

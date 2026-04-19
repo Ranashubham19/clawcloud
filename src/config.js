@@ -103,6 +103,8 @@ export const config = {
   googleContactsScope:
     process.env.GOOGLE_CONTACTS_SCOPE ||
     "https://www.googleapis.com/auth/contacts.readonly",
+  googleAnalyticsMeasurementId:
+    process.env.GOOGLE_ANALYTICS_MEASUREMENT_ID || "G-EG6TS7QP1W",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
   stripePriceBasic: process.env.STRIPE_PRICE_BASIC || "",

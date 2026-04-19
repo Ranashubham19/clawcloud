@@ -10,6 +10,10 @@ import {
 } from "../src/lib/language.js";
 import { config } from "../src/config.js";
 import {
+  googleAnalyticsBootstrapJs,
+  injectGoogleAnalyticsHead
+} from "../src/analytics.js";
+import {
   cleanUserFacingText,
   formatProfessionalReply,
   formatSourceAttribution,
@@ -39,6 +43,7 @@ import {
   sendTelegramMessage,
   setTelegramWebhook
 } from "../src/telegram.js";
+import { defaultSecurityHeaders } from "../src/security.js";
 import { startTypingKeepAlive } from "../src/typing.js";
 
 async function run(name, fn) {
@@ -62,6 +67,32 @@ await run("normalizePhone upgrades 00 prefix", async () => {
 
 await run("comparablePhone strips plus", async () => {
   assert.equal(comparablePhone("+919876543210"), "919876543210");
+});
+
+await run("injectGoogleAnalyticsHead adds the Google tag loader and bootstrap script", async () => {
+  const html = "<html><head><title>Test</title></head><body></body></html>";
+  const injected = injectGoogleAnalyticsHead(html);
+
+  assert.match(injected, /googletagmanager\.com\/gtag\/js\?id=G-EG6TS7QP1W/);
+  assert.match(injected, /<script defer src="\/analytics\.js"><\/script>/);
+});
+
+await run("google analytics bootstrap configures the active measurement id", async () => {
+  const bootstrap = googleAnalyticsBootstrapJs();
+
+  assert.match(bootstrap, /window\.dataLayer = window\.dataLayer \|\| \[\];/);
+  assert.match(
+    bootstrap,
+    new RegExp(`window\\.gtag\\("config", ${JSON.stringify(config.googleAnalyticsMeasurementId)}\\);`)
+  );
+});
+
+await run("default security headers allow google analytics loading and network calls", async () => {
+  const csp = defaultSecurityHeaders()["Content-Security-Policy"];
+
+  assert.match(csp, /script-src [^;]*https:\/\/www\.googletagmanager\.com/);
+  assert.match(csp, /connect-src [^;]*https:\/\/\*\.google-analytics\.com/);
+  assert.match(csp, /img-src [^;]*https:\/\/\*\.google-analytics\.com/);
 });
 
 await run("detectLanguageStyle keeps English in English", async () => {

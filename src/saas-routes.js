@@ -3,6 +3,10 @@ import path from "node:path";
 import { config } from "./config.js";
 import { createStripeCheckoutSession, createStripePortalSession, hasStripeBilling } from "./billing.js";
 import { createRazorpaySubscription, hasRazorpayBilling } from "./razorpay-billing.js";
+import {
+  googleAnalyticsBootstrapJs,
+  injectGoogleAnalyticsHead
+} from "./analytics.js";
 import { getConversation, listConversationThreads } from "./store.js";
 import {
   authenticateSaasUser,
@@ -213,6 +217,10 @@ async function serveStaticApp(pathname, response) {
       type: "text/javascript; charset=utf-8",
       encoding: "utf8"
     },
+    "/analytics.js": {
+      type: "text/javascript; charset=utf-8",
+      dynamic: () => googleAnalyticsBootstrapJs()
+    },
     "/app.css": {
       file: "app.css",
       type: "text/css; charset=utf-8",
@@ -252,10 +260,16 @@ async function serveStaticApp(pathname, response) {
     return false;
   }
 
-  const content = target.encoding
-    ? await readFile(publicFilePath(target.file), target.encoding)
-    : await readFile(publicFilePath(target.file));
-  sendFile(response, 200, target.type, content);
+  const content = target.dynamic
+    ? target.dynamic()
+    : target.encoding
+      ? await readFile(publicFilePath(target.file), target.encoding)
+      : await readFile(publicFilePath(target.file));
+  const body =
+    target.type.startsWith("text/html")
+      ? injectGoogleAnalyticsHead(content)
+      : content;
+  sendFile(response, 200, target.type, body);
   return true;
 }
 
