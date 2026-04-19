@@ -738,6 +738,18 @@ await run("formatProfessionalReply preserves numbered lists inline", async () =>
   assert.match(formatted, /\n3\. Finally check the result\./);
 });
 
+await run("formatProfessionalReply keeps marker-only lines inline with their text", async () => {
+  const formatted = formatProfessionalReply(
+    "1.\nI am designed to provide information and assist with tasks.\n\n*.*\nI am here to help with your questions.",
+    { languageStyle: "english" }
+  );
+
+  assert.match(formatted, /^1\. I am designed to provide information and assist with tasks\./);
+  assert.match(formatted, /\n\*\.\* I am here to help with your questions\./);
+  assert.doesNotMatch(formatted, /^1\.\s*$/m);
+  assert.doesNotMatch(formatted, /^\*\.\*\s*$/m);
+});
+
 await run("extractGeminiGroundingSources keeps grounded web sources in support order", async () => {
   const sources = extractGeminiGroundingSources({
     groundingMetadata: {

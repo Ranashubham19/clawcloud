@@ -73,13 +73,9 @@ function splitSentences(value) {
     .filter(Boolean);
 }
 
-function isTopLevelListLine(value) {
-  return /^\s*(?:-\s+|\d+[.)]\s+)/.test(String(value || ""));
-}
-
 function parseTopLevelListLine(value) {
   const text = String(value || "");
-  const numberMatch = text.match(/^\s*(\d+)[.)]\s+(.+)$/);
+  const numberMatch = text.match(/^\s*(\d+)[.)]\s*(.*)$/);
   if (numberMatch) {
     return {
       kind: "number",
@@ -88,7 +84,7 @@ function parseTopLevelListLine(value) {
     };
   }
 
-  const bulletMatch = text.match(/^\s*-\s+(.+)$/);
+  const bulletMatch = text.match(/^\s*-\s*(.*)$/);
   if (bulletMatch) {
     return {
       kind: "dot",
@@ -97,7 +93,20 @@ function parseTopLevelListLine(value) {
     };
   }
 
+  const boldDotMatch = text.match(/^\s*\*\.\*\s*(.*)$/);
+  if (boldDotMatch) {
+    return {
+      kind: "dot",
+      marker: "*.*",
+      content: boldDotMatch[1].trim()
+    };
+  }
+
   return null;
+}
+
+function isTopLevelListLine(value) {
+  return Boolean(parseTopLevelListLine(value));
 }
 
 function styleProfessionalListBlocks(value) {
@@ -118,8 +127,37 @@ function styleProfessionalListBlocks(value) {
       const current = lines[index];
       const parsedLine = parseTopLevelListLine(current);
       if (parsedLine) {
-        items.push(parsedLine);
+        const contentLines = parsedLine.content ? [parsedLine.content] : [];
         index += 1;
+
+        while (index < lines.length) {
+          const continuation = lines[index];
+          if (parseTopLevelListLine(continuation)) {
+            break;
+          }
+
+          if (!continuation.trim()) {
+            let lookahead = index + 1;
+            while (lookahead < lines.length && !lines[lookahead].trim()) {
+              lookahead += 1;
+            }
+            if (lookahead < lines.length && parseTopLevelListLine(lines[lookahead])) {
+              index = lookahead;
+              break;
+            }
+            if (!contentLines.length) {
+              index += 1;
+              continue;
+            }
+            break;
+          }
+
+          contentLines.push(continuation.trim());
+          index += 1;
+        }
+
+        parsedLine.content = contentLines.join(" ").replace(/\s+/g, " ").trim();
+        items.push(parsedLine);
         continue;
       }
 
@@ -505,7 +543,7 @@ export function formatProfessionalReply(value, options = {}) {
     return cleaned;
   }
 
-  const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
+  const hasList = body.split(/\r?\n/).some((line) => parseTopLevelListLine(line));
   const sentences = splitSentences(body);
 
   if (!hasList) {
