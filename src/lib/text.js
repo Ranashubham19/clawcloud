@@ -73,6 +73,58 @@ function splitSentences(value) {
     .filter(Boolean);
 }
 
+function isTopLevelListLine(value) {
+  return /^\s*(?:-\s+|\d+[.)]\s+)/.test(String(value || ""));
+}
+
+function styleProfessionalListBlocks(value) {
+  const lines = String(value || "").split(/\r?\n/);
+  const output = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!isTopLevelListLine(line)) {
+      output.push(line);
+      index += 1;
+      continue;
+    }
+
+    const items = [];
+    while (index < lines.length) {
+      const current = lines[index];
+      if (isTopLevelListLine(current)) {
+        items.push(current.replace(/^\s*(?:-\s+|\d+[.)]\s+)/, "").trim());
+        index += 1;
+        continue;
+      }
+
+      if (!current.trim()) {
+        let lookahead = index + 1;
+        while (lookahead < lines.length && !lines[lookahead].trim()) {
+          lookahead += 1;
+        }
+        if (lookahead < lines.length && isTopLevelListLine(lines[lookahead])) {
+          index = lookahead;
+          continue;
+        }
+      }
+      break;
+    }
+
+    const styledBlock = items
+      .filter(Boolean)
+      .map((item, itemIndex) => `*${itemIndex + 1}.* ${item}`)
+      .join("\n\n");
+
+    if (styledBlock) {
+      output.push(styledBlock);
+    }
+  }
+
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function defaultHeading(languageStyle = "english") {
   const headings = {
     hindi: "सारांश",
@@ -442,9 +494,11 @@ export function formatProfessionalReply(value, options = {}) {
     }
   }
 
-  body = stripLeadingStandaloneReplyLabel(
-    stripLeadingFillerLeadIn(
-      stripLeadingReplyHeading(sanitizeForWhatsApp(body))
+  body = styleProfessionalListBlocks(
+    stripLeadingStandaloneReplyLabel(
+      stripLeadingFillerLeadIn(
+        stripLeadingReplyHeading(sanitizeForWhatsApp(body))
+      )
     )
   );
   if (!sources) {
