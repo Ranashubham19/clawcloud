@@ -619,6 +619,9 @@ async function handleTelegramWebhook(request, response, url) {
       });
     }
 
+    stopTyping();
+    stopTyping = () => {};
+
     if (reply) {
       const dedupeKey = outboundDedupKey(
         `telegram-reply:${business.id}`,

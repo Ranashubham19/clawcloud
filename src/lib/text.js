@@ -193,6 +193,22 @@ function stripGenericFollowUp(text) {
   return sentences.slice(0, -1).join(" ").trim();
 }
 
+function stripLeadingReplyHeading(text) {
+  let value = String(text || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  // Remove generic top labels like *Overview* or *Answer* that make replies feel robotic.
+  value = value.replace(/^(?:\*[^*\n]{1,60}\*|_[^_\n]{1,60}_)\s*\n{1,2}/, "");
+  value = value.replace(
+    /^(?:overview|answer|explanation|summary|key points|key facts|highlights|response|quick answer|result)\s*:?\s*\n{1,2}/i,
+    ""
+  );
+
+  return value.trim();
+}
+
 export function formatProfessionalReply(value, options = {}) {
   const cleaned = cleanUserFacingText(value);
   if (!cleaned) {
@@ -200,31 +216,23 @@ export function formatProfessionalReply(value, options = {}) {
   }
 
   const { body: rawBody, sources } = splitTrailingSourceBlock(cleaned);
-  let body = stripGenericFollowUp(rawBody);
+  let body = stripLeadingReplyHeading(stripGenericFollowUp(rawBody));
   if (!body) {
     return cleaned;
   }
 
-  const hasHeading = /^\*[^*\n]{1,60}\*/.test(body);
   const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
   const sentences = splitSentences(body);
-  const heading = `*${deriveReplyHeading(body, options.languageStyle)}*`;
 
-  if (!hasList && !hasHeading) {
-    if (sentences.length >= 3) {
-      const intro = sentences[0];
-      const points = sentences
-        .slice(1, 5)
-        .map((sentence) => `- ${sentence}`);
-      body = `${heading}\n\n${intro}\n\n${points.join("\n")}`;
-    } else if (body.length >= 45 || sentences.length >= 2) {
-      body = `${heading}\n\n${body}`;
-    }
-  } else if (!hasHeading && body.length >= 45) {
-    body = `${heading}\n\n${body}`;
+  if (!hasList && sentences.length >= 3) {
+    const intro = sentences[0];
+    const points = sentences
+      .slice(1, 5)
+      .map((sentence) => `- ${sentence}`);
+    body = `${intro}\n\n${points.join("\n")}`;
   }
 
-  body = sanitizeForWhatsApp(body);
+  body = stripLeadingReplyHeading(sanitizeForWhatsApp(body));
   if (!sources) {
     return body;
   }

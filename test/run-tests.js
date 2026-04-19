@@ -608,7 +608,8 @@ await run("formatProfessionalReply turns long plain answers into structured form
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Haldi\*/);
+  assert.match(formatted, /^Haldi is the common name for turmeric\./);
+  assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
   assert.match(formatted, /- It is widely used in Indian cooking\./);
   assert.match(formatted, /- It is known for its bright yellow color\./);
@@ -621,7 +622,20 @@ await run("formatProfessionalReply strips generic follow-up questions", async ()
   );
 
   assert.doesNotMatch(formatted, /Would you like to know more/i);
-  assert.match(formatted, /^\*Mehandi\*/);
+  assert.match(formatted, /^Mehandi is a natural dye made from henna leaves\./);
+  assert.doesNotMatch(formatted, /^\*/);
+});
+
+await run("formatProfessionalReply removes robotic top headings", async () => {
+  const formatted = formatProfessionalReply(
+    "*Overview*\n\nIndia is currently ranked among the world's largest economies.",
+    { languageStyle: "english" }
+  );
+
+  assert.equal(
+    formatted,
+    "India is currently ranked among the world's largest economies."
+  );
 });
 
 await run("formatProfessionalReply preserves trailing source blocks", async () => {
@@ -630,7 +644,8 @@ await run("formatProfessionalReply preserves trailing source blocks", async () =
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Gold prices\*/);
+  assert.match(formatted, /^Gold prices are higher today\./);
+  assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /\n\n1\. https:\/\/www\.reuters\.com\/example/);
   assert.match(formatted, /2\. https:\/\/www\.bbc\.com\/example$/);
 });
