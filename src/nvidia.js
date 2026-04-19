@@ -189,6 +189,7 @@ export async function createChatCompletion({
   excludeModels = [],
   preferredModels = [],
   deadlineAt = 0,
+  timeoutMs = 0,
   maxAttempts = config.nvidiaMaxAttempts
 }) {
   requireConfig("NVIDIA_API_KEY", config.nvidiaApiKey);
@@ -210,14 +211,16 @@ export async function createChatCompletion({
       break;
     }
 
-    const remainingMs = deadlineAt ? deadlineAt - Date.now() : config.nvidiaTimeoutMs;
+    const timeoutLimit =
+      Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : config.nvidiaTimeoutMs;
+    const remainingMs = deadlineAt ? deadlineAt - Date.now() : timeoutLimit;
     if (remainingMs < 700) {
       break;
     }
 
-    const timeoutMs = Math.max(
+    const requestTimeoutMs = Math.max(
       700,
-      Math.min(config.nvidiaTimeoutMs, deadlineAt ? remainingMs - 200 : config.nvidiaTimeoutMs)
+      Math.min(timeoutLimit, deadlineAt ? remainingMs - 200 : timeoutLimit)
     );
     const startedAt = performance.now();
 
@@ -228,7 +231,7 @@ export async function createChatCompletion({
         tools,
         toolChoice,
         maxTokens,
-        timeoutMs
+        timeoutMs: requestTimeoutMs
       });
       const latencyMs = Math.round(performance.now() - startedAt);
       recordModelSuccess(model, latencyMs);

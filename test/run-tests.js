@@ -672,9 +672,20 @@ await run("formatProfessionalReply turns long plain answers into structured form
 
   assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
-  assert.match(formatted, /\*\.\* It is widely used in Indian cooking\./);
-  assert.match(formatted, /\*\.\* It is known for its bright yellow color\./);
-  assert.match(formatted, /\n\n\*\.\* It is known for its bright yellow color\./);
+  assert.match(formatted, /\n\nIt is widely used in Indian cooking\./);
+  assert.match(formatted, /It is known for its bright yellow color\./);
+  assert.match(formatted, /It is also used in traditional remedies and ceremonies\./);
+});
+
+await run("formatProfessionalReply preserves all sentences in long plain answers", async () => {
+  const formatted = formatProfessionalReply(
+    "Python is a versatile programming language. It is used for web development. It is popular in data science. It supports automation. It has a large ecosystem of libraries. It is also beginner-friendly.",
+    { languageStyle: "english" }
+  );
+
+  assert.match(formatted, /Python is a versatile programming language\./);
+  assert.match(formatted, /It has a large ecosystem of libraries\./);
+  assert.match(formatted, /It is also beginner-friendly\./);
 });
 
 await run("formatProfessionalReply strips generic follow-up questions", async () => {

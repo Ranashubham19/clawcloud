@@ -58,8 +58,9 @@ async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
     const answer = await geminiSearchAnswer({
       query,
       languageStyle,
-      maxOutputTokens: 1200,
-      deadlineAt
+      maxOutputTokens: pickGeminiMaxOutputTokens(query),
+      deadlineAt,
+      timeoutMs: pickGeminiTimeoutMs(query)
     });
     if (answer) {
       return answer;
@@ -85,10 +86,89 @@ function formatGroundedAnswer(text, sources = [], supports = [], channel = "defa
   return `${answerText}\n\n${attribution}`;
 }
 
+function isVeryLongDetailedRequest(text) {
+  const value = String(text || "");
+  return (
+    value.length > 1400 ||
+    /\b(end\s+to\s+end|production[-\s]?ready|complete solution|full solution|entire solution|full code|complete code|step by step|deep dive|thoroughly|in depth|with explanation|with examples?)\b/i.test(
+      value
+    )
+  );
+}
+
+function isLongDetailedRequest(text) {
+  const value = String(text || "");
+  return (
+    isVeryLongDetailedRequest(value) ||
+    longAnswerPattern.test(value) ||
+    value.length > 180
+  );
+}
+
 function pickMaxTokens(text) {
   const value = String(text || "");
-  const long = longAnswerPattern.test(value) || value.length > 100;
-  return long ? 2500 : 1200;
+  if (isVeryLongDetailedRequest(value)) {
+    return 4200;
+  }
+  if (isLongDetailedRequest(value)) {
+    return 3200;
+  }
+  return 1400;
+}
+
+function pickContinuationTokens(text) {
+  const value = String(text || "");
+  if (isVeryLongDetailedRequest(value)) {
+    return 2200;
+  }
+  if (isLongDetailedRequest(value)) {
+    return 1400;
+  }
+  return 900;
+}
+
+function pickReplyBudgetMs(text) {
+  const value = String(text || "");
+  if (isVeryLongDetailedRequest(value)) {
+    return Math.max(config.replyLatencyBudgetMs, 22000);
+  }
+  if (isLongDetailedRequest(value)) {
+    return Math.max(config.replyLatencyBudgetMs, 14000);
+  }
+  return config.replyLatencyBudgetMs;
+}
+
+function pickNvidiaTimeoutMs(text) {
+  const value = String(text || "");
+  if (isVeryLongDetailedRequest(value)) {
+    return Math.max(config.nvidiaTimeoutMs, 14000);
+  }
+  if (isLongDetailedRequest(value)) {
+    return Math.max(config.nvidiaTimeoutMs, 9000);
+  }
+  return config.nvidiaTimeoutMs;
+}
+
+function pickGeminiTimeoutMs(text) {
+  const value = String(text || "");
+  if (isVeryLongDetailedRequest(value)) {
+    return Math.max(config.geminiTimeoutMs, 10000);
+  }
+  if (isLongDetailedRequest(value)) {
+    return Math.max(config.geminiTimeoutMs, 7000);
+  }
+  return config.geminiTimeoutMs;
+}
+
+function pickGeminiMaxOutputTokens(text) {
+  const value = String(text || "");
+  if (isVeryLongDetailedRequest(value)) {
+    return 2000;
+  }
+  if (isLongDetailedRequest(value)) {
+    return 1500;
+  }
+  return 1200;
 }
 
 async function loadWhatsAppContext(options = {}) {
@@ -208,14 +288,19 @@ async function continueIfTruncated({
   preferredModel,
   excludeModels,
   languageStyle,
-  deadlineAt
+  deadlineAt,
+  originalPrompt = ""
 }) {
   let combined = String(text || "").trim();
   let nextFinishReason = finishReason;
   let rounds = 0;
   let workingMessages = [...baseMessages];
+  const continuationTokens = pickContinuationTokens(originalPrompt || combined);
+  const maxContinuationRounds = isVeryLongDetailedRequest(originalPrompt || combined)
+    ? 3
+    : 2;
 
-  while (combined && nextFinishReason === "length" && rounds < 1) {
+  while (combined && nextFinishReason === "length" && rounds < maxContinuationRounds) {
     if (deadlineAt && deadlineAt - Date.now() < 1200) {
       break;
     }
@@ -232,10 +317,11 @@ async function continueIfTruncated({
     const continuationCompletion = await createChatCompletion({
       messages: workingMessages,
       tools: [],
-      maxTokens: 750,
+      maxTokens: continuationTokens,
       preferredModels: preferredModel ? [preferredModel] : [],
       excludeModels,
       deadlineAt,
+      timeoutMs: pickNvidiaTimeoutMs(originalPrompt || combined),
       maxAttempts: 1
     });
     const continuation = unpackAssistantMessage(continuationCompletion);
@@ -279,6 +365,10 @@ function buildGeneralReplyPrompt(context) {
     "- Never send one large unbroken paragraph when the answer has multiple facts.",
     "- For simple questions, reply directly in 1 to 3 short paragraphs.",
     "- For longer answers, start with the answer itself, then use short bullets or numbered points only when they improve clarity.",
+    "- For complex, technical, analytical, or detailed questions, give a complete answer and cover all important parts.",
+    "- Do not drop later points just to make the reply shorter. Finish the full answer.",
+    "- If the user asks for code, provide complete working code or the full critical sections needed to solve the task.",
+    "- When you include code, keep syntax accurate and preserve indentation clearly.",
     "- Leave one blank line between paragraphs and sections.",
     "- Use numbered points or '-' bullets only when they improve clarity.",
     "- Bold only short key terms when needed. Do not bold a separate heading line.",
@@ -576,7 +666,7 @@ export async function handleIncomingText({
   const useGeminiFirst = answerRoute === "gemini-first";
   const businessId = businessContext?.id || "";
   const historyLimit = useGeminiFirst ? 6 : useTools ? 10 : 6;
-  let nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
+  let nvidiaDeadlineAt = Date.now() + pickReplyBudgetMs(text);
   let leadCapture = { lead: null, booking: null };
 
   await upsertContact({
@@ -624,7 +714,7 @@ export async function handleIncomingText({
     const geminiAnswer = await getGeminiAnswer(
       text,
       languageStyle,
-      Date.now() + config.geminiTimeoutMs
+      Date.now() + pickGeminiTimeoutMs(text)
     );
     if (geminiAnswer) {
       const geminiText = cleanUserFacingText(geminiAnswer.text);
@@ -660,7 +750,7 @@ export async function handleIncomingText({
         return groundedReply;
       }
     }
-    nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
+    nvidiaDeadlineAt = Date.now() + pickReplyBudgetMs(text);
   }
 
   const preferredModels = resolvePreferredModels(answerRoute);
@@ -720,6 +810,7 @@ export async function handleIncomingText({
         preferredModels,
         excludeModels: [...rejectedModels],
         deadlineAt: nvidiaDeadlineAt,
+        timeoutMs: pickNvidiaTimeoutMs(text),
         maxAttempts: 10
       });
       const assistant = unpackAssistantMessage(completion);
@@ -766,7 +857,8 @@ export async function handleIncomingText({
           preferredModel: assistant.model,
           excludeModels: [...rejectedModels],
           languageStyle,
-          deadlineAt: nvidiaDeadlineAt
+          deadlineAt: nvidiaDeadlineAt,
+          originalPrompt: text
         });
 
         if (assistantText) {
@@ -1034,10 +1126,11 @@ export async function handleIncomingMedia({
       const fallbackCompletion = await createChatCompletion({
         messages: fallbackMessages,
         tools: [],
-        maxTokens: 800,
+        maxTokens: pickMaxTokens(caption),
         preferredModels: ADVANCED_MODELS,
         excludeModels: [],
         deadlineAt: Date.now() + 60000,
+        timeoutMs: pickNvidiaTimeoutMs(caption),
         maxAttempts: 3
       });
       const fallbackAssistant = unpackAssistantMessage(fallbackCompletion);

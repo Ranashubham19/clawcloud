@@ -549,10 +549,18 @@ export function formatProfessionalReply(value, options = {}) {
   if (!hasList) {
     if (sentences.length >= 3) {
       const intro = sentences[0];
-      const points = sentences
-        .slice(1, 5)
-        .map((sentence) => `- ${sentence}`);
-      body = `${intro}\n\n${points.join("\n")}`;
+      const remainder = sentences.slice(1);
+      const paragraphs = [];
+      let index = 0;
+
+      while (index < remainder.length) {
+        const remainingCount = remainder.length - index;
+        const take = remainingCount > 4 ? 2 : remainingCount;
+        paragraphs.push(remainder.slice(index, index + take).join(" ").trim());
+        index += take;
+      }
+
+      body = [intro, ...paragraphs.filter(Boolean)].join("\n\n");
     }
   }
 

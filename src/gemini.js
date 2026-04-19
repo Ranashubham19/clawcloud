@@ -306,7 +306,7 @@ async function requestGeminiSearchAnswer({
     tools: [{ google_search: {} }],
     generationConfig: {
       temperature: 0.0,
-      maxOutputTokens: Math.max(300, Math.min(maxOutputTokens, 1500)),
+      maxOutputTokens: Math.max(300, Math.min(maxOutputTokens, 2200)),
       candidateCount: 1,
       thinkingConfig: {
         thinkingBudget: 0
