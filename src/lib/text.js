@@ -177,7 +177,7 @@ function styleProfessionalListBlocks(value) {
     const styledBlock = items
       .filter((item) => item?.content)
       .map((item) => `${item.marker} ${item.content}`)
-      .join("\n");
+      .join("\n\n");
 
     if (styledBlock) {
       output.push(styledBlock);

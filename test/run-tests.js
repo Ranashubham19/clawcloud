@@ -643,7 +643,7 @@ await run("formatProfessionalReply turns long plain answers into structured form
   assert.match(formatted, /Haldi is the common name for turmeric\./);
   assert.match(formatted, /\*\.\* It is widely used in Indian cooking\./);
   assert.match(formatted, /\*\.\* It is known for its bright yellow color\./);
-  assert.match(formatted, /\n\*\.\* It is known for its bright yellow color\./);
+  assert.match(formatted, /\n\n\*\.\* It is known for its bright yellow color\./);
 });
 
 await run("formatProfessionalReply strips generic follow-up questions", async () => {
@@ -734,8 +734,8 @@ await run("formatProfessionalReply preserves numbered lists inline", async () =>
   );
 
   assert.match(formatted, /^1\. First do this\./);
-  assert.match(formatted, /\n2\. Then do that\./);
-  assert.match(formatted, /\n3\. Finally check the result\./);
+  assert.match(formatted, /\n\n2\. Then do that\./);
+  assert.match(formatted, /\n\n3\. Finally check the result\./);
 });
 
 await run("formatProfessionalReply keeps marker-only lines inline with their text", async () => {
@@ -745,7 +745,7 @@ await run("formatProfessionalReply keeps marker-only lines inline with their tex
   );
 
   assert.match(formatted, /^1\. I am designed to provide information and assist with tasks\./);
-  assert.match(formatted, /\n\*\.\* I am here to help with your questions\./);
+  assert.match(formatted, /\n\n\*\.\* I am here to help with your questions\./);
   assert.doesNotMatch(formatted, /^1\.\s*$/m);
   assert.doesNotMatch(formatted, /^\*\.\*\s*$/m);
 });
