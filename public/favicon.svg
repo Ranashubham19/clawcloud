@@ -1,19 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="bg" x1="4" y1="3" x2="28" y2="29" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#08111f"/>
-      <stop offset="55%" stop-color="#12356d"/>
-      <stop offset="100%" stop-color="#1d75d8"/>
-    </linearGradient>
-    <linearGradient id="trail" x1="8" y1="23.5" x2="20.5" y2="14.5" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#60a5fa"/>
+    <linearGradient id="crab-red" x1="32" y1="6" x2="32" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF3535"/>
+      <stop offset="100%" stop-color="#D90000"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
-  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7.25" stroke="#93c5fd" stroke-opacity="0.18"/>
-  <circle cx="8.25" cy="22.25" r="1.75" fill="#22d3ee"/>
-  <path d="M10.75 22.25L15.7 17.3C16.4 16.6 17.52 16.6 18.22 17.3L19.65 18.73C20.01 19.09 20.6 19.09 20.96 18.73L24.25 15.44" stroke="url(#trail)" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M19.75 10.75H25.25V16.25" stroke="#F8FAFC" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M25.05 10.95L18.55 17.45" stroke="#F8FAFC" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="18" fill="#FFFFFF"/>
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="16.75" stroke="#F2D6D6" stroke-width="1.5"/>
+  <g stroke="url(#crab-red)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23 23C17 21 12.5 15.5 12 9C17.8 10 22.5 13.8 25 19.5" fill="none"/>
+    <path d="M41 23C47 21 51.5 15.5 52 9C46.2 10 41.5 13.8 39 19.5" fill="none"/>
+    <path d="M21.5 40H11.5" fill="none"/>
+    <path d="M21 45.5L13.5 50" fill="none"/>
+    <path d="M24.5 50L20 56" fill="none"/>
+    <path d="M42.5 40H52.5" fill="none"/>
+    <path d="M43 45.5L50.5 50" fill="none"/>
+    <path d="M39.5 50L44 56" fill="none"/>
+    <path d="M28 20L27 16" fill="none"/>
+    <path d="M36 20L37 16" fill="none"/>
+  </g>
+  <circle cx="27" cy="15.25" r="2.6" fill="url(#crab-red)"/>
+  <circle cx="37" cy="15.25" r="2.6" fill="url(#crab-red)"/>
+  <path d="M19 31C19 23.5 24.7 19 32 19C39.3 19 45 23.5 45 31C45 40.8 39.3 48.5 32 48.5C24.7 48.5 19 40.8 19 31Z" fill="url(#crab-red)"/>
+  <path d="M22.5 30.5C25.2 27.8 28.4 26.5 32 26.5C35.6 26.5 38.8 27.8 41.5 30.5" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M25 34.8C27.2 32.9 29.6 32 32 32C34.4 32 36.8 32.9 39 34.8" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round"/>
 </svg>
