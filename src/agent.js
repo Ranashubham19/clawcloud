@@ -273,6 +273,8 @@ function buildGeneralReplyPrompt(context) {
     "Formatting rules:",
     "- Start with a direct answer.",
     "- Never use generic headings like Overview, Answer, Explanation, Summary, or Key Points.",
+    "- Never use filler headings or lead-ins like Chalo, Bilkul, Sure, Okay, Of course, or Let's see.",
+    "- Never put a standalone filler word on its own line before the real answer.",
     "- Do not repeat the user's question as a heading.",
     "- Never send one large unbroken paragraph when the answer has multiple facts.",
     "- For simple questions, use one short bold heading and 1 to 3 short paragraphs when it improves clarity.",
@@ -287,6 +289,7 @@ function buildGeneralReplyPrompt(context) {
     "- Be professional, calm, and easy to read.",
     "- Do not repeat or mention the user's name unless the user explicitly asks for it.",
     "- Do not include unnecessary greetings once the conversation is already underway.",
+    "- Do not open with conversational filler such as Chalo, Bilkul, Sure, Okay, or similar lead-in phrases.",
     "- Do not end with generic follow-up questions like 'Would you like to know more?' unless clarification is truly required.",
     "- Do not mention tools, models, searching, or internal workflow.",
     "- If you are unsure, say so briefly and answer as helpfully as possible.",
@@ -457,14 +460,14 @@ export function directSmallTalkReply(text, languageStyle) {
 
   if (/^(how are you|how are you today|how're you|how r you|how are u|hru|how r u)\??$/.test(source)) {
     if (normalizedLanguage === "hinglish") {
-      return "Main bilkul theek hoon, shukriya! Aaj main aapki kaise madad kar sakta hoon?";
+      return "Main theek hoon, shukriya. Main aapki kis baat mein madad kar sakta hoon?";
     }
     return "I'm doing well, thank you. How may I assist you today?";
   }
 
   if (/^(hi|hello|hey|hii|hlo|helo|yo|sup|greetings|good morning|good afternoon|good evening|good night|namaste|namaskar)\!?$/.test(source)) {
     if (normalizedLanguage === "hinglish") {
-      return "Namaste! Main aapki madad ke liye yahan hoon. Aap mujhse koi bhi sawal pooch sakte hain. Main spasht aur sahi jawab dene ki poori koshish karunga.";
+      return "Namaste. Main aapki madad ke liye yahan hoon. Aap apna sawal bhej sakte hain, aur main spasht jawab dunga.";
     }
     return "Hello! I'm here to help. Ask me any question, and I'll do my best to give a clear and accurate answer.";
   }
@@ -482,23 +485,23 @@ export function directSmallTalkReply(text, languageStyle) {
 
   if (/^(who are you|what are you|are you a bot|are you ai|are you human|are you a robot|are you an ai|are you chatgpt|who made you|who created you)\??$/.test(source)) {
     if (normalizedLanguage === "hinglish") {
-      return `Main ${config.botName} hoon, ek professional AI assistant. Main aapke sawalon ke jawab dene ke liye yahan hoon. Aap kya jaanna chahte hain?`;
+      return `Main ${config.botName} hoon, ek professional AI assistant. Main aapke sawalon ke jawab dene ke liye yahan hoon. Aap apna sawal bhej sakte hain.`;
     }
     return `I'm ${config.botName}, a professional AI assistant. I'm here to answer your questions clearly and helpfully. What would you like to know?`;
   }
 
   if (/^(thanks|thank you|thank u|thx|ty|great|awesome|nice|good|perfect|excellent|amazing|wonderful)\!?$/.test(source)) {
     if (normalizedLanguage === "hinglish") {
-      return "Khushi hui madad karke! Koi aur sawaal ho toh zaroor poochein.";
+      return "Aapka swagat hai. Agar koi aur sawaal ho, pooch sakte hain.";
     }
     return "You're welcome! Feel free to ask if there's anything else I can help you with.";
   }
 
   if (/^(ok|okay|alright|got it|i see|understood|sure|fine)\!?$/.test(source)) {
     if (normalizedLanguage === "hinglish") {
-      return "Bilkul! Koi bhi sawaal ho toh poochein.";
+      return "Theek hai. Jab bhi sawaal ho, bhej dijiye.";
     }
-    return "Of course! Let me know whenever you have a question.";
+    return "Understood. Send a question whenever you're ready.";
   }
 
   return "";

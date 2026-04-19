@@ -245,9 +245,94 @@ function genericHeadingLabels() {
 
 const GENERIC_REPLY_HEADINGS = genericHeadingLabels();
 
+const LEADING_FILLER_HEADINGS = new Set(
+  [
+    "chalo",
+    "chaliye",
+    "to chaliye",
+    "toh chaliye",
+    "bilkul",
+    "theek hai",
+    "thik hai",
+    "acha",
+    "accha",
+    "sure",
+    "okay",
+    "ok",
+    "alright",
+    "of course",
+    "let's begin",
+    "let's start",
+    "let's see",
+    "no problem"
+  ].map((value) => cleanInlineText(value).toLowerCase())
+);
+
+const LEADING_FILLER_PREFIX =
+  /^(?:(?:to|toh)\s+)?(?:chalo|chaliye|bilkul|theek hai|thik hai|acha|accha|sure|okay|ok|alright|of course|no problem|dekhiye|let(?:'|’)s (?:see|start|begin|go through))[\s,!.:-]*/i;
+
+const GENERIC_LEAD_IN_PATTERNS = [
+  /^(?:here(?:'s| is| are)|let me|i can|i will|i'll|we can)\b[\s\S]{0,80}\b(?:help|guide|suggest(?:ion)?s?|ideas?|options?|steps?|answer|answers|explain|share|walk you through|give you|tell you)\b/i,
+  /^(?:main|mai)\b[\s\S]{0,80}\b(?:madad|help|suggestions?|ideas?|options?|steps?|jawab|answer|samjha(?:ta|ti)?|bata(?:ta|ti)?|deta|deti|share)\b/i,
+  /^(?:some|few|kuch)\s+(?:suggestions|ideas|options|steps)\b/i,
+  /^(?:the|this|yeh|yah)\s+(?:answer|jawab|suggestions?|ideas|options|steps)\b/i
+];
+
 function isGenericReplyHeading(value) {
   const cleaned = cleanInlineText(value).toLowerCase().replace(/[:\-]\s*$/, "");
   return GENERIC_REPLY_HEADINGS.has(cleaned);
+}
+
+function isLeadingFillerHeading(value) {
+  const cleaned = cleanInlineText(value).toLowerCase().replace(/[:\-]\s*$/, "");
+  return LEADING_FILLER_HEADINGS.has(cleaned);
+}
+
+function looksLikeGenericLeadIn(value) {
+  const cleaned = cleanInlineText(value);
+  if (!cleaned) {
+    return false;
+  }
+
+  const withoutPrefix = cleaned.replace(LEADING_FILLER_PREFIX, "").trim();
+  if (!withoutPrefix) {
+    return true;
+  }
+
+  return GENERIC_LEAD_IN_PATTERNS.some(
+    (pattern) => pattern.test(cleaned) || (withoutPrefix !== cleaned && pattern.test(withoutPrefix))
+  );
+}
+
+function stripLeadingFillerLeadIn(text) {
+  let value = String(text || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  let headingMatch = value.match(/^([^\n]{1,40})\s*\n{1,2}/);
+  while (headingMatch && isLeadingFillerHeading(headingMatch[1])) {
+    value = value.slice(headingMatch[0].length).trim();
+    headingMatch = value.match(/^([^\n]{1,40})\s*\n{1,2}/);
+  }
+
+  const paragraphs = value.split(/\n\s*\n/);
+  if (paragraphs.length >= 2 && looksLikeGenericLeadIn(paragraphs[0])) {
+    const remainder = paragraphs.slice(1).join("\n\n").trim();
+    if (remainder) {
+      return remainder;
+    }
+  }
+
+  const sentences = splitSentences(value);
+  if (sentences.length >= 2 && looksLikeGenericLeadIn(sentences[0])) {
+    const remainder = value.slice(value.indexOf(sentences[0]) + sentences[0].length).trim();
+    if (remainder) {
+      return remainder;
+    }
+  }
+
+  return value;
 }
 
 function stripLeadingReplyHeading(text) {
@@ -259,12 +344,18 @@ function stripLeadingReplyHeading(text) {
   const emphasizedHeading =
     value.match(/^\*([^*\n]{1,60})\*\s*\n{1,2}/) ||
     value.match(/^_([^_\n]{1,60})_\s*\n{1,2}/);
-  if (emphasizedHeading && isGenericReplyHeading(emphasizedHeading[1])) {
+  if (
+    emphasizedHeading &&
+    (isGenericReplyHeading(emphasizedHeading[1]) || isLeadingFillerHeading(emphasizedHeading[1]))
+  ) {
     return value.slice(emphasizedHeading[0].length).trim();
   }
 
   const plainHeading = value.match(/^([^\n]{1,60})\s*\n{1,2}/);
-  if (plainHeading && isGenericReplyHeading(plainHeading[1])) {
+  if (
+    plainHeading &&
+    (isGenericReplyHeading(plainHeading[1]) || isLeadingFillerHeading(plainHeading[1]))
+  ) {
     return value.slice(plainHeading[0].length).trim();
   }
 
@@ -278,7 +369,9 @@ export function formatProfessionalReply(value, options = {}) {
   }
 
   const { body: rawBody, sources } = splitTrailingSourceBlock(cleaned);
-  let body = stripLeadingReplyHeading(stripGenericFollowUp(rawBody));
+  let body = stripLeadingFillerLeadIn(
+    stripLeadingReplyHeading(stripGenericFollowUp(rawBody))
+  );
   if (!body) {
     return cleaned;
   }
@@ -306,7 +399,9 @@ export function formatProfessionalReply(value, options = {}) {
     body = `${heading}\n\n${body}`;
   }
 
-  body = stripLeadingReplyHeading(sanitizeForWhatsApp(body));
+  body = stripLeadingFillerLeadIn(
+    stripLeadingReplyHeading(sanitizeForWhatsApp(body))
+  );
   if (!sources) {
     return body;
   }
@@ -379,6 +474,7 @@ export function cleanUserFacingText(value) {
   }
 
   text = cleanedLines.join("\n");
+  text = stripLeadingFillerLeadIn(text);
   text = text.replace(/\n{3,}/g, "\n\n").trim();
   return text;
 }

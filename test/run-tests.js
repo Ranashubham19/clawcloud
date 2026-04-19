@@ -634,6 +634,18 @@ await run("formatProfessionalReply removes robotic top headings", async () => {
   assert.match(formatted, /India is currently ranked among the world's largest economies\./);
 });
 
+await run("formatProfessionalReply strips filler headings and lead-in sentences", async () => {
+  const formatted = formatProfessionalReply(
+    "Chalo\n\nChalo, main kuch suggestions deta hun.\n1. Game khelna: Hum online game khel sakte hain.\n2. Kahani sunana: Main tumhein ek interesting kahani suna sakta hun.",
+    { languageStyle: "hinglish" }
+  );
+
+  assert.doesNotMatch(formatted, /^Chalo\b/i);
+  assert.doesNotMatch(formatted, /main kuch suggestions deta hun/i);
+  assert.match(formatted, /1\. Game khelna:/);
+  assert.match(formatted, /2\. Kahani sunana:/);
+});
+
 await run("formatProfessionalReply preserves trailing source blocks", async () => {
   const formatted = formatProfessionalReply(
     "Gold prices are higher today. Analysts say demand remains strong.\n\n1. https://www.reuters.com/example\n2. https://www.bbc.com/example",
