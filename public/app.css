@@ -309,6 +309,18 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   box-shadow: 0 14px 36px rgba(0,0,0,0.35);
 }
 
+.setup-choice-card.platform-disabled-card .platform-disabled-cover {
+  justify-content: flex-end;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(5,5,16,0.03) 0%, rgba(5,5,16,0.16) 100%);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+
+.setup-choice-card.platform-disabled-card .platform-disabled-popup {
+  margin-left: auto;
+}
+
 .ghost-button {
   color: var(--ink-2);
   background: rgba(255,255,255,0.04);

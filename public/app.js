@@ -2372,7 +2372,7 @@ function renderSetupFlow() {
           <span class="logo-name">swift-deploy.in</span>
         </div>
         <div class="setup-flow-topbar-right">
-          <span class="setup-flow-welcome">Welcome, <strong>${escapeHtml(userName)}</strong></span>
+          <span class="setup-flow-welcome">Welcome <strong>${escapeHtml(userName)}</strong></span>
           <button class="ghost-button" id="setup-logout" style="font-size:0.82rem;padding:6px 14px;">Log out</button>
         </div>
       </div>
