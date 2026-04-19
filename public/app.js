@@ -2278,10 +2278,23 @@ function renderSetupFlow() {
           <p class="setup-platform-sub">Paste your BotFather token — no Meta approval needed</p>
         </div>
       </div>
-      <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Open Telegram → search <strong>@BotFather</strong></div>
-        <div class="setup-step-item"><span class="setup-step-num">2</span>Send <code>/newbot</code> and follow the steps to create your bot</div>
-        <div class="setup-step-item"><span class="setup-step-num">3</span>Copy the token BotFather gives you and paste it below</div>
+      <div class="setup-wa-steps setup-wa-steps--telegram">
+        <div class="setup-steps-head">
+          <div class="setup-steps-kicker">Quick setup</div>
+          <div class="setup-steps-note">Complete these three steps in Telegram, then paste your token below.</div>
+        </div>
+        <div class="setup-step-item">
+          <span class="setup-step-num">1</span>
+          <div class="setup-step-copy">Open Telegram and search for <strong class="setup-step-accent">@BotFather</strong></div>
+        </div>
+        <div class="setup-step-item">
+          <span class="setup-step-num">2</span>
+          <div class="setup-step-copy">Send <strong class="setup-step-accent">/newbot</strong> and follow the prompts to create your bot</div>
+        </div>
+        <div class="setup-step-item">
+          <span class="setup-step-num">3</span>
+          <div class="setup-step-copy">Copy the token from <strong class="setup-step-accent">BotFather</strong> and paste it below</div>
+        </div>
       </div>
       <form id="setup-tg-form" class="setup-form">
         <div class="setup-field">
