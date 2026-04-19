@@ -840,6 +840,22 @@ export async function updateBusinessTelegram(userId, businessId, telegramPatch =
   return updated;
 }
 
+export async function updateBusinessTelegramById(businessId, telegramPatch = {}) {
+  let updated = null;
+  await withWriteLock("businesses", (businesses) => {
+    const index = businesses.findIndex((entry) => entry.id === businessId);
+    if (index === -1) throw new Error("Business not found.");
+    updated = {
+      ...businesses[index],
+      telegram: { ...businesses[index].telegram, ...telegramPatch },
+      updatedAt: new Date().toISOString()
+    };
+    businesses[index] = updated;
+    return businesses;
+  });
+  return updated;
+}
+
 export async function updateBusinessWhatsApp(userId, businessId, whatsappPatch = {}) {
   let updated = null;
   await withWriteLock("businesses", (businesses) => {

@@ -32,6 +32,7 @@ import {
 import { startTypingKeepAlive } from "./typing.js";
 import {
   getBusinessByTelegramToken,
+  updateBusinessTelegramById,
   updateBusinessWhatsAppById
 } from "./saas-store.js";
 import {
@@ -605,7 +606,7 @@ async function handleTelegramWebhook(request, response, url) {
   try {
     stopTyping = startTypingKeepAlive(
       ({ signal }) => sendTelegramChatAction(token, inbound.chatId, "typing", { signal }),
-      { intervalMs: 4000, initialDelayMs: 900 }
+      { intervalMs: 4000, initialDelayMs: 0 }
     );
 
     let reply;
@@ -651,6 +652,9 @@ async function handleTelegramWebhook(request, response, url) {
     });
   } catch (err) {
     console.error("Telegram webhook error:", err);
+    await updateBusinessTelegramById(business.id, {
+      lastError: err.message
+    }).catch(() => {});
     await completeInboundProcessing(message.messageId, {
       error: err.message,
       outcome: "telegram_error",

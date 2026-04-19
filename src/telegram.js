@@ -222,7 +222,7 @@ export function extractTelegramInbound(payload) {
     text,
     caption: media ? (textContent || caption) : "",
     profileName: [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || "",
-    messageId: `telegram:${message.message_id || Date.now()}`,
+    messageId: `telegram:${chat.id || from.id || "unknown"}:${message.message_id || Date.now()}`,
     timestamp: String(message.date || ""),
     mediaType,
     mimeType,

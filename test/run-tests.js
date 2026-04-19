@@ -284,8 +284,43 @@ await run("extractTelegramInbound normalizes Telegram text payloads", async () =
   assert.equal(inbound.chatId, "987654321");
   assert.equal(inbound.text, "Hello from Telegram");
   assert.equal(inbound.profileName, "Ada Lovelace");
-  assert.equal(inbound.messageId, "telegram:42");
+  assert.equal(inbound.messageId, "telegram:987654321:42");
   assert.equal(inbound.timestamp, "1710000000");
+});
+
+await run("extractTelegramInbound keeps same message numbers unique across chats", async () => {
+  const first = extractTelegramInbound({
+    message: {
+      message_id: 42,
+      date: 1710000000,
+      text: "Hello from Telegram",
+      from: {
+        id: 111,
+        first_name: "Ada"
+      },
+      chat: {
+        id: 111
+      }
+    }
+  });
+  const second = extractTelegramInbound({
+    message: {
+      message_id: 42,
+      date: 1710000001,
+      text: "Hello again",
+      from: {
+        id: 222,
+        first_name: "Grace"
+      },
+      chat: {
+        id: 222
+      }
+    }
+  });
+
+  assert.equal(first.messageId, "telegram:111:42");
+  assert.equal(second.messageId, "telegram:222:42");
+  assert.notEqual(first.messageId, second.messageId);
 });
 
 await run("setTelegramWebhook throws when Telegram rejects the webhook", async () => {
