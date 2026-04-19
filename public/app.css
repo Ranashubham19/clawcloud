@@ -254,6 +254,61 @@ h1,h2,h3,h4 { margin: 0; line-height: 1.25; }
   box-shadow: none;
 }
 
+.platform-disabled-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.platform-disabled-card[disabled] {
+  opacity: 1;
+  cursor: default;
+}
+
+.platform-disabled-card:hover {
+  transform: none !important;
+}
+
+.platform-disabled-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 18px 16px 16px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(5,5,16,0.08) 0%, rgba(5,5,16,0.3) 100%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 5;
+}
+
+.platform-disabled-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f5c451 0%, #fb923c 50%, #f97316 100%);
+  box-shadow: 0 0 20px rgba(245,196,81,0.3);
+}
+
+.platform-disabled-popup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(12,12,30,0.92);
+  border: 1px solid rgba(245,196,81,0.28);
+  color: #f7c869;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.35);
+}
+
 .ghost-button {
   color: var(--ink-2);
   background: rgba(255,255,255,0.04);
@@ -2379,6 +2434,11 @@ code {
   color: var(--muted);
   border: 1px solid rgba(255,255,255,0.08);
 }
+.badge--coming-soon {
+  background: rgba(245,196,81,0.12);
+  color: #f5c451;
+  border: 1px solid rgba(245,196,81,0.24);
+}
 
 .platform-card-body {
   padding: 18px 22px 20px;
@@ -3348,6 +3408,9 @@ code {
 .dash-plat-badge--pending { border-color: rgba(245,196,81,0.25); background: rgba(245,196,81,0.05); }
 .dash-plat-badge--pending svg { color: #f5c451; }
 .dash-plat-badge--pending .dash-plat-status { background: rgba(245,196,81,0.15); color: #f5c451; }
+.dash-plat-badge--coming-soon { border-color: rgba(245,196,81,0.26); background: rgba(245,196,81,0.08); }
+.dash-plat-badge--coming-soon svg { color: #f5c451; }
+.dash-plat-badge--coming-soon .dash-plat-status { background: rgba(245,196,81,0.18); color: #f5c451; }
 .dash-plat-badge--off svg { color: rgba(255,255,255,0.3); }
 .dash-plat-badge--off .dash-plat-status { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); }
 
@@ -3433,6 +3496,7 @@ code {
 }
 .pcard--wa-live { border-color: rgba(37,211,102,0.25); box-shadow: 0 8px 40px rgba(0,0,0,0.35), 0 0 60px rgba(37,211,102,0.06); }
 .pcard--wa-live:hover { box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 80px rgba(37,211,102,0.1); }
+.pcard--wa-disabled { border-color: rgba(245,196,81,0.2); box-shadow: 0 8px 40px rgba(0,0,0,0.35), 0 0 60px rgba(245,196,81,0.05); }
 .pcard--tg-live { border-color: rgba(42,171,238,0.25); box-shadow: 0 8px 40px rgba(0,0,0,0.35), 0 0 60px rgba(42,171,238,0.06); }
 .pcard--tg-live:hover { box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 80px rgba(42,171,238,0.1); }
 .pcard--wa-idle:hover { border-color: rgba(37,211,102,0.15); }
@@ -3450,6 +3514,7 @@ code {
   transition: opacity 0.4s ease;
 }
 .pcard--wa-live .pcard-glow--wa { background: radial-gradient(circle, rgba(37,211,102,0.2) 0%, transparent 70%); opacity: 1; }
+.pcard--wa-disabled .pcard-glow--wa { background: radial-gradient(circle, rgba(245,196,81,0.16) 0%, transparent 70%); opacity: 1; }
 .pcard--tg-live .pcard-glow--tg { background: radial-gradient(circle, rgba(42,171,238,0.2) 0%, transparent 70%); opacity: 1; }
 
 .pcard-top {
@@ -3486,6 +3551,7 @@ code {
 }
 .pcard-status--live { background: rgba(0,245,176,0.1); color: var(--green); border: 1px solid rgba(0,245,176,0.2); }
 .pcard-status--tg.pcard-status--live { background: rgba(42,171,238,0.1); color: #2aabee; border-color: rgba(42,171,238,0.25); }
+.pcard-status--coming-soon { background: rgba(245,196,81,0.12); color: #f5c451; border: 1px solid rgba(245,196,81,0.24); }
 .pcard-status--idle { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid rgba(255,255,255,0.07); }
 .pcard-dot {
   width: 6px;

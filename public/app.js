@@ -2,6 +2,7 @@
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
 const PRICING_ENABLED = false; // set to true to re-enable payment popup before platform connect
+const WHATSAPP_COMING_SOON = true;
 
 function normalizeTab(value) {
   const tab = String(value || "").trim().toLowerCase();
@@ -25,6 +26,17 @@ function initialBillingNotice() {
   }
 
   return null;
+}
+
+function normalizeSelectedProduct(value) {
+  const product = String(value || "").trim().toLowerCase();
+  if (product === "telegram") {
+    return "telegram";
+  }
+  if (!WHATSAPP_COMING_SOON && product === "whatsapp") {
+    return "whatsapp";
+  }
+  return WHATSAPP_COMING_SOON ? "telegram" : "whatsapp";
 }
 
 const state = {
@@ -60,7 +72,7 @@ const state = {
   showOnboarding: false,
   resetToken: "",
   authSubMode: "",
-  selectedProduct: pageParams.get("product") || "whatsapp",
+  selectedProduct: normalizeSelectedProduct(pageParams.get("product")),
   telegramSetup: false,
   showPaymentPopup: false,
   pendingPlatformSetup: null,
@@ -79,22 +91,48 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function isWhatsAppComingSoon() {
+  return WHATSAPP_COMING_SOON;
+}
+
+function renderPlatformComingSoonCover() {
+  return `
+    <div class="platform-disabled-cover" aria-hidden="true">
+      <div class="platform-disabled-strip"></div>
+      <div class="platform-disabled-popup">Coming soon</div>
+    </div>
+  `;
+}
+
+function renderDisabledPlatformSurface(tagName, className, content, extraAttrs = "") {
+  return `<${tagName} class="${className} platform-disabled-card" data-platform-disabled="whatsapp" aria-disabled="true" ${extraAttrs}>${content}${renderPlatformComingSoonCover()}</${tagName}>`;
+}
+
 function isTelegramConnected(business = state.selectedBusiness) {
   const telegram = business?.telegram || {};
   return Boolean(telegram.configured || telegram.tokenConfigured || telegram.token);
 }
 
 function isWhatsAppConfigured(business = state.selectedBusiness) {
+  if (isWhatsAppComingSoon()) {
+    return false;
+  }
   const whatsapp = business?.whatsapp || {};
   return Boolean(whatsapp.configured || (whatsapp.phoneNumberId && whatsapp.accessTokenConfigured));
 }
 
 function isWhatsAppReady(business = state.selectedBusiness) {
+  if (isWhatsAppComingSoon()) {
+    return false;
+  }
   const whatsapp = business?.whatsapp || {};
   return Boolean(isWhatsAppConfigured(business) && whatsapp.webhookVerifiedAt);
 }
 
 function showWhatsAppSetupAlert(setup = {}) {
+  if (isWhatsAppComingSoon()) {
+    return;
+  }
   if (!setup.callbackUrl || !setup.verifyToken) {
     return;
   }
@@ -305,6 +343,46 @@ async function openChat(chatId) {
 }
 
 function renderLanding() {
+  const whatsappLandingCard = isWhatsAppComingSoon()
+    ? renderDisabledPlatformSurface("div", "lp-platform-card lp-platform-whatsapp", `
+        <div class="lp-platform-icon">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+            <rect width="52" height="52" rx="14" fill="#25D366"/>
+            <path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2zm7.25-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/>
+          </svg>
+        </div>
+        <div class="lp-platform-info">
+          <h3>WhatsApp AI Bot</h3>
+          <p>Connect your WhatsApp Business number and let AI reply to every customer message — instantly, 24/7.</p>
+          <ul class="lp-platform-features">
+            <li>Replies to text, photos, audio &amp; files</li>
+            <li>Auto-detects &amp; replies in any language</li>
+            <li>Always on — zero manual effort</li>
+          </ul>
+        </div>
+        <div class="lp-platform-cta">Get started free →</div>
+      `)
+    : `
+        <a href="/app?mode=signup&product=whatsapp" class="lp-platform-card lp-platform-whatsapp">
+          <div class="lp-platform-icon">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+              <rect width="52" height="52" rx="14" fill="#25D366"/>
+              <path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2zm7.25-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/>
+            </svg>
+          </div>
+          <div class="lp-platform-info">
+            <h3>WhatsApp AI Bot</h3>
+            <p>Connect your WhatsApp Business number and let AI reply to every customer message — instantly, 24/7.</p>
+            <ul class="lp-platform-features">
+              <li>Replies to text, photos, audio &amp; files</li>
+              <li>Auto-detects &amp; replies in any language</li>
+              <li>Always on — zero manual effort</li>
+            </ul>
+          </div>
+          <div class="lp-platform-cta">Get started free →</div>
+        </a>
+      `;
+
   app.innerHTML = `
     <div class="landing">
 
@@ -378,24 +456,7 @@ function renderLanding() {
             <p class="lp-section-sub">Pick the messaging app you want to automate. You can add more later.</p>
           </div>
           <div class="lp-platform-grid">
-            <a href="/app?mode=signup&product=whatsapp" class="lp-platform-card lp-platform-whatsapp">
-              <div class="lp-platform-icon">
-                <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-                  <rect width="52" height="52" rx="14" fill="#25D366"/>
-                  <path d="M26 10C17.163 10 10 17.163 10 26c0 2.837.737 5.5 2.025 7.813L10 42l8.4-2.2A15.916 15.916 0 0026 42c8.837 0 16-7.163 16-16S34.837 10 26 10zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0112.8 26c0-7.275 5.925-13.2 13.2-13.2 7.275 0 13.2 5.925 13.2 13.2 0 7.275-5.925 13.2-13.2 13.2zm7.25-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/>
-                </svg>
-              </div>
-              <div class="lp-platform-info">
-                <h3>WhatsApp AI Bot</h3>
-                <p>Connect your WhatsApp Business number and let AI reply to every customer message — instantly, 24/7.</p>
-                <ul class="lp-platform-features">
-                  <li>Replies to text, photos, audio &amp; files</li>
-                  <li>Auto-detects &amp; replies in any language</li>
-                  <li>Always on — zero manual effort</li>
-                </ul>
-              </div>
-              <div class="lp-platform-cta">Get started free →</div>
-            </a>
+            ${whatsappLandingCard}
             <a href="/app?mode=signup&product=telegram" class="lp-platform-card lp-platform-telegram">
               <div class="lp-platform-icon">
                 <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
@@ -497,6 +558,40 @@ function renderLanding() {
 }
 
 function renderPlatformChoice() {
+  const whatsappPlatformChoiceCard = isWhatsAppComingSoon()
+    ? renderDisabledPlatformSurface("div", "platform-choice-card platform-choice-wa", `
+        <div class="platform-choice-icon">
+          <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+        </div>
+        <div class="platform-choice-info">
+          <h2>WhatsApp AI Bot</h2>
+          <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+          <ul class="platform-choice-features">
+            <li>Replies to text, photos, audio &amp; files</li>
+            <li>Auto-detects &amp; replies in any language</li>
+            <li>Always on — zero manual effort</li>
+          </ul>
+        </div>
+        <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
+      `)
+    : `
+        <a href="/app?mode=signup&product=whatsapp" class="platform-choice-card platform-choice-wa">
+          <div class="platform-choice-icon">
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+          </div>
+          <div class="platform-choice-info">
+            <h2>WhatsApp AI Bot</h2>
+            <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+            <ul class="platform-choice-features">
+              <li>Replies to text, photos, audio &amp; files</li>
+              <li>Auto-detects &amp; replies in any language</li>
+              <li>Always on — zero manual effort</li>
+            </ul>
+          </div>
+          <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
+        </a>
+      `;
+
   app.innerHTML = `
     <div class="platform-choice-page">
       <nav class="landing-nav">
@@ -516,21 +611,7 @@ function renderPlatformChoice() {
           <p class="platform-choice-sub">Pick where you want your AI bot to reply. You can connect both after setup.</p>
         </div>
         <div class="platform-choice-grid">
-          <a href="/app?mode=signup&product=whatsapp" class="platform-choice-card platform-choice-wa">
-            <div class="platform-choice-icon">
-              <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
-            </div>
-            <div class="platform-choice-info">
-              <h2>WhatsApp AI Bot</h2>
-              <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
-              <ul class="platform-choice-features">
-                <li>Replies to text, photos, audio &amp; files</li>
-                <li>Auto-detects &amp; replies in any language</li>
-                <li>Always on — zero manual effort</li>
-              </ul>
-            </div>
-            <div class="platform-choice-cta platform-choice-cta--wa">Get started →</div>
-          </a>
+          ${whatsappPlatformChoiceCard}
           <a href="/app?mode=signup&product=telegram" class="platform-choice-card platform-choice-tg">
             <div class="platform-choice-icon">
               <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
@@ -1075,9 +1156,37 @@ function dashboardSection() {
         </section>
       `;
     case "settings": {
+      const waComingSoon = isWhatsAppComingSoon();
       const waConn = state.selectedBusiness?.whatsapp;
       const waIsLive = isWhatsAppReady(state.selectedBusiness);
       const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
+      if (waComingSoon) {
+        return renderDisabledPlatformSurface("section", "card", `
+          <div class="settings-wa-header">
+            <div class="settings-wa-icon">
+              <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+            </div>
+            <div>
+              <div class="settings-wa-title">Connect WhatsApp</div>
+              <div class="muted" style="font-size:0.85rem;">WhatsApp onboarding is temporarily paused while we finish the rollout.</div>
+            </div>
+            <div class="platform-card-badge badge--coming-soon" style="margin-left:auto;">
+              Coming soon
+            </div>
+          </div>
+
+          <div class="platform-connected-info" style="margin:18px 0;">
+            <div class="pci-row"><span>Status</span><strong style="color:#f5c451;">Temporarily unavailable</strong></div>
+            <div class="pci-row"><span>Available now</span><strong>Telegram bot setup</strong></div>
+          </div>
+
+          <div class="settings-wa-steps">
+            <div class="pc-step"><span class="pc-step-n">1</span>WhatsApp setup is disabled across the app for now.</div>
+            <div class="pc-step"><span class="pc-step-n">2</span>The channel stays visible so your team still sees it in the roadmap.</div>
+            <div class="pc-step"><span class="pc-step-n">3</span>Use Telegram for live bot launches until WhatsApp returns.</div>
+          </div>
+        `);
+      }
       return `
         <section class="card">
           <div class="settings-wa-header">
@@ -1164,15 +1273,22 @@ function dashboardSection() {
     default: {
       const tg = state.selectedBusiness?.telegram;
       const tgConnected = isTelegramConnected(state.selectedBusiness);
+      const waComingSoon = isWhatsAppComingSoon();
       const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
       const waReady = isWhatsAppReady(state.selectedBusiness);
-      const waConnected = waReady;
+      const waConnected = waComingSoon ? false : waReady;
       const totalChats = state.analytics?.totalChats || 0;
       const totalLeads = state.analytics?.totalLeads || 0;
       const qualifiedLeads = state.analytics?.qualifiedLeads || 0;
       const demoBooked = state.analytics?.demoBooked || 0;
-      const activeBots = (tgConnected ? 1 : 0) + (waReady ? 1 : 0);
-      const anyLive = tgConnected || waReady;
+      const totalPlatformSlots = waComingSoon ? 1 : 2;
+      const activeBots = (tgConnected ? 1 : 0) + (waComingSoon ? 0 : waReady ? 1 : 0);
+      const anyLive = tgConnected || (!waComingSoon && waReady);
+      const bannerStatusLabel = waComingSoon && tgConnected
+        ? "Telegram live"
+        : anyLive
+          ? "All systems live"
+          : "No platform connected";
       const firstName = escapeHtml(state.user?.name?.split(" ")[0] || "there");
       const bizName = escapeHtml(state.selectedBusiness?.name || "");
       return `
@@ -1183,16 +1299,16 @@ function dashboardSection() {
               <div class="dash-banner-left">
                 <div class="dash-banner-eyebrow">
                   <span class="dash-banner-dot ${anyLive ? "dash-banner-dot--live" : "dash-banner-dot--off"}"></span>
-                  ${anyLive ? "All systems live" : "No platform connected"}
+                  ${bannerStatusLabel}
                 </div>
                 <h1 class="dash-banner-title">Welcome back, <span class="dash-banner-name">${firstName}</span></h1>
                 ${bizName ? `<div class="dash-banner-biz">${bizName}</div>` : ""}
               </div>
               <div class="dash-banner-right">
-                <div class="dash-plat-badge ${waReady ? "dash-plat-badge--wa-live" : waConfigured ? "dash-plat-badge--pending" : "dash-plat-badge--off"}">
+                <div class="dash-plat-badge ${waComingSoon ? "dash-plat-badge--coming-soon" : waReady ? "dash-plat-badge--wa-live" : waConfigured ? "dash-plat-badge--pending" : "dash-plat-badge--off"}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" fill="currentColor"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438C8.34 21.475 10.11 22 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
                   <span class="dash-plat-name">WhatsApp</span>
-                  <span class="dash-plat-status">${waReady ? "Live" : waConfigured ? "Pending" : "Off"}</span>
+                  <span class="dash-plat-status">${waComingSoon ? "Coming soon" : waReady ? "Live" : waConfigured ? "Pending" : "Off"}</span>
                 </div>
                 <div class="dash-plat-badge ${tgConnected ? "dash-plat-badge--tg-live" : "dash-plat-badge--off"}">
                   <svg width="16" height="16" viewBox="0 0 52 52" fill="none"><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="currentColor"/></svg>
@@ -1235,7 +1351,7 @@ function dashboardSection() {
                 <div class="dash-stat-card-icon dash-stat-icon--bots">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M12 11V7M8 7h8M9 15h.01M15 15h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.8"/></svg>
                 </div>
-                <div class="dash-stat-card-val">${activeBots}<span class="dash-stat-card-denom">/2</span></div>
+                <div class="dash-stat-card-val">${activeBots}<span class="dash-stat-card-denom">/${totalPlatformSlots}</span></div>
                 <div class="dash-stat-card-lbl">Active Bots</div>
               </div>
             </div>
@@ -1245,47 +1361,71 @@ function dashboardSection() {
         <div class="platform-cards-grid">
 
           <!-- WhatsApp Card -->
-          <div class="pcard ${waConnected ? "pcard--live pcard--wa-live" : "pcard--wa-idle"}">
-            <div class="pcard-glow pcard-glow--wa"></div>
-            <div class="pcard-top">
-              <div class="pcard-icon pcard-icon--wa">
-                <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
-              </div>
-              <div class="pcard-title-wrap">
-                <div class="pcard-platform">WhatsApp</div>
-                <div class="pcard-status ${waReady ? "pcard-status--live" : "pcard-status--idle"}">
-                  <span class="pcard-dot"></span>${waReady ? "Live — AI replying" : waConfigured ? "Connected — finish webhook" : "Not connected"}
+          ${waComingSoon
+            ? renderDisabledPlatformSurface("div", "pcard pcard--wa-disabled", `
+                <div class="pcard-glow pcard-glow--wa"></div>
+                <div class="pcard-top">
+                  <div class="pcard-icon pcard-icon--wa">
+                    <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+                  </div>
+                  <div class="pcard-title-wrap">
+                    <div class="pcard-platform">WhatsApp</div>
+                    <div class="pcard-status pcard-status--coming-soon">
+                      <span class="pcard-dot"></span>Coming soon
+                    </div>
+                  </div>
+                </div>
+                <div class="pcard-body">
+                  <div class="pcard-info-rows">
+                    <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Temporarily unavailable</strong></div>
+                    <div class="pcard-info-row"><span>Available now</span><strong style="color:#2aabee;">Telegram bot</strong></div>
+                  </div>
+                  <p class="pcard-desc">WhatsApp stays visible in the dashboard, but setup and management are paused until the channel is ready to launch again.</p>
+                </div>
+              `)
+            : `
+              <div class="pcard ${waConnected ? "pcard--live pcard--wa-live" : "pcard--wa-idle"}">
+                <div class="pcard-glow pcard-glow--wa"></div>
+                <div class="pcard-top">
+                  <div class="pcard-icon pcard-icon--wa">
+                    <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+                  </div>
+                  <div class="pcard-title-wrap">
+                    <div class="pcard-platform">WhatsApp</div>
+                    <div class="pcard-status ${waReady ? "pcard-status--live" : "pcard-status--idle"}">
+                      <span class="pcard-dot"></span>${waReady ? "Live — AI replying" : waConfigured ? "Connected — finish webhook" : "Not connected"}
+                    </div>
+                  </div>
+                </div>
+                <div class="pcard-body">
+                  ${waReady ? `
+                    <div class="pcard-info-rows">
+                      <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
+                      <div class="pcard-info-row"><span>Replies</span><strong style="color:#25d366;">24/7 automated</strong></div>
+                    </div>
+                    <p class="pcard-desc">Your WhatsApp AI bot is live and replying to every message instantly. Share your number with users to start conversations.</p>
+                    <button class="pcard-btn pcard-btn--danger" id="ov-wa-disconnect">Disconnect WhatsApp</button>
+                  ` : waConfigured ? `
+                    <div class="pcard-info-rows">
+                      <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || state.selectedBusiness?.whatsapp?.phoneNumberId || "Connected")}</strong></div>
+                      <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Webhook setup pending</strong></div>
+                    </div>
+                    <p class="pcard-desc">Your credentials are saved. Complete the Meta webhook in Settings using the callback URL and verify token, then replies will start automatically.</p>
+                  ` : `
+                    <p class="pcard-desc">Connect your WhatsApp Business number. Your AI bot will reply to every message automatically — any language, any time.</p>
+                    <div class="pcard-steps">
+                      <div class="pcard-step"><span class="pcard-step-n">1</span>Get your Meta WhatsApp API credentials</div>
+                      <div class="pcard-step"><span class="pcard-step-n">2</span>Go to <strong>Settings</strong> and enter them</div>
+                      <div class="pcard-step"><span class="pcard-step-n">3</span>Bot activates instantly — no waiting</div>
+                    </div>
+                    <button class="pcard-btn pcard-btn--wa" id="ov-wa-connect-btn">
+                      <svg width="16" height="16" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm7.24 20.313c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4.175-.812.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012s-.688.1-1.05.487c-.362.387-1.387 1.35-1.387 3.3s1.425 3.837 1.625 4.1c.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+                      Connect WhatsApp
+                    </button>
+                  `}
                 </div>
               </div>
-            </div>
-            <div class="pcard-body">
-              ${waReady ? `
-                <div class="pcard-info-rows">
-                  <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || "Connected")}</strong></div>
-                  <div class="pcard-info-row"><span>Replies</span><strong style="color:#25d366;">24/7 automated</strong></div>
-                </div>
-                <p class="pcard-desc">Your WhatsApp AI bot is live and replying to every message instantly. Share your number with users to start conversations.</p>
-                <button class="pcard-btn pcard-btn--danger" id="ov-wa-disconnect">Disconnect WhatsApp</button>
-              ` : waConfigured ? `
-                <div class="pcard-info-rows">
-                  <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || state.selectedBusiness?.whatsapp?.phoneNumberId || "Connected")}</strong></div>
-                  <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Webhook setup pending</strong></div>
-                </div>
-                <p class="pcard-desc">Your credentials are saved. Complete the Meta webhook in Settings using the callback URL and verify token, then replies will start automatically.</p>
-              ` : `
-                <p class="pcard-desc">Connect your WhatsApp Business number. Your AI bot will reply to every message automatically — any language, any time.</p>
-                <div class="pcard-steps">
-                  <div class="pcard-step"><span class="pcard-step-n">1</span>Get your Meta WhatsApp API credentials</div>
-                  <div class="pcard-step"><span class="pcard-step-n">2</span>Go to <strong>Settings</strong> and enter them</div>
-                  <div class="pcard-step"><span class="pcard-step-n">3</span>Bot activates instantly — no waiting</div>
-                </div>
-                <button class="pcard-btn pcard-btn--wa" id="ov-wa-connect-btn">
-                  <svg width="16" height="16" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm7.24 20.313c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4.175-.812.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012s-.688.1-1.05.487c-.362.387-1.387 1.35-1.387 3.3s1.425 3.837 1.625 4.1c.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
-                  Connect WhatsApp
-                </button>
-              `}
-            </div>
-          </div>
+            `}
 
           <!-- Telegram Card -->
           <div class="pcard ${tgConnected ? "pcard--live pcard--tg-live" : "pcard--tg-idle"}">
@@ -2190,7 +2330,12 @@ function renderTelegramSetup() {
 function renderSetupFlow() {
   const userName = state.user?.name?.split(" ")[0] || "there";
   const biz = state.selectedBusiness;
-  const step = state.setupStep || "choice";
+  const step = isWhatsAppComingSoon() && state.setupStep === "wa-form"
+    ? "choice"
+    : (state.setupStep || "choice");
+  if (step !== state.setupStep) {
+    state.setupStep = step;
+  }
 
   const paymentPopupHtml = state.showPaymentPopup ? `
     <div class="payment-overlay" id="payment-overlay">
@@ -2291,8 +2436,23 @@ function renderSetupFlow() {
     </div>
   ` : "";
 
-  const choiceGrid = step === "choice" ? `
-    <div class="setup-choice-grid">
+  const setupWhatsAppChoiceCard = isWhatsAppComingSoon()
+    ? renderDisabledPlatformSurface("button", "setup-choice-card setup-choice-wa", `
+        <div class="setup-choice-icon">
+          <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
+        </div>
+        <div class="setup-choice-info">
+          <h3>WhatsApp AI Bot</h3>
+          <p>Connect your WhatsApp number. AI replies to every message automatically — 24/7, any language.</p>
+          <ul class="setup-choice-features">
+            <li>Works on any WhatsApp number</li>
+            <li>Instant AI replies, any language</li>
+            <li>Meta Cloud API (free tier available)</li>
+          </ul>
+        </div>
+        <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp →</div>
+      `, `type="button" id="setup-pick-wa" disabled`)
+    : `
       <button class="setup-choice-card setup-choice-wa" id="setup-pick-wa">
         <div class="setup-choice-icon">
           <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
@@ -2308,6 +2468,11 @@ function renderSetupFlow() {
         </div>
         <div class="setup-choice-cta setup-choice-cta--wa">Connect WhatsApp →</div>
       </button>
+    `;
+
+  const choiceGrid = step === "choice" ? `
+    <div class="setup-choice-grid">
+      ${setupWhatsAppChoiceCard}
       <button class="setup-choice-card setup-choice-tg" id="setup-pick-tg">
         <div class="setup-choice-icon">
           <svg width="44" height="44" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#229ED9"/><path d="M36.94 12.29L31.6 36.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L10.37 27.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="white"/></svg>
@@ -2370,9 +2535,11 @@ function renderSetupFlow() {
   });
 
   // Platform choice
-  document.querySelector("#setup-pick-wa")?.addEventListener("click", () => {
-    state.setupStep = "wa-form"; renderSetupFlow();
-  });
+  if (!isWhatsAppComingSoon()) {
+    document.querySelector("#setup-pick-wa")?.addEventListener("click", () => {
+      state.setupStep = "wa-form"; renderSetupFlow();
+    });
+  }
   document.querySelector("#setup-pick-tg")?.addEventListener("click", () => {
     state.setupStep = "tg-form"; renderSetupFlow();
   });
@@ -2584,13 +2751,13 @@ async function init() {
             let connectResult = null;
             if (pending.platform === "telegram") {
               await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/telegram`, { method: "POST", body: { token: pending.token } });
-            } else if (pending.platform === "whatsapp") {
+            } else if (pending.platform === "whatsapp" && !isWhatsAppComingSoon()) {
               connectResult = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/whatsapp`, { method: "POST", body: pending.config });
             }
             await loadBootstrap(state.selectedBusiness.id);
             if (pending.platform === "telegram") {
               state.showBotLivePopup = true;
-            } else if (pending.platform === "whatsapp") {
+            } else if (pending.platform === "whatsapp" && !isWhatsAppComingSoon()) {
               if (isWhatsAppReady(state.selectedBusiness)) {
                 state.showBotLivePopup = true;
               } else {
