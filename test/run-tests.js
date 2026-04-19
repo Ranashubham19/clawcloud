@@ -367,6 +367,37 @@ await run("startTypingKeepAlive stops cleanly", async () => {
   assert.equal(ticks, countAfterStop);
 });
 
+await run("startTypingKeepAlive supports a delayed first tick", async () => {
+  let ticks = 0;
+  const stop = startTypingKeepAlive(async () => {
+    ticks += 1;
+  }, { intervalMs: 200, initialDelayMs: 180 });
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(ticks, 0);
+    await new Promise((resolve) => setTimeout(resolve, 140));
+    assert.ok(ticks >= 1);
+  } finally {
+    await stop();
+  }
+});
+
+await run("startTypingKeepAlive aborts an active tick on stop", async () => {
+  let aborted = false;
+  const stop = startTypingKeepAlive(({ signal } = {}) => new Promise((resolve) => {
+    signal?.addEventListener("abort", () => {
+      aborted = true;
+      resolve();
+    }, { once: true });
+  }), { intervalMs: 200 });
+
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  await stop();
+
+  assert.equal(aborted, true);
+});
+
 await run("sendTelegramMessage renders starred headings as Telegram bold HTML", async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;

@@ -85,9 +85,10 @@ export async function getTelegramWebhookInfo(token) {
   return readTelegramResponse(response, "getWebhookInfo");
 }
 
-export async function sendTelegramChatAction(token, chatId, action = "typing") {
+export async function sendTelegramChatAction(token, chatId, action = "typing", options = {}) {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
     method: "POST",
+    signal: options.signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,

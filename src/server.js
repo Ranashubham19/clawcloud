@@ -296,7 +296,7 @@ async function processInboundMessage(message, options = {}) {
   }
 
   let assistantReply = "";
-  let stopTyping = () => {};
+  let stopTyping = async () => {};
   try {
     if (
       replyMode === "provider-send" &&
@@ -321,6 +321,9 @@ async function processInboundMessage(message, options = {}) {
         deliveryChannel: "whatsapp"
       });
     }
+
+    await stopTyping();
+    stopTyping = async () => {};
 
     const dedupeKey = outboundDedupKey(
       `assistant-reply:${businessContext?.id || "default"}`,
@@ -371,7 +374,7 @@ async function processInboundMessage(message, options = {}) {
       businessId: businessContext?.id || ""
     });
   } finally {
-    stopTyping();
+    await stopTyping();
   }
 
   return assistantReply;
@@ -596,11 +599,11 @@ async function handleTelegramWebhook(request, response, url) {
     return;
   }
 
-  let stopTyping = () => {};
+  let stopTyping = async () => {};
   try {
     stopTyping = startTypingKeepAlive(
-      () => sendTelegramChatAction(token, inbound.chatId, "typing"),
-      { intervalMs: 4000 }
+      ({ signal }) => sendTelegramChatAction(token, inbound.chatId, "typing", { signal }),
+      { intervalMs: 4000, initialDelayMs: 900 }
     );
 
     let reply;
@@ -619,8 +622,8 @@ async function handleTelegramWebhook(request, response, url) {
       });
     }
 
-    stopTyping();
-    stopTyping = () => {};
+    await stopTyping();
+    stopTyping = async () => {};
 
     if (reply) {
       const dedupeKey = outboundDedupKey(
@@ -652,7 +655,7 @@ async function handleTelegramWebhook(request, response, url) {
       businessId: business.id
     });
   } finally {
-    stopTyping();
+    await stopTyping();
   }
 }
 
