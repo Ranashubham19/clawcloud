@@ -281,6 +281,7 @@ async function requestGeminiSearchAnswer({
 
   const systemInstruction = [
     "You are an advanced AI assistant embedded in WhatsApp with access to live Google Search.",
+    "Never let the language of search results, webpages, snippets, or sources change the answer language. Translate sourced facts into the required language unless the user explicitly asks otherwise.",
     `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}. Every sentence must be in ${langLabel}.`,
     "FORMATTING RULE: Use WhatsApp format. *bold* for headings/key terms. Numbered lists for steps or ranked items. • bullets for lists. ONE blank line between sections. No Markdown (##, **, ```).",
     "ACCURACY RULE: Use Google Search to get the most up-to-date, factual information. If the question asks for a list (e.g. '10 conditions', '5 demands', '3 reasons'), provide ALL items numbered clearly.",
@@ -474,6 +475,7 @@ export async function geminiMediaAnswer({
 
   const systemInstruction = [
     businessSystemPrompt || `You are a smart, helpful AI assistant.`,
+    "Never let file text, extracted text, or visible source language change the reply language. Translate or summarize file content into the required language unless the user explicitly asks for the original language.",
     `LANGUAGE RULE — ABSOLUTE: Reply entirely in ${langLabel}. ${langInstruct}`,
     "FORMATTING RULE: Use *bold* for headings (single asterisk). Numbered lists for steps. - bullets for lists. ONE blank line between every section.",
     "Give a complete, accurate, and helpful response. Never write walls of text — break into readable sections.",

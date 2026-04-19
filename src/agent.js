@@ -9,10 +9,10 @@ import {
 import { createChatCompletion, unpackAssistantMessage, getRankedNvidiaModels } from "./nvidia.js";
 import { executeTool, toolDefinitions } from "./tools.js";
 import {
-  detectLanguageStyle,
   isLanguageCompatible,
   languageInstruction,
-  languageLabel
+  languageLabel,
+  resolveReplyLanguageStyle
 } from "./lib/language.js";
 import {
   cleanUserFacingText,
@@ -267,6 +267,8 @@ function buildGeneralReplyPrompt(context) {
     `Reply fully in ${context.languageLabel} unless the user explicitly asks for another language.`,
     "Match the user's language style and script exactly.",
     "Do not mix languages unless the user does.",
+    "Never let search results, source text, attachments, or quoted material change the reply language.",
+    "Translate or summarize outside content into the required language unless the user explicitly asks for the original language.",
     "",
     "Formatting rules:",
     "- Start with a direct answer.",
@@ -439,19 +441,27 @@ export function directSmallTalkReply(text, languageStyle) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+  const normalizedLanguage =
+    languageStyle === "hinglish" || languageStyle === "english"
+      ? languageStyle
+      : "";
   if (!source) {
     return "";
   }
 
+  if (!normalizedLanguage) {
+    return "";
+  }
+
   if (/^(how are you|how are you today|how're you|how r you|how are u|hru|how r u)\??$/.test(source)) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return "Main bilkul theek hoon, shukriya! Aaj main aapki kaise madad kar sakta hoon?";
     }
     return "I'm doing well, thank you. How may I assist you today?";
   }
 
   if (/^(hi|hello|hey|hii|hlo|helo|yo|sup|greetings|good morning|good afternoon|good evening|good night|namaste|namaskar)\!?$/.test(source)) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return "Namaste! Main aapki madad ke liye yahan hoon. Aap mujhse koi bhi sawal pooch sakte hain. Main spasht aur sahi jawab dene ki poori koshish karunga.";
     }
     return "Hello! I'm here to help. Ask me any question, and I'll do my best to give a clear and accurate answer.";
@@ -462,28 +472,28 @@ export function directSmallTalkReply(text, languageStyle) {
       source
     )
   ) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return "Main sawalon ke spasht aur professional jawab de sakta hoon, concepts samjha sakta hoon, writing, coding, math, planning aur rozmarra problem-solving mein madad kar sakta hoon. Aap koi bhi sawal pooch sakte hain, main seedha aur sahi jawab dunga.";
     }
     return "I can answer questions clearly and professionally, explain concepts, help with writing, coding, math, planning, and everyday problem-solving. Send me any question, and I'll give you a direct and accurate answer.";
   }
 
   if (/^(who are you|what are you|are you a bot|are you ai|are you human|are you a robot|are you an ai|are you chatgpt|who made you|who created you)\??$/.test(source)) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return `Main ${config.botName} hoon, ek professional AI assistant. Main aapke sawalon ke jawab dene ke liye yahan hoon. Aap kya jaanna chahte hain?`;
     }
     return `I'm ${config.botName}, a professional AI assistant. I'm here to answer your questions clearly and helpfully. What would you like to know?`;
   }
 
   if (/^(thanks|thank you|thank u|thx|ty|great|awesome|nice|good|perfect|excellent|amazing|wonderful)\!?$/.test(source)) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return "Khushi hui madad karke! Koi aur sawaal ho toh zaroor poochein.";
     }
     return "You're welcome! Feel free to ask if there's anything else I can help you with.";
   }
 
   if (/^(ok|okay|alright|got it|i see|understood|sure|fine)\!?$/.test(source)) {
-    if (languageStyle === "hinglish") {
+    if (normalizedLanguage === "hinglish") {
       return "Bilkul! Koi bhi sawaal ho toh poochein.";
     }
     return "Of course! Let me know whenever you have a question.";
@@ -557,11 +567,11 @@ export async function handleIncomingText({
   businessContext = null,
   deliveryChannel = "default"
 }) {
-  const languageStyle = detectLanguageStyle(text);
   const answerRoute = chooseAnswerRoute(text);
   const useTools = businessContext ? false : shouldUseWhatsAppTools(text);
   const useGeminiFirst = answerRoute === "gemini-first";
   const businessId = businessContext?.id || "";
+  const historyLimit = useGeminiFirst ? 6 : useTools ? 10 : 6;
   let nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
   let leadCapture = { lead: null, booking: null };
 
@@ -573,6 +583,9 @@ export async function handleIncomingText({
     overwriteName: false
   });
 
+  const previousHistory = await getConversation(from, historyLimit, { businessId });
+  const languageStyle = resolveReplyLanguageStyle(text, previousHistory);
+
   await appendConversationMessage(
     from,
     {
@@ -583,6 +596,8 @@ export async function handleIncomingText({
     },
     { businessId }
   );
+
+  const history = [...previousHistory, { role: "user", text }];
 
   const smallTalkReply = directSmallTalkReply(text, languageStyle);
   if (smallTalkReply) {
@@ -600,8 +615,6 @@ export async function handleIncomingText({
     );
     return formattedSmallTalkReply;
   }
-
-  let history = [];
 
   if (useGeminiFirst) {
     const geminiAnswer = await getGeminiAnswer(
@@ -644,9 +657,6 @@ export async function handleIncomingText({
       }
     }
     nvidiaDeadlineAt = Date.now() + config.replyLatencyBudgetMs;
-    history = await getConversation(from, 6, { businessId });
-  } else {
-    history = await getConversation(from, useTools ? 10 : 6, { businessId });
   }
 
   const preferredModels = resolvePreferredModels(answerRoute);
@@ -735,7 +745,7 @@ export async function handleIncomingText({
             messages.push({ role: "assistant", content: cleanedAssistantText });
             messages.push({
               role: "user",
-              content: `WRONG LANGUAGE. You must reply ONLY in ${languageLabel(languageStyle)}. Rewrite your entire previous response now in ${languageLabel(languageStyle)} — same content, correct language, no English mixed in.`
+              content: `WRONG LANGUAGE. Rewrite your entire previous response entirely in ${languageLabel(languageStyle)}. Keep the same meaning, but use only ${languageLabel(languageStyle)}. Do not switch to the language of search results, quoted text, sources, or articles unless the user explicitly asked for it.`
             });
             rejectAndRetry = true;
           }
@@ -857,7 +867,6 @@ export async function handleIncomingMedia({
   filename,
   businessContext = null
 }) {
-  const languageStyle = detectLanguageStyle(caption || "");
   const businessId = businessContext?.id || "";
 
   await upsertContact({
@@ -867,6 +876,9 @@ export async function handleIncomingMedia({
     aliases: profileName ? [profileName] : [],
     overwriteName: false
   });
+
+  const previousHistory = await getConversation(from, 8, { businessId });
+  const languageStyle = resolveReplyLanguageStyle(caption || "", previousHistory);
 
   await appendConversationMessage(
     from,

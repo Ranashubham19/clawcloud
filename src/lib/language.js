@@ -132,7 +132,9 @@ const DUTCH_HINTS = new Set([
   "en", "of", "maar", "omdat", "dus", "want",
   "niet", "geen", "ook", "nog", "al",
   "hoe", "wat", "wie", "waar", "wanneer", "waarom",
-  "met", "op", "aan", "in", "bij", "van", "te", "voor"
+  "met", "op", "aan", "in", "bij", "van", "te", "voor",
+  "deze", "dit", "staat", "plaats", "grootste", "belangrijkste",
+  "reden", "redenen", "momenteel", "wereldranglijst", "waarbij"
 ]);
 
 const TURKISH_HINTS = new Set([
@@ -417,6 +419,89 @@ function hasDiacritic(value, re) {
   return re.test(value);
 }
 
+function cleanLanguageInput(value) {
+  let text = String(value || "").trim();
+  while (/^\[[^\]\n]{1,160}\]\s*/u.test(text)) {
+    text = text.replace(/^\[[^\]\n]{1,160}\]\s*/u, "").trim();
+  }
+  return text;
+}
+
+function countStrongHints(value, hintSet) {
+  return latinTokens(value).filter((t) => t.length >= 3 && hintSet.has(t)).length;
+}
+
+function detectResolvedRomanLanguage(text) {
+  const value = cleanLanguageInput(text);
+  const tokens = latinTokens(value);
+  const len = tokens.length;
+
+  if (!len) return "english";
+
+  if (VIETNAMESE_RE.test(value)) return "vietnamese";
+  if (hasDiacritic(value, TURKISH_DIAC_RE)) return "turkish";
+  if (hasDiacritic(value, POLISH_DIAC_RE)) return "polish";
+  if (hasDiacritic(value, GERMAN_DIAC_RE)) return "german";
+  if (hasDiacritic(value, PORTUGUESE_DIAC_RE)) return "portuguese";
+  if (hasDiacritic(value, SPANISH_DIAC_RE)) return "spanish";
+  if (hasDiacritic(value, FRENCH_DIAC_RE)) return "french";
+
+  if (countStrongHints(value, TURKISH_HINTS) >= 2) return "turkish";
+  if (countStrongHints(value, PORTUGUESE_HINTS) >= 2) return "portuguese";
+  if (countStrongHints(value, SPANISH_HINTS) >= 2) return "spanish";
+  if (countStrongHints(value, FRENCH_HINTS) >= 2) return "french";
+  if (countStrongHints(value, GERMAN_HINTS) >= 2) return "german";
+  if (countStrongHints(value, ITALIAN_HINTS) >= 2) return "italian";
+  if (countStrongHints(value, DUTCH_HINTS) >= 2) return "dutch";
+  if (countStrongHints(value, FILIPINO_HINTS) >= 2) return "filipino";
+
+  const idScore = countStrongHints(value, INDONESIAN_HINTS);
+  const myScore = countStrongHints(value, MALAY_HINTS);
+  if (idScore >= 2 || myScore >= 2) {
+    return idScore >= myScore ? "indonesian" : "malay";
+  }
+
+  if (countStrongHints(value, SWAHILI_HINTS) >= 2) return "swahili";
+
+  const hinglishScore = countStrongHints(value, HINGLISH_HINTS);
+  if (hinglishScore >= 2 || (hinglishScore >= 1 && len <= 8)) return "hinglish";
+
+  return "english";
+}
+
+function detectConfidentRomanLanguage(text) {
+  const detected = detectResolvedRomanLanguage(text);
+  return detected === "english" ? "" : detected;
+}
+
+const NEUTRAL_FOLLOW_UP_RE =
+  /^(?:ok(?:ay)?|alright|all right|got it|i see|understood|sure|fine|thanks?|thank you|thank u|thx|ty|great|awesome|nice|perfect|excellent|amazing|wonderful|cool|yes|yeah|yep|no|nope|hmm+|hmmm+|huh|hi|hello|hey|hii|hlo|helo|yo|sup|continue|go on|next|acha|achha|haan|han|theek hai|thik hai|aur|aur batao)\W*$/iu;
+
+function isNeutralFollowUp(value) {
+  const text = cleanLanguageInput(value);
+  if (!text) return true;
+  if (!/[\p{Letter}\p{Number}]/u.test(text)) return true;
+  return NEUTRAL_FOLLOW_UP_RE.test(text.replace(/\s+/g, " ").trim());
+}
+
+function findRecentUserLanguage(history = []) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index];
+    if (!entry || entry.role !== "user") continue;
+
+    const text = cleanLanguageInput(entry.text);
+    if (!text) continue;
+
+    const explicit = detectExplicitLanguageRequest(text);
+    if (explicit) return explicit;
+    if (isNeutralFollowUp(text)) continue;
+
+    return detectLanguageStyle(text);
+  }
+
+  return "";
+}
+
 // ── Roman-script language detectors (ordered by specificity) ──────────────────
 function detectRomanScript(text) {
   const tokens = latinTokens(text);
@@ -523,7 +608,7 @@ const LANG_SWITCH_RE =
   /\b(in|mein|mai|main|me|ko|give\s+in|tell\s+in|say\s+in|write\s+in|reply\s+in|answer\s+in|respond\s+in|speak\s+in|translate\s+to|explain\s+in|bolo|batao|likho|into|switch\s+to|use)\b/i;
 
 export function detectExplicitLanguageRequest(value) {
-  const text = String(value || "").trim();
+  const text = cleanLanguageInput(value);
   if (!text) return "";
 
   if (!LANG_SWITCH_RE.test(text)) return "";
@@ -539,7 +624,7 @@ export function detectLanguageStyle(value) {
   const explicit = detectExplicitLanguageRequest(value);
   if (explicit) return explicit;
 
-  const text = String(value || "").trim();
+  const text = cleanLanguageInput(value);
   if (!text) return "english";
 
   // Non-Latin script detection
@@ -548,7 +633,20 @@ export function detectLanguageStyle(value) {
   }
 
   // Roman-script language detection
-  return detectRomanScript(text);
+  return detectResolvedRomanLanguage(text);
+}
+
+export function resolveReplyLanguageStyle(value, history = []) {
+  const text = cleanLanguageInput(value);
+  const explicit = detectExplicitLanguageRequest(text);
+  if (explicit) return explicit;
+
+  const detected = detectLanguageStyle(text);
+  if (!isNeutralFollowUp(text)) {
+    return detected;
+  }
+
+  return findRecentUserLanguage(history) || detected;
 }
 
 export function languageLabel(style) {
@@ -560,7 +658,7 @@ export function languageInstruction(style) {
 }
 
 export function isLanguageCompatible(text, style) {
-  const value = String(text || "").trim();
+  const value = cleanLanguageInput(text);
   if (!value) return true;
 
   const cfg = LANGUAGE_CONFIG[style];
@@ -573,14 +671,21 @@ export function isLanguageCompatible(text, style) {
 
   // Hinglish: Devanagari in response is wrong
   if (style === "hinglish") {
-    return !DEVANAGARI_RE.test(value);
+    if (DEVANAGARI_RE.test(value)) return false;
+    const detectedRoman = detectConfidentRomanLanguage(value);
+    return !detectedRoman || detectedRoman === "hinglish";
   }
 
   // For Roman-script non-English languages: skip strict check,
   // trust the model — checking would require NLP-level analysis
-  if (style !== "english") return true;
+  const detectedRoman = detectConfidentRomanLanguage(value);
+
+  if (style !== "english") {
+    return !detectedRoman || detectedRoman === style;
+  }
 
   // English: reject Devanagari or heavy Hinglish mixing
   if (DEVANAGARI_RE.test(value)) return false;
-  return countHints(value, HINGLISH_HINTS) < 2;
+  if (countHints(value, HINGLISH_HINTS) >= 2) return false;
+  return !detectedRoman;
 }

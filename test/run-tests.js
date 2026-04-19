@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import {
   detectLanguageStyle,
-  isLanguageCompatible
+  isLanguageCompatible,
+  resolveReplyLanguageStyle
 } from "../src/lib/language.js";
 import { config } from "../src/config.js";
 import {
@@ -70,10 +71,35 @@ await run("detectLanguageStyle keeps English in English", async () => {
   );
 });
 
+await run("detectLanguageStyle does not misclassify plain English as Italian", async () => {
+  assert.equal(
+    detectLanguageStyle("A company is in trouble because demand is weak"),
+    "english"
+  );
+});
+
 await run("detectLanguageStyle catches Hinglish in Roman script", async () => {
   assert.equal(
     detectLanguageStyle("claude opus 4.6 kab release hua tha"),
     "hinglish"
+  );
+});
+
+await run("resolveReplyLanguageStyle keeps the recent user language for neutral follow ups", async () => {
+  assert.equal(
+    resolveReplyLanguageStyle("ok", [
+      { role: "user", text: "Mujhe GST ka full form batao" }
+    ]),
+    "hinglish"
+  );
+});
+
+await run("resolveReplyLanguageStyle honors explicit language switch requests", async () => {
+  assert.equal(
+    resolveReplyLanguageStyle("Please reply in Hindi", [
+      { role: "user", text: "What is GST?" }
+    ]),
+    "hindi"
   );
 });
 
@@ -143,6 +169,16 @@ await run("isLanguageCompatible rejects Devanagari for English answers", async (
   );
   assert.equal(
     isLanguageCompatible("Claude Opus 4.6 को 5 फरवरी 2026 को रिलीज किया गया था।", "english"),
+    false
+  );
+});
+
+await run("isLanguageCompatible rejects wrong Roman-script languages for English answers", async () => {
+  assert.equal(
+    isLanguageCompatible(
+      "India staat momenteel op de zesde plaats in de wereldranglijst van grootste economieen.",
+      "english"
+    ),
     false
   );
 });
