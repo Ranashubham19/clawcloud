@@ -335,6 +335,57 @@ function stripLeadingFillerLeadIn(text) {
   return value;
 }
 
+function stripLeadingStandaloneReplyLabel(text) {
+  let value = String(text || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  const firstBlockMatch = value.match(/^([^\n]+)\n{2,}([\s\S]+)$/);
+  if (!firstBlockMatch) {
+    return value;
+  }
+
+  const rawFirstBlock = String(firstBlockMatch[1] || "").trim();
+  const remainder = String(firstBlockMatch[2] || "").trim();
+  if (!rawFirstBlock || !remainder) {
+    return value;
+  }
+
+  const cleanedFirstBlock = cleanInlineText(
+    rawFirstBlock
+      .replace(/^[-*]\s+/, "")
+      .replace(/^\d+[.)]\s+/, "")
+      .replace(/^\*([^*\n]+)\*$/, "$1")
+      .replace(/^_([^_\n]+)_$/, "$1")
+  ).replace(/[:\-]\s*$/, "");
+
+  if (!cleanedFirstBlock) {
+    return value;
+  }
+
+  const wordCount = cleanedFirstBlock.split(/\s+/).filter(Boolean).length;
+  const hasExplicitLabelMarker =
+    /^\*[^*\n]+\*$/.test(rawFirstBlock) ||
+    /^_[^_\n]+_$/.test(rawFirstBlock) ||
+    /^(?:[-*]\s+|\d+[.)]\s+)/.test(rawFirstBlock);
+  const plainShortLabel =
+    wordCount <= 6 &&
+    cleanedFirstBlock.length <= 60 &&
+    !/[,.!?;:।؟]/.test(cleanedFirstBlock);
+
+  if (
+    hasExplicitLabelMarker ||
+    isGenericReplyHeading(cleanedFirstBlock) ||
+    isLeadingFillerHeading(cleanedFirstBlock) ||
+    plainShortLabel
+  ) {
+    return remainder;
+  }
+
+  return value;
+}
+
 function stripLeadingReplyHeading(text) {
   let value = String(text || "").trim();
   if (!value) {
@@ -369,38 +420,32 @@ export function formatProfessionalReply(value, options = {}) {
   }
 
   const { body: rawBody, sources } = splitTrailingSourceBlock(cleaned);
-  let body = stripLeadingFillerLeadIn(
-    stripLeadingReplyHeading(stripGenericFollowUp(rawBody))
+  let body = stripLeadingStandaloneReplyLabel(
+    stripLeadingFillerLeadIn(
+      stripLeadingReplyHeading(stripGenericFollowUp(rawBody))
+    )
   );
   if (!body) {
     return cleaned;
   }
 
-  const hasHeading = /^\*[^*\n]{1,60}\*/.test(body);
   const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
   const sentences = splitSentences(body);
-  const derivedHeading = deriveReplyHeading(body, options.languageStyle);
-  const heading = `*${derivedHeading}*`;
-  const shouldAddHeading = !hasHeading && !isGenericReplyHeading(derivedHeading);
 
-  if (!hasList && !hasHeading) {
+  if (!hasList) {
     if (sentences.length >= 3) {
       const intro = sentences[0];
       const points = sentences
         .slice(1, 5)
         .map((sentence) => `- ${sentence}`);
-      body = shouldAddHeading
-        ? `${heading}\n\n${intro}\n\n${points.join("\n")}`
-        : `${intro}\n\n${points.join("\n")}`;
-    } else if (shouldAddHeading && (body.length >= 45 || sentences.length >= 2)) {
-      body = `${heading}\n\n${body}`;
+      body = `${intro}\n\n${points.join("\n")}`;
     }
-  } else if (shouldAddHeading && body.length >= 45) {
-    body = `${heading}\n\n${body}`;
   }
 
-  body = stripLeadingFillerLeadIn(
-    stripLeadingReplyHeading(sanitizeForWhatsApp(body))
+  body = stripLeadingStandaloneReplyLabel(
+    stripLeadingFillerLeadIn(
+      stripLeadingReplyHeading(sanitizeForWhatsApp(body))
+    )
   );
   if (!sources) {
     return body;
@@ -474,7 +519,7 @@ export function cleanUserFacingText(value) {
   }
 
   text = cleanedLines.join("\n");
-  text = stripLeadingFillerLeadIn(text);
+  text = stripLeadingStandaloneReplyLabel(stripLeadingFillerLeadIn(text));
   text = text.replace(/\n{3,}/g, "\n\n").trim();
   return text;
 }

@@ -608,7 +608,7 @@ await run("formatProfessionalReply turns long plain answers into structured form
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Haldi\*/);
+  assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
   assert.match(formatted, /- It is widely used in Indian cooking\./);
   assert.match(formatted, /- It is known for its bright yellow color\./);
@@ -621,7 +621,7 @@ await run("formatProfessionalReply strips generic follow-up questions", async ()
   );
 
   assert.doesNotMatch(formatted, /Would you like to know more/i);
-  assert.match(formatted, /^\*Mehandi\*/);
+  assert.match(formatted, /^Mehandi is a natural dye made from henna leaves\./);
 });
 
 await run("formatProfessionalReply removes robotic top headings", async () => {
@@ -652,18 +652,29 @@ await run("formatProfessionalReply preserves trailing source blocks", async () =
     { languageStyle: "english" }
   );
 
-  assert.match(formatted, /^\*Gold prices\*/);
+  assert.match(formatted, /^Gold prices are higher today\./);
   assert.match(formatted, /\n\n1\. https:\/\/www\.reuters\.com\/example/);
   assert.match(formatted, /2\. https:\/\/www\.bbc\.com\/example$/);
 });
 
-await run("formatProfessionalReply keeps topic headings while stripping generic ones", async () => {
+await run("formatProfessionalReply strips topic headings from the top of replies", async () => {
   const formatted = formatProfessionalReply(
     "*Haldi*\n\nHaldi is the common name for turmeric.",
     { languageStyle: "english" }
   );
 
-  assert.equal(formatted, "*Haldi*\n\nHaldi is the common name for turmeric.");
+  assert.equal(formatted, "Haldi is the common name for turmeric.");
+});
+
+await run("formatProfessionalReply strips standalone top label lines", async () => {
+  const formatted = formatProfessionalReply(
+    "- Phone utha\n\nBhai, tune abhi tak kuch nahi kiya. Abhi ek cheez kar.\n\n- Ek random song chala de.\n- Aankhein band karke soch.",
+    { languageStyle: "hinglish" }
+  );
+
+  assert.doesNotMatch(formatted, /^- Phone utha\b/i);
+  assert.match(formatted, /^Bhai, tune abhi tak kuch nahi kiya\./);
+  assert.match(formatted, /- Ek random song chala de\./);
 });
 
 await run("extractGeminiGroundingSources keeps grounded web sources in support order", async () => {
