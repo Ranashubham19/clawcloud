@@ -351,7 +351,7 @@ function renderLanding() {
         <div class="shell">
           <div class="nav-inner">
             <div class="logo">
-              <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
               <span class="logo-name">swift-deploy.in</span>
             </div>
             <div class="nav-links"></div>
@@ -466,7 +466,7 @@ function renderLanding() {
         <div class="shell">
           <div class="lp-footer-inner">
             <div class="logo">
-              <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
               <span class="logo-name">swift-deploy.in</span>
             </div>
             <div class="lp-footer-links">
@@ -499,7 +499,7 @@ function renderAuth() {
     <div class="auth-page">
       <div class="auth-left">
         <a class="logo" href="/">
-          <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
+          <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
           <span class="logo-name">swift-deploy.in</span>
         </a>
         <div class="auth-left-content">
@@ -1549,7 +1549,7 @@ What is the success rate? | Our students have a 94% selection rate in JEE & NEET
     <div class="ob2-shell">
       <aside class="ob2-sidebar">
         <div class="ob2-sidebar-brand">
-          <img src="/logo.svg?v=crab-mark-2" width="28" height="28" class="logo-img" alt="ClawCloud" />
+          <img src="/logo.svg?v=crab-mark-3" width="28" height="28" class="logo-img" alt="ClawCloud" />
           <span class="logo-name">ClawCloud</span>
         </div>
         <div class="ob2-sidebar-intro">
@@ -1688,7 +1688,7 @@ function renderDashboard() {
         <div class="app-topbar">
           <div class="topbar-left">
             <div class="logo">
-              <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
+              <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="32" height="32" />
               <span class="logo-name">swift-deploy.in</span>
             </div>
           </div>
@@ -2090,7 +2090,7 @@ function renderTelegramSetup() {
     <div class="tg-setup-page">
       <div class="tg-setup-left">
         <a class="logo" href="/">
-          <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
+          <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="28" height="28" />
           <span class="logo-name">swift-deploy.in</span>
         </a>
         <div class="tg-setup-left-content">
@@ -2368,7 +2368,7 @@ function renderSetupFlow() {
     <div class="setup-flow-page">
       <div class="setup-flow-topbar">
         <div class="logo">
-          <img src="/logo.svg?v=crab-mark-2" class="logo-img" alt="swift-deploy.in" width="30" height="30" />
+          <img src="/logo.svg?v=crab-mark-3" class="logo-img" alt="swift-deploy.in" width="30" height="30" />
           <span class="logo-name">swift-deploy.in</span>
         </div>
         <div class="setup-flow-topbar-right">

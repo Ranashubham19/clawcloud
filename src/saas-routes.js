@@ -189,7 +189,9 @@ async function serveStaticApp(pathname, response) {
     "/": { file: "index.html", type: "text/html; charset=utf-8" },
     "/app": { file: "index.html", type: "text/html; charset=utf-8" },
     "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
-    "/app.css": { file: "app.css", type: "text/css; charset=utf-8" }
+    "/app.css": { file: "app.css", type: "text/css; charset=utf-8" },
+    "/logo.svg": { file: "logo.svg", type: "image/svg+xml" },
+    "/favicon.svg": { file: "favicon.svg", type: "image/svg+xml" }
   };
 
   const target = map[pathname];
