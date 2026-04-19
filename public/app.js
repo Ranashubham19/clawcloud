@@ -148,6 +148,87 @@ function writeStoredPendingPlatformSetup(value) {
   sessionStorage.setItem(PENDING_PLATFORM_SETUP_KEY, JSON.stringify(value));
 }
 
+function attachPaymentButtonHandlers(root = document) {
+  root.querySelectorAll("[data-upgrade-plan]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const businessId = state.selectedBusiness?.id;
+      if (!businessId) {
+        alert("Please select a workspace before starting payment.");
+        return;
+      }
+
+      const plan = button.dataset.upgradePlan;
+      const provider = button.dataset.provider || "razorpay";
+      const originalLabel = button.innerHTML;
+      const pendingSetup = state.pendingPlatformSetup;
+
+      try {
+        button.disabled = true;
+        button.textContent = provider === "stripe" ? "Redirecting..." : "Opening payment...";
+
+        if (pendingSetup) {
+          writeStoredPendingPlatformSetup(pendingSetup);
+        }
+
+        if (provider === "stripe") {
+          const payload = await api(`/api/businesses/${encodeURIComponent(businessId)}/billing/checkout`, {
+            method: "POST",
+            body: { plan }
+          });
+
+          if (!payload.url) {
+            throw new Error("Stripe checkout did not return a payment link.");
+          }
+
+          window.location.href = payload.url;
+          return;
+        }
+
+        const payload = await api(`/api/businesses/${encodeURIComponent(businessId)}/billing/razorpay`, {
+          method: "POST",
+          body: { plan }
+        });
+
+        if (!payload.subscriptionId || !payload.keyId) {
+          throw new Error("Razorpay checkout did not return subscription details.");
+        }
+
+        if (!window.Razorpay) {
+          throw new Error("Razorpay checkout is still loading. Please refresh and try again.");
+        }
+
+        const rzp = new window.Razorpay({
+          key: payload.keyId,
+          subscription_id: payload.subscriptionId,
+          name: payload.businessName || "swift-deploy.in",
+          description: `${plan} Plan Subscription`,
+          prefill: { email: payload.userEmail, name: payload.userName },
+          theme: { color: "#7c6fff" },
+          handler: function() {
+            window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
+          },
+          modal: {
+            ondismiss: function() {
+              writeStoredPendingPlatformSetup(null);
+              button.disabled = false;
+              button.innerHTML = originalLabel;
+            }
+          }
+        });
+
+        rzp.open();
+        button.disabled = false;
+        button.innerHTML = originalLabel;
+      } catch (error) {
+        writeStoredPendingPlatformSetup(null);
+        button.disabled = false;
+        button.innerHTML = originalLabel;
+        alert(error.message);
+      }
+    });
+  });
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -2051,65 +2132,7 @@ function renderDashboard() {
     });
   });
 
-  document.querySelectorAll("[data-upgrade-plan]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const plan = button.dataset.upgradePlan;
-      const provider = button.dataset.provider || "razorpay";
-      const originalLabel = button.innerHTML;
-      const pendingSetup = state.pendingPlatformSetup;
-      try {
-        button.disabled = true;
-        button.textContent = provider === "stripe" ? "Redirecting..." : "Opening payment...";
-        if (pendingSetup) {
-          writeStoredPendingPlatformSetup(pendingSetup);
-        }
-        if (provider === "stripe") {
-          const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/checkout`, {
-            method: "POST",
-            body: { plan }
-          });
-          if (payload.url) window.location.href = payload.url;
-        } else {
-          const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/razorpay`, {
-            method: "POST",
-            body: { plan }
-          });
-          if (payload.subscriptionId && payload.keyId) {
-            if (!window.Razorpay) {
-              alert("Razorpay is still loading, please try again in a moment.");
-              return;
-            }
-            const rzp = new window.Razorpay({
-              key: payload.keyId,
-              subscription_id: payload.subscriptionId,
-              name: payload.businessName || "swift-deploy.in",
-              description: `${plan} Plan Subscription`,
-              prefill: { email: payload.userEmail, name: payload.userName },
-              theme: { color: "#7c6fff" },
-              handler: function() {
-                window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
-              },
-              modal: {
-                ondismiss: function() {
-                  writeStoredPendingPlatformSetup(null);
-                  button.disabled = false;
-                  button.innerHTML = originalLabel;
-                }
-              }
-            });
-            rzp.open();
-            button.disabled = false;
-            button.innerHTML = originalLabel;
-          }
-        }
-      } catch (error) {
-        writeStoredPendingPlatformSetup(null);
-        button.disabled = false;
-        button.innerHTML = originalLabel;
-        alert(error.message);
-      }
-    });
-  });
+  attachPaymentButtonHandlers();
 
   document.querySelector("#billing-portal")?.addEventListener("click", async () => {
     try {
@@ -2574,6 +2597,7 @@ function renderSetupFlow() {
     if (e.target.id === "payment-overlay") { state.showPaymentPopup = false; renderSetupFlow(); }
   });
 
+  attachPaymentButtonHandlers();
 }
 
 function render() {
