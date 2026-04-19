@@ -193,20 +193,82 @@ function stripGenericFollowUp(text) {
   return sentences.slice(0, -1).join(" ").trim();
 }
 
+function genericHeadingLabels() {
+  return new Set(
+    [
+      "overview",
+      "answer",
+      "explanation",
+      "summary",
+      "key points",
+      "key facts",
+      "highlights",
+      "response",
+      "quick answer",
+      "result",
+      ...Object.values({
+        hindi: defaultHeading("hindi"),
+        hinglish: defaultHeading("hinglish"),
+        bengali: defaultHeading("bengali"),
+        gujarati: defaultHeading("gujarati"),
+        punjabi: defaultHeading("punjabi"),
+        tamil: defaultHeading("tamil"),
+        telugu: defaultHeading("telugu"),
+        kannada: defaultHeading("kannada"),
+        malayalam: defaultHeading("malayalam"),
+        arabic: defaultHeading("arabic"),
+        urdu: defaultHeading("urdu"),
+        persian: defaultHeading("persian"),
+        thai: defaultHeading("thai"),
+        chinese: defaultHeading("chinese"),
+        japanese: defaultHeading("japanese"),
+        korean: defaultHeading("korean"),
+        russian: defaultHeading("russian"),
+        greek: defaultHeading("greek"),
+        hebrew: defaultHeading("hebrew"),
+        french: defaultHeading("french"),
+        spanish: defaultHeading("spanish"),
+        portuguese: defaultHeading("portuguese"),
+        german: defaultHeading("german"),
+        italian: defaultHeading("italian"),
+        polish: defaultHeading("polish"),
+        turkish: defaultHeading("turkish"),
+        vietnamese: defaultHeading("vietnamese"),
+        indonesian: defaultHeading("indonesian"),
+        malay: defaultHeading("malay"),
+        filipino: defaultHeading("filipino"),
+        swahili: defaultHeading("swahili")
+      }).map((value) => cleanInlineText(value).toLowerCase())
+    ].map((value) => cleanInlineText(value).toLowerCase()).filter(Boolean)
+  );
+}
+
+const GENERIC_REPLY_HEADINGS = genericHeadingLabels();
+
+function isGenericReplyHeading(value) {
+  const cleaned = cleanInlineText(value).toLowerCase().replace(/[:\-]\s*$/, "");
+  return GENERIC_REPLY_HEADINGS.has(cleaned);
+}
+
 function stripLeadingReplyHeading(text) {
   let value = String(text || "").trim();
   if (!value) {
     return "";
   }
 
-  // Remove generic top labels like *Overview* or *Answer* that make replies feel robotic.
-  value = value.replace(/^(?:\*[^*\n]{1,60}\*|_[^_\n]{1,60}_)\s*\n{1,2}/, "");
-  value = value.replace(
-    /^(?:overview|answer|explanation|summary|key points|key facts|highlights|response|quick answer|result)\s*:?\s*\n{1,2}/i,
-    ""
-  );
+  const emphasizedHeading =
+    value.match(/^\*([^*\n]{1,60})\*\s*\n{1,2}/) ||
+    value.match(/^_([^_\n]{1,60})_\s*\n{1,2}/);
+  if (emphasizedHeading && isGenericReplyHeading(emphasizedHeading[1])) {
+    return value.slice(emphasizedHeading[0].length).trim();
+  }
 
-  return value.trim();
+  const plainHeading = value.match(/^([^\n]{1,60})\s*\n{1,2}/);
+  if (plainHeading && isGenericReplyHeading(plainHeading[1])) {
+    return value.slice(plainHeading[0].length).trim();
+  }
+
+  return value;
 }
 
 export function formatProfessionalReply(value, options = {}) {
@@ -221,15 +283,27 @@ export function formatProfessionalReply(value, options = {}) {
     return cleaned;
   }
 
+  const hasHeading = /^\*[^*\n]{1,60}\*/.test(body);
   const hasList = /(?:^|\n)(?:- |\d+\. )/.test(body);
   const sentences = splitSentences(body);
+  const derivedHeading = deriveReplyHeading(body, options.languageStyle);
+  const heading = `*${derivedHeading}*`;
+  const shouldAddHeading = !hasHeading && !isGenericReplyHeading(derivedHeading);
 
-  if (!hasList && sentences.length >= 3) {
-    const intro = sentences[0];
-    const points = sentences
-      .slice(1, 5)
-      .map((sentence) => `- ${sentence}`);
-    body = `${intro}\n\n${points.join("\n")}`;
+  if (!hasList && !hasHeading) {
+    if (sentences.length >= 3) {
+      const intro = sentences[0];
+      const points = sentences
+        .slice(1, 5)
+        .map((sentence) => `- ${sentence}`);
+      body = shouldAddHeading
+        ? `${heading}\n\n${intro}\n\n${points.join("\n")}`
+        : `${intro}\n\n${points.join("\n")}`;
+    } else if (shouldAddHeading && (body.length >= 45 || sentences.length >= 2)) {
+      body = `${heading}\n\n${body}`;
+    }
+  } else if (shouldAddHeading && body.length >= 45) {
+    body = `${heading}\n\n${body}`;
   }
 
   body = stripLeadingReplyHeading(sanitizeForWhatsApp(body));
