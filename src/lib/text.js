@@ -77,6 +77,29 @@ function isTopLevelListLine(value) {
   return /^\s*(?:-\s+|\d+[.)]\s+)/.test(String(value || ""));
 }
 
+function parseTopLevelListLine(value) {
+  const text = String(value || "");
+  const numberMatch = text.match(/^\s*(\d+)[.)]\s+(.+)$/);
+  if (numberMatch) {
+    return {
+      kind: "number",
+      marker: `${numberMatch[1]}.`,
+      content: numberMatch[2].trim()
+    };
+  }
+
+  const bulletMatch = text.match(/^\s*-\s+(.+)$/);
+  if (bulletMatch) {
+    return {
+      kind: "dot",
+      marker: "*.*",
+      content: bulletMatch[1].trim()
+    };
+  }
+
+  return null;
+}
+
 function styleProfessionalListBlocks(value) {
   const lines = String(value || "").split(/\r?\n/);
   const output = [];
@@ -93,8 +116,9 @@ function styleProfessionalListBlocks(value) {
     const items = [];
     while (index < lines.length) {
       const current = lines[index];
-      if (isTopLevelListLine(current)) {
-        items.push(current.replace(/^\s*(?:-\s+|\d+[.)]\s+)/, "").trim());
+      const parsedLine = parseTopLevelListLine(current);
+      if (parsedLine) {
+        items.push(parsedLine);
         index += 1;
         continue;
       }
@@ -113,9 +137,9 @@ function styleProfessionalListBlocks(value) {
     }
 
     const styledBlock = items
-      .filter(Boolean)
-      .map((item) => `*.*\n${item}`)
-      .join("\n\n");
+      .filter((item) => item?.content)
+      .map((item) => `${item.marker} ${item.content}`)
+      .join("\n");
 
     if (styledBlock) {
       output.push(styledBlock);

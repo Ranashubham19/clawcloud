@@ -641,9 +641,9 @@ await run("formatProfessionalReply turns long plain answers into structured form
 
   assert.doesNotMatch(formatted, /^\*/);
   assert.match(formatted, /Haldi is the common name for turmeric\./);
-  assert.match(formatted, /\*\.\*\nIt is widely used in Indian cooking\./);
-  assert.match(formatted, /\*\.\*\nIt is known for its bright yellow color\./);
-  assert.match(formatted, /\n\n\*\.\*\nIt is known for its bright yellow color\./);
+  assert.match(formatted, /\*\.\* It is widely used in Indian cooking\./);
+  assert.match(formatted, /\*\.\* It is known for its bright yellow color\./);
+  assert.match(formatted, /\n\*\.\* It is known for its bright yellow color\./);
 });
 
 await run("formatProfessionalReply strips generic follow-up questions", async () => {
@@ -674,8 +674,8 @@ await run("formatProfessionalReply strips filler headings and lead-in sentences"
 
   assert.doesNotMatch(formatted, /^Chalo\b/i);
   assert.doesNotMatch(formatted, /main kuch suggestions deta hun/i);
-  assert.match(formatted, /\*\.\*\nGame khelna:/);
-  assert.match(formatted, /\*\.\*\nKahani sunana:/);
+  assert.match(formatted, /1\. Game khelna:/);
+  assert.match(formatted, /2\. Kahani sunana:/);
 });
 
 await run("formatProfessionalReply preserves trailing source blocks", async () => {
@@ -706,8 +706,8 @@ await run("formatProfessionalReply strips standalone top label lines", async () 
 
   assert.doesNotMatch(formatted, /^- Phone utha\b/i);
   assert.match(formatted, /^Bhai, tune abhi tak kuch nahi kiya\./);
-  assert.match(formatted, /\*\.\*\nEk random song chala de\./);
-  assert.match(formatted, /\*\.\*\nAankhein band karke soch\./);
+  assert.match(formatted, /\*\.\* Ek random song chala de\./);
+  assert.match(formatted, /\*\.\* Aankhein band karke soch\./);
 });
 
 await run("formatProfessionalReply converts hyphen lists into bold dot points", async () => {
@@ -719,12 +719,23 @@ await run("formatProfessionalReply converts hyphen lists into bold dot points", 
   assert.match(formatted, /^No, I'm not upset\./);
   assert.match(
     formatted,
-    /\*\.\*\nI'm just a computer program designed to provide information and assist with tasks\./
+    /\*\.\* I'm just a computer program designed to provide information and assist with tasks\./
   );
   assert.match(
     formatted,
-    /\*\.\*\nI'm here to help and provide a helpful response to your questions\./
+    /\*\.\* I'm here to help and provide a helpful response to your questions\./
   );
+});
+
+await run("formatProfessionalReply preserves numbered lists inline", async () => {
+  const formatted = formatProfessionalReply(
+    "1. First do this.\n2. Then do that.\n3. Finally check the result.",
+    { languageStyle: "english" }
+  );
+
+  assert.match(formatted, /^1\. First do this\./);
+  assert.match(formatted, /\n2\. Then do that\./);
+  assert.match(formatted, /\n3\. Finally check the result\./);
 });
 
 await run("extractGeminiGroundingSources keeps grounded web sources in support order", async () => {
