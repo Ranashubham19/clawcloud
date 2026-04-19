@@ -115,6 +115,18 @@ function sendFile(response, statusCode, contentType, body) {
   response.end(body);
 }
 
+function billingProviders() {
+  return {
+    stripe: hasStripeBilling(),
+    razorpay: hasRazorpayBilling()
+  };
+}
+
+function billingEnabled() {
+  const providers = billingProviders();
+  return providers.stripe || providers.razorpay;
+}
+
 async function readJsonBody(request, readRawBody) {
   const raw = await readRawBody(request);
   if (!raw.length) {
@@ -248,13 +260,18 @@ async function serveStaticApp(pathname, response) {
 }
 
 function billingSummary(business) {
+  const providers = billingProviders();
   return {
-    enabled: hasStripeBilling(),
-    provider: business.billing?.provider || "stripe",
+    enabled: providers.stripe || providers.razorpay,
+    providers,
+    provider:
+      business.billing?.provider ||
+      (providers.razorpay && !providers.stripe ? "razorpay" : "stripe"),
     status: business.billing?.status || "inactive",
     plan: business.billing?.plan || business.plan || "basic",
     stripeCustomerId: business.billing?.stripeCustomerId || "",
     stripeSubscriptionId: business.billing?.stripeSubscriptionId || "",
+    razorpaySubscriptionId: business.billing?.razorpaySubscriptionId || "",
     currentPeriodStart: business.billing?.currentPeriodStart || "",
     currentPeriodEnd: business.billing?.currentPeriodEnd || "",
     cancelAtPeriodEnd: business.billing?.cancelAtPeriodEnd === true
@@ -275,7 +292,11 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/plans") {
-    sendJson(response, 200, { plans: saasPlans, billingEnabled: hasStripeBilling() || hasRazorpayBilling() });
+    sendJson(response, 200, {
+      plans: saasPlans,
+      billingEnabled: billingEnabled(),
+      billingProviders: billingProviders()
+    });
     return true;
   }
 
@@ -517,7 +538,8 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       ok: true,
       user: auth.user,
       plans: saasPlans,
-      billingEnabled: hasStripeBilling() || hasRazorpayBilling(),
+      billingEnabled: billingEnabled(),
+      billingProviders: billingProviders(),
       ...payload
     });
     return true;
@@ -525,7 +547,11 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (request.method === "GET" && url.pathname === "/api/businesses") {
     const businesses = await listBusinessesForUser(auth.user.id);
-    sendJson(response, 200, { businesses, billingEnabled: hasStripeBilling() || hasRazorpayBilling() });
+    sendJson(response, 200, {
+      businesses,
+      billingEnabled: billingEnabled(),
+      billingProviders: billingProviders()
+    });
     return true;
   }
 
@@ -579,14 +605,20 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (parts.length === 4 && parts[3] === "dashboard" && request.method === "GET") {
     const payload = await getBusinessDashboardData(auth.user.id, businessId);
-    sendJson(response, 200, { ok: true, billingEnabled: hasStripeBilling() || hasRazorpayBilling(), ...payload });
+    sendJson(response, 200, {
+      ok: true,
+      billingEnabled: billingEnabled(),
+      billingProviders: billingProviders(),
+      ...payload
+    });
     return true;
   }
 
   if (parts.length === 4 && parts[3] === "billing" && request.method === "GET") {
     sendJson(response, 200, {
       billing: billingSummary(business),
-      billingEnabled: hasStripeBilling() || hasRazorpayBilling()
+      billingEnabled: billingEnabled(),
+      billingProviders: billingProviders()
     });
     return true;
   }
@@ -627,7 +659,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         plan: body.plan || business.plan,
         origin: requestOrigin(request)
       });
-      sendJson(response, 200, { ok: true, ...data });
+      sendJson(response, 200, { ok: true, billingProviders: billingProviders(), ...data });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }

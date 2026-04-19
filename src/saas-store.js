@@ -183,6 +183,8 @@ function normalizeBilling(billing = {}, current = {}) {
       cleanText(billing.stripeSubscriptionId) || current.stripeSubscriptionId || "",
     stripeCheckoutSessionId:
       cleanText(billing.stripeCheckoutSessionId) || current.stripeCheckoutSessionId || "",
+    razorpaySubscriptionId:
+      cleanText(billing.razorpaySubscriptionId) || current.razorpaySubscriptionId || "",
     currentPeriodStart:
       cleanText(billing.currentPeriodStart) || current.currentPeriodStart || "",
     currentPeriodEnd:
@@ -711,7 +713,8 @@ export async function getBusinessByInboundChannel({
 
 export async function findBusinessByBillingReference({
   stripeCustomerId = "",
-  stripeSubscriptionId = ""
+  stripeSubscriptionId = "",
+  razorpaySubscriptionId = ""
 } = {}) {
   const businesses = await readJson("businesses");
   return (
@@ -724,6 +727,11 @@ export async function findBusinessByBillingReference({
       (business) =>
         cleanText(stripeSubscriptionId) &&
         business.billing?.stripeSubscriptionId === cleanText(stripeSubscriptionId)
+    ) ||
+    businesses.find(
+      (business) =>
+        cleanText(razorpaySubscriptionId) &&
+        business.billing?.razorpaySubscriptionId === cleanText(razorpaySubscriptionId)
     ) ||
     null
   );

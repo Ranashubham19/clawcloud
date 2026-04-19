@@ -1,8 +1,8 @@
 ﻿const app = document.querySelector("#app");
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
-const PRICING_ENABLED = false; // set to true to re-enable payment popup before platform connect
 const WHATSAPP_COMING_SOON = true;
+const PENDING_PLATFORM_SETUP_KEY = "pendingPlatformSetup";
 
 function normalizeTab(value) {
   const tab = String(value || "").trim().toLowerCase();
@@ -45,6 +45,10 @@ const state = {
   user: null,
   plans: [],
   billingEnabled: false,
+  billingProviders: {
+    stripe: false,
+    razorpay: false
+  },
   userBusinesses: [],
   selectedBusiness: null,
   analytics: null,
@@ -81,6 +85,68 @@ const state = {
   showDisconnectModal: false,
   disconnectPlatform: null
 };
+
+function normalizeBillingProviders(value = {}) {
+  return {
+    stripe: value?.stripe === true,
+    razorpay: value?.razorpay === true
+  };
+}
+
+function hasEnabledBillingProvider() {
+  return state.billingProviders.stripe || state.billingProviders.razorpay;
+}
+
+function paymentCtaLabel(defaultLabel) {
+  return hasEnabledBillingProvider() ? "Continue to Payment →" : defaultLabel;
+}
+
+function renderPaymentButtons({ className = "payment-buttons", style = "margin-top:4px;" } = {}) {
+  const buttons = [];
+
+  if (state.billingProviders.razorpay) {
+    buttons.push(`
+      <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
+        🇮🇳 Pay ₹2,999/mo
+      </button>
+    `);
+  }
+
+  if (state.billingProviders.stripe) {
+    buttons.push(`
+      <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
+        🌍 Pay $49/mo
+      </button>
+    `);
+  }
+
+  if (!buttons.length) {
+    return `
+      <div class="notice warn" style="margin-top:4px;">
+        Payments are not configured yet. You can finish setup now and enable billing as soon as a payment provider is connected.
+      </div>
+    `;
+  }
+
+  return `<div class="${className}" style="${style}">${buttons.join("")}</div>`;
+}
+
+function readStoredPendingPlatformSetup() {
+  try {
+    return JSON.parse(sessionStorage.getItem(PENDING_PLATFORM_SETUP_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredPendingPlatformSetup(value) {
+  if (!value) {
+    sessionStorage.removeItem(PENDING_PLATFORM_SETUP_KEY);
+    return;
+  }
+
+  sessionStorage.setItem(PENDING_PLATFORM_SETUP_KEY, JSON.stringify(value));
+}
 
 function escapeHtml(value) {
   return String(value || "")
@@ -265,6 +331,7 @@ async function loadPlans() {
   const payload = await api("/api/plans");
   state.plans = payload.plans || [];
   state.billingEnabled = payload.billingEnabled === true;
+  state.billingProviders = normalizeBillingProviders(payload.billingProviders);
 }
 
 async function loadAuth() {
@@ -279,6 +346,7 @@ async function loadBootstrap(businessId = "") {
   state.user = payload.user;
   state.plans = payload.plans || [];
   state.billingEnabled = payload.billingEnabled === true;
+  state.billingProviders = normalizeBillingProviders(payload.billingProviders);
   state.userBusinesses = payload.userBusinesses || [];
   state.selectedBusiness = payload.selectedBusiness || null;
   state.analytics = payload.analytics || null;
@@ -816,14 +884,7 @@ function dashboardSection() {
             ${activeBilling ? `
               <div class="status-badge ok" style="width:fit-content;">Active — Bot is running</div>
             ` : `
-              <div class="payment-buttons" style="margin-top:4px;">
-                <button class="button razorpay-btn" type="button" data-upgrade-plan="pro" data-provider="razorpay" style="flex:1;">
-                  🇮🇳 Pay ₹2,999/mo
-                </button>
-                <button class="button stripe-btn" type="button" data-upgrade-plan="pro" data-provider="stripe" style="flex:1;">
-                  🌍 Pay $49/mo
-                </button>
-              </div>
+              ${renderPaymentButtons()}
             `}
           </div>
           <button class="ghost-button" style="margin-top:12px;font-size:0.82rem;" id="billing-refresh">Refresh billing status</button>
@@ -1799,6 +1860,7 @@ function renderDashboard() {
     state.readiness = { score: 0, total: 0, items: [] };
     state.billing = null;
     state.billingEnabled = false;
+    state.billingProviders = normalizeBillingProviders();
     state.billingNotice = null;
     state.leads = [];
     state.bookings = [];
@@ -1993,7 +2055,14 @@ function renderDashboard() {
     button.addEventListener("click", async () => {
       const plan = button.dataset.upgradePlan;
       const provider = button.dataset.provider || "razorpay";
+      const originalLabel = button.innerHTML;
+      const pendingSetup = state.pendingPlatformSetup;
       try {
+        button.disabled = true;
+        button.textContent = provider === "stripe" ? "Redirecting..." : "Opening payment...";
+        if (pendingSetup) {
+          writeStoredPendingPlatformSetup(pendingSetup);
+        }
         if (provider === "stripe") {
           const payload = await api(`/api/businesses/${encodeURIComponent(state.selectedBusiness.id)}/billing/checkout`, {
             method: "POST",
@@ -2019,12 +2088,24 @@ function renderDashboard() {
               theme: { color: "#7c6fff" },
               handler: function() {
                 window.location.href = payload.callbackUrl || "/app?tab=billing&billing=success";
+              },
+              modal: {
+                ondismiss: function() {
+                  writeStoredPendingPlatformSetup(null);
+                  button.disabled = false;
+                  button.innerHTML = originalLabel;
+                }
               }
             });
             rzp.open();
+            button.disabled = false;
+            button.innerHTML = originalLabel;
           }
         }
       } catch (error) {
+        writeStoredPendingPlatformSetup(null);
+        button.disabled = false;
+        button.innerHTML = originalLabel;
         alert(error.message);
       }
     });
@@ -2214,10 +2295,7 @@ function renderSetupFlow() {
           <li>âœ" Unlimited AI replies — any language</li>
           <li>âœ" Cancel anytime</li>
         </ul>
-        <div class="payment-popup-buttons">
-          <button class="button razorpay-btn" id="setup-razorpay-btn" type="button" style="flex:1;">🇮🇳 Pay ₹2,999/mo</button>
-          <button class="button stripe-btn" id="setup-stripe-btn" type="button" style="flex:1;">🌍 Pay $49/mo</button>
-        </div>
+        ${renderPaymentButtons({ className: "payment-popup-buttons", style: "" })}
         <div class="payment-popup-note">Secure payment Â· Cancel anytime Â· Instant activation</div>
       </div>
     </div>
@@ -2260,7 +2338,7 @@ function renderSetupFlow() {
           <input class="input" name="whatsappAppSecret" placeholder="Meta App Secret" required />
         </div>
         <input type="hidden" name="whatsappProvider" value="meta" />
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect WhatsApp →"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${paymentCtaLabel("Connect WhatsApp →")}</button>
       </form>
     </div>
   ` : "";
@@ -2302,7 +2380,7 @@ function renderSetupFlow() {
           <small style="color:rgba(255,255,255,0.4);font-size:0.78rem;margin-top:4px;display:block;">Looks like: 1234567890:ABCDefGHI...</small>
         </div>
         <div id="setup-tg-error" class="form-error" style="display:none;margin-bottom:8px;"></div>
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${PRICING_ENABLED ? "Continue to Payment →" : "Connect & Go Live →"}</button>
+        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${paymentCtaLabel("Connect & Go Live →")}</button>
       </form>
     </div>
   ` : "";
@@ -2433,7 +2511,7 @@ function renderSetupFlow() {
     if (!data.whatsappAccessToken?.trim()) { if (tokEl) tokEl.classList.add("input--error"); valid = false; }
     if (!data.whatsappAppSecret?.trim()) { if (secretEl) secretEl.classList.add("input--error"); valid = false; }
     if (!valid) return;
-    if (PRICING_ENABLED) {
+    if (hasEnabledBillingProvider()) {
       state.pendingPlatformSetup = { platform: "whatsapp", config: data };
       state.showPaymentPopup = true;
       renderSetupFlow();
@@ -2450,7 +2528,7 @@ function renderSetupFlow() {
           showWhatsAppSetupAlert(result?.setup);
         }
         render();
-      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "Connect WhatsApp →"; } }
+      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = paymentCtaLabel("Connect WhatsApp →"); } }
     }
   });
 
@@ -2468,7 +2546,7 @@ function renderSetupFlow() {
       if (errEl) { errEl.textContent = "Invalid token format. It should look like: 1234567890:ABCDefGHI..."; errEl.style.display = "block"; }
       return;
     }
-    if (PRICING_ENABLED) {
+    if (hasEnabledBillingProvider()) {
       state.pendingPlatformSetup = { platform: "telegram", token };
       state.showPaymentPopup = true;
       renderSetupFlow();
@@ -2483,7 +2561,7 @@ function renderSetupFlow() {
         render();
       } catch (err) {
         if (errEl) { errEl.textContent = err.message; errEl.style.display = "block"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Continue to Payment →"; }
+        if (btn) { btn.disabled = false; btn.textContent = paymentCtaLabel("Connect & Go Live →"); }
       }
     }
   });
@@ -2496,67 +2574,6 @@ function renderSetupFlow() {
     if (e.target.id === "payment-overlay") { state.showPaymentPopup = false; renderSetupFlow(); }
   });
 
-  // Razorpay payment
-  document.querySelector("#setup-razorpay-btn")?.addEventListener("click", async () => {
-    const btn = document.querySelector("#setup-razorpay-btn");
-    if (btn) { btn.disabled = true; btn.textContent = "Opening payment..."; }
-    try {
-      const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/razorpay`, { method: "POST", body: { plan: "pro" } });
-      if (payload.subscriptionId && payload.keyId) {
-        if (!window.Razorpay) { alert("Razorpay is still loading, please try again."); return; }
-        const rzp = new window.Razorpay({
-          key: payload.keyId,
-          subscription_id: payload.subscriptionId,
-          name: payload.businessName || "swift-deploy.in",
-          description: "AI Bot Subscription",
-          prefill: { email: payload.userEmail, name: payload.userName },
-          theme: { color: "#8b7fff" },
-          handler: async () => {
-            const pending = state.pendingPlatformSetup;
-            let connectResult = null;
-            if (pending) {
-              try {
-                if (pending.platform === "telegram") {
-                  await api(`/api/businesses/${encodeURIComponent(biz.id)}/telegram`, { method: "POST", body: { token: pending.token } });
-                } else {
-                  connectResult = await api(`/api/businesses/${encodeURIComponent(biz.id)}/whatsapp`, { method: "POST", body: pending.config });
-                }
-              } catch (err) { /* ignore */ }
-            }
-            await loadBootstrap(biz.id);
-            state.showPaymentPopup = false;
-            state.pendingPlatformSetup = null;
-            if (pending?.platform === "telegram") {
-              state.showBotLivePopup = true;
-            } else if (pending?.platform === "whatsapp") {
-              if (isWhatsAppReady(state.selectedBusiness)) {
-                state.showBotLivePopup = true;
-              } else {
-                showWhatsAppSetupAlert(connectResult?.setup);
-              }
-            }
-            state.billingActivated = true;
-            render();
-          }
-        });
-        rzp.open();
-      }
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🇮🇳 Pay ₹2,999/mo"; } }
-  });
-
-  // Stripe payment
-  document.querySelector("#setup-stripe-btn")?.addEventListener("click", async () => {
-    const btn = document.querySelector("#setup-stripe-btn");
-    if (btn) { btn.disabled = true; btn.textContent = "Redirecting..."; }
-    try {
-      // Save pending setup to sessionStorage for after redirect
-      if (state.pendingPlatformSetup) {
-        sessionStorage.setItem("pendingPlatformSetup", JSON.stringify(state.pendingPlatformSetup));
-      }
-      const payload = await api(`/api/businesses/${encodeURIComponent(biz.id)}/billing/checkout`, { method: "POST", body: { plan: "pro" } });
-      if (payload.url) window.location.href = payload.url;
-    } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = "🌍 Pay $49/mo"; } }
-  });
 }
 
 function render() {
@@ -2612,12 +2629,16 @@ async function init() {
     await loadAuth();
     if (state.user) {
       await loadBootstrap(pageParams.get("businessId") || "");
-      // If returning from Stripe after payment, apply any pending platform setup
+      if (pageParams.get("billing") === "cancel") {
+        writeStoredPendingPlatformSetup(null);
+      }
+
+      // If returning from checkout after payment, apply any pending platform setup
       if (pageParams.get("billing") === "success") {
         state.billingActivated = true;
-        const pending = (() => { try { return JSON.parse(sessionStorage.getItem("pendingPlatformSetup") || "null"); } catch { return null; } })();
+        const pending = readStoredPendingPlatformSetup();
         if (pending && state.selectedBusiness?.id) {
-          sessionStorage.removeItem("pendingPlatformSetup");
+          writeStoredPendingPlatformSetup(null);
           try {
             let connectResult = null;
             if (pending.platform === "telegram") {

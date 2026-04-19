@@ -29,7 +29,13 @@ async function razorpayPost(path, body) {
 }
 
 export function hasRazorpayBilling() {
-  return Boolean(cleanText(config.razorpayKeyId) && cleanText(config.razorpayKeySecret));
+  return Boolean(
+    cleanText(config.razorpayKeyId) &&
+      cleanText(config.razorpayKeySecret) &&
+      cleanText(config.razorpayPlanBasic) &&
+      cleanText(config.razorpayPlanPro) &&
+      cleanText(config.razorpayPlanPremium)
+  );
 }
 
 function planIdMap() {
