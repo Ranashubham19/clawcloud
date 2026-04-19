@@ -229,6 +229,33 @@ function attachPaymentButtonHandlers(root = document) {
   });
 }
 
+function renderCheckIcon({ size = 16, tone = "default" } = {}) {
+  const dimension = Number(size) || 16;
+  return `
+    <span class="feature-list-icon feature-list-icon--${tone}" style="width:${dimension}px;height:${dimension}px;" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="10" r="10" fill="currentColor" fill-opacity="0.16"/>
+        <path d="M5.75 10.25L8.75 13.25L14.25 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+  `;
+}
+
+function renderFeatureList(items = [], className = "") {
+  return `
+    <ul class="${className}">
+      ${items.map((item) => `
+        <li>
+          <span class="feature-list-item">
+            ${renderCheckIcon()}
+            <span class="feature-list-label">${escapeHtml(item)}</span>
+          </span>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -933,7 +960,7 @@ function dashboardSection() {
 
           ${activeBilling ? `
             <div class="billing-active-banner">
-              <div class="billing-active-icon">âœ…</div>
+              <div class="billing-active-icon">${renderCheckIcon({ size: 28, tone: "success" })}</div>
               <div>
                 <div class="billing-active-title">Your subscription is active</div>
                 <div class="muted" style="font-size:0.85rem;">Renews on ${escapeHtml(billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : "—")}</div>
@@ -954,13 +981,13 @@ function dashboardSection() {
                 <span class="billing-price-or">or</span>
                 <span class="billing-price-big billing-price-usd">$39</span><span class="billing-price-period">/month</span>
               </div>
-              <ul class="billing-plan-features">
-                <li>âœ" WhatsApp AI Bot</li>
-                <li>âœ" Telegram AI Bot</li>
-                <li>âœ" Unlimited AI replies</li>
-                <li>âœ" Any language support</li>
-                <li>âœ" 24/7 always-on</li>
-              </ul>
+              ${renderFeatureList([
+                "WhatsApp AI Bot",
+                "Telegram AI Bot",
+                "Unlimited AI replies",
+                "Any language support",
+                "24/7 always-on"
+              ], "billing-plan-features")}
             </div>
             ${activeBilling ? `
               <div class="status-badge ok" style="width:fit-content;">Active — Bot is running</div>
@@ -2302,9 +2329,9 @@ function renderSetupFlow() {
   const paymentPopupHtml = state.showPaymentPopup ? `
     <div class="payment-overlay" id="payment-overlay">
       <div class="payment-popup">
-        <div class="payment-popup-close" id="payment-popup-close">âœ•</div>
+        <div class="payment-popup-close" id="payment-popup-close">&times;</div>
         <div class="payment-popup-icon">⚡</div>
-        <div class="payment-popup-badge">One Plan Â· Everything Included</div>
+        <div class="payment-popup-badge">One Plan &middot; Everything Included</div>
         <h2 class="payment-popup-title">Activate your AI bot</h2>
         <p class="payment-popup-sub">Your bot setup is complete. Subscribe to go live instantly.</p>
         <div class="payment-popup-price">
@@ -2312,14 +2339,14 @@ function renderSetupFlow() {
           <span class="payment-price-or">or</span>
           <span class="payment-price-big payment-price-usd">$39</span><span class="payment-price-period">/month</span>
         </div>
-        <ul class="payment-popup-features">
-          <li>âœ" WhatsApp AI Bot (24/7)</li>
-          <li>âœ" Telegram AI Bot (instant)</li>
-          <li>âœ" Unlimited AI replies — any language</li>
-          <li>âœ" Cancel anytime</li>
-        </ul>
+        ${renderFeatureList([
+          "WhatsApp AI Bot (24/7)",
+          "Telegram AI Bot (instant)",
+          "Unlimited AI replies — any language",
+          "Cancel anytime"
+        ], "payment-popup-features")}
         ${renderPaymentButtons({ className: "payment-popup-buttons", style: "" })}
-        <div class="payment-popup-note">Secure payment Â· Cancel anytime Â· Instant activation</div>
+        <div class="payment-popup-note">Secure payment &middot; Cancel anytime &middot; Instant activation</div>
       </div>
     </div>
   ` : "";
