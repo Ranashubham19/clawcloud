@@ -2,6 +2,7 @@
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
 const WHATSAPP_COMING_SOON = true;
+const BILLING_ENABLED = false;
 const PENDING_PLATFORM_SETUP_KEY = "pendingPlatformSetup";
 
 function normalizeTab(value) {
@@ -94,6 +95,7 @@ function normalizeBillingProviders(value = {}) {
 }
 
 function hasEnabledBillingProvider() {
+  if (!BILLING_ENABLED) return false;
   return state.billingProviders.stripe || state.billingProviders.razorpay;
 }
 
