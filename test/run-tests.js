@@ -21,7 +21,13 @@ import {
   sanitizeForWhatsApp
 } from "../src/lib/text.js";
 import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
-import { buildAiSensyCampaignPayload, splitWhatsAppMessage } from "../src/whatsapp.js";
+import {
+  buildAiSensyCampaignPayload,
+  classifyMetaApiError,
+  formatMetaApiError,
+  sendWhatsAppText,
+  splitWhatsAppMessage
+} from "../src/whatsapp.js";
 import { extractGoogleContactImports } from "../src/google-contacts.js";
 import { extractAiSensyFlowInput } from "../src/aisensy-flow.js";
 import {
@@ -1210,6 +1216,64 @@ await run("splitWhatsAppMessage chunks long replies safely", async () => {
   assert.ok(chunks[0].length <= 3800);
   assert.ok(chunks[1].length <= 3800);
   assert.ok(chunks[2].length <= 3800);
+});
+
+await run("classifyMetaApiError detects invalid WhatsApp tokens", async () => {
+  const payload = {
+    error: {
+      message:
+        "Error validating access token: The session is invalid because the user logged out.",
+      code: 190,
+      type: "OAuthException",
+      fbtrace_id: "trace-123"
+    }
+  };
+  const rawBody = JSON.stringify(payload);
+
+  assert.equal(classifyMetaApiError(401, payload, rawBody), "META_AUTH_INVALID");
+  assert.match(
+    formatMetaApiError("WhatsApp API error", 401, payload, rawBody),
+    /permanent System User token/
+  );
+});
+
+await run("sendWhatsAppText throws an actionable Meta token error", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousToken = config.whatsappAccessToken;
+  const previousPhoneNumberId = config.whatsappPhoneNumberId;
+  config.whatsappAccessToken = "expired-meta-token";
+  config.whatsappPhoneNumberId = "phone-number-id";
+
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 401,
+    text: async () =>
+      JSON.stringify({
+        error: {
+          message:
+            "Error validating access token: The session is invalid because the user logged out.",
+          code: 190,
+          type: "OAuthException",
+          fbtrace_id: "trace-456"
+        }
+      })
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        sendWhatsAppText({
+          to: "919876543210",
+          body: "Hello",
+          integration: { provider: "meta" }
+        }),
+      /META_AUTH_INVALID.*WHATSAPP_ACCESS_TOKEN/
+    );
+  } finally {
+    config.whatsappAccessToken = previousToken;
+    config.whatsappPhoneNumberId = previousPhoneNumberId;
+    globalThis.fetch = originalFetch;
+  }
 });
 
 await run("buildAiSensyCampaignPayload maps replies into template params", async () => {

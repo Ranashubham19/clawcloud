@@ -8,6 +8,106 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function parseJsonBody(body) {
+  try {
+    return body ? JSON.parse(body) : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseMetaErrorNumber(value) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function getMetaApiErrorDetails(parsed = {}, rawBody = "") {
+  const error = parsed?.error || {};
+  return {
+    message: cleanText(
+      error.message ||
+        error.error_user_msg ||
+        parsed?.message ||
+        rawBody ||
+        "Unknown Meta API error"
+    ),
+    type: cleanText(error.type),
+    code: parseMetaErrorNumber(error.code),
+    subcode: parseMetaErrorNumber(error.error_subcode),
+    fbtraceId: cleanText(error.fbtrace_id)
+  };
+}
+
+export function classifyMetaApiError(status, parsed = {}, rawBody = "") {
+  const details = getMetaApiErrorDetails(parsed, rawBody);
+  const haystack = `${details.type} ${details.message} ${rawBody}`.toLowerCase();
+
+  if (
+    details.code === 190 ||
+    haystack.includes("error validating access token") ||
+    haystack.includes("session is invalid") ||
+    haystack.includes("access token has expired") ||
+    haystack.includes("invalid oauth access token")
+  ) {
+    return "META_AUTH_INVALID";
+  }
+
+  if (details.code === 131030 || haystack.includes("not in allowed list")) {
+    return "RECIPIENT_NOT_ALLOWED";
+  }
+
+  if (
+    haystack.includes("invalid_parameter") ||
+    haystack.includes("invalid parameter")
+  ) {
+    return "INVALID_PHONE";
+  }
+
+  if (status === 429 || [4, 17, 32, 613].includes(details.code)) {
+    return "RATE_LIMITED";
+  }
+
+  if ([10, 200, 201, 299].includes(details.code) || haystack.includes("permission")) {
+    return "META_PERMISSION_DENIED";
+  }
+
+  return "META_API_ERROR";
+}
+
+export function formatMetaApiError(prefix, status, parsed = {}, rawBody = "") {
+  const details = getMetaApiErrorDetails(parsed, rawBody);
+  const classification = classifyMetaApiError(status, parsed, rawBody);
+  const metaParts = [];
+  if (details.code !== null) metaParts.push(`code ${details.code}`);
+  if (details.subcode !== null) metaParts.push(`subcode ${details.subcode}`);
+  if (details.type) metaParts.push(details.type);
+  if (details.fbtraceId) metaParts.push(`fbtrace ${details.fbtraceId}`);
+  const metaSuffix = metaParts.length ? ` (${metaParts.join(", ")})` : "";
+  const statusText = status ? ` ${status}` : "";
+
+  if (classification === "META_AUTH_INVALID") {
+    return `${classification}: ${prefix}${statusText}${metaSuffix}: ${details.message}. Required: replace the Meta WhatsApp access token with a permanent System User token that has whatsapp_business_messaging and whatsapp_business_management permissions, then update WHATSAPP_ACCESS_TOKEN in Railway or reconnect the workspace WhatsApp token.`;
+  }
+
+  if (classification === "META_PERMISSION_DENIED") {
+    return `${classification}: ${prefix}${statusText}${metaSuffix}: ${details.message}. Required: assign the WhatsApp Business Account and phone number asset to the token's System User and include whatsapp_business_messaging plus whatsapp_business_management permissions.`;
+  }
+
+  return `${prefix}${statusText}${metaSuffix}: ${details.message}`;
+}
+
+async function readMetaApiError(response, prefix) {
+  const rawBody = await response.text();
+  const parsed = parseJsonBody(rawBody);
+  const classification = classifyMetaApiError(response.status, parsed, rawBody);
+  return {
+    rawBody,
+    parsed,
+    classification,
+    message: formatMetaApiError(prefix, response.status, parsed, rawBody)
+  };
+}
+
 function resolveIntegration(overrides = {}) {
   return {
     provider: cleanText(overrides.provider || config.whatsappProvider || "meta").toLowerCase(),
@@ -130,8 +230,8 @@ export async function downloadWhatsAppMedia(mediaId, integration = {}) {
   );
 
   if (!infoRes.ok) {
-    const details = await infoRes.text();
-    throw new Error(`Media info error ${infoRes.status}: ${details.slice(0, 200)}`);
+    const apiError = await readMetaApiError(infoRes, "WhatsApp media info error");
+    throw new Error(apiError.message);
   }
 
   const info = await infoRes.json();
@@ -141,7 +241,8 @@ export async function downloadWhatsAppMedia(mediaId, integration = {}) {
   });
 
   if (!dataRes.ok) {
-    throw new Error(`Media download error ${dataRes.status}`);
+    const apiError = await readMetaApiError(dataRes, "WhatsApp media download error");
+    throw new Error(apiError.message);
   }
 
   const buffer = Buffer.from(await dataRes.arrayBuffer());
@@ -175,8 +276,9 @@ export async function getWhatsAppPhoneNumberInfo(phoneNumberId, integration = {}
   }
 
   if (!response.ok) {
-    const reason = parsed?.error?.message || details || "Unknown Meta error";
-    throw new Error(`WhatsApp connect failed: ${String(reason).slice(0, 240)}`);
+    throw new Error(
+      formatMetaApiError("WhatsApp connect failed", response.status, parsed, details)
+    );
   }
 
   return parsed;
@@ -283,25 +385,14 @@ export async function sendWhatsAppText({
   );
 
   if (!response.ok) {
-    const details = await response.text();
-    let reason = `WhatsApp API error ${response.status}: ${details}`;
+    const apiError = await readMetaApiError(response, "WhatsApp API error");
+    let reason = apiError.message;
 
-    let parsed = {};
-    try {
-      parsed = JSON.parse(details);
-    } catch {
-      parsed = {};
-    }
-    const code = parsed?.error?.code;
-
-    if (code === 131030 || details.includes("not in allowed list")) {
+    if (apiError.classification === "RECIPIENT_NOT_ALLOWED") {
       reason = "RECIPIENT_NOT_ALLOWED";
-    } else if (
-      details.includes("invalid_parameter") ||
-      details.includes("Invalid parameter")
-    ) {
+    } else if (apiError.classification === "INVALID_PHONE") {
       reason = "INVALID_PHONE";
-    } else if (response.status === 429) {
+    } else if (apiError.classification === "RATE_LIMITED") {
       reason = "RATE_LIMITED";
     }
 
@@ -475,8 +566,8 @@ export async function sendTypingIndicator(inboundMessageId, integration = {}) {
     );
 
     if (!response.ok) {
-      const details = await response.text();
-      console.warn(`Typing indicator failed ${response.status}: ${details}`);
+      const apiError = await readMetaApiError(response, "Typing indicator failed");
+      console.warn(apiError.message);
       return null;
     }
 

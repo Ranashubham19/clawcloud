@@ -1,4 +1,5 @@
 import { config } from "../src/config.js";
+import { formatMetaApiError } from "../src/whatsapp.js";
 
 function fail(message) {
   console.error(message);
@@ -17,10 +18,18 @@ async function graphGet(path) {
     }
   });
 
-  const body = await response.json().catch(() => ({}));
+  const rawBody = await response.text();
+  let body = {};
+  try {
+    body = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    body = {};
+  }
+
   if (!response.ok) {
-    const message = body?.error?.message || response.statusText;
-    throw new Error(message);
+    throw new Error(
+      formatMetaApiError("Meta Graph API check failed", response.status, body, rawBody)
+    );
   }
 
   return body;

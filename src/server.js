@@ -359,6 +359,12 @@ async function processInboundMessage(message, options = {}) {
           replyIntegration.provider || "unknown"
         } with ${Array.isArray(delivery) ? delivery.length : 0} message(s)`
       );
+
+      if (message.provider === "meta" && businessContext?.id) {
+        await updateBusinessWhatsAppById(businessContext.id, {
+          lastError: ""
+        }).catch(() => {});
+      }
     }
 
     await completeInboundProcessing(message.messageId, {
@@ -370,6 +376,12 @@ async function processInboundMessage(message, options = {}) {
     console.error(
       `Failed to process inbound message ${message.messageId} from ${message.from}: ${error.message}`
     );
+
+    if (message.provider === "meta" && businessContext?.id) {
+      await updateBusinessWhatsAppById(businessContext.id, {
+        lastError: error.message
+      }).catch(() => {});
+    }
 
     await completeInboundProcessing(message.messageId, {
       error: error.message,

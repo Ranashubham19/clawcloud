@@ -473,6 +473,15 @@ async function runTool(name, args, context) {
             userMessage: `WhatsApp is rate-limiting messages right now. Please wait a minute and try again.`
           });
         }
+        if (sendError.message.startsWith("META_AUTH_INVALID")) {
+          return result({
+            sent: false,
+            target: resolved.contact,
+            reason: "META_AUTH_INVALID",
+            userMessage:
+              "WhatsApp cannot send right now because the Meta access token is invalid or expired. Reconnect WhatsApp with a permanent System User token, then try again."
+          });
+        }
         return result({
           sent: false,
           target: resolved.contact,

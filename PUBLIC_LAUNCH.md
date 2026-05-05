@@ -38,3 +38,19 @@ npm run doctor:public
 ```
 
 13. Share the production phone number or `wa.me` link only after the public check passes.
+
+## Token failure runbook
+
+If Railway logs show `Authentication Error`, `OAuthException`, or Meta code `190`,
+the WhatsApp access token is invalid. Temporary user tokens can become invalid
+when the Meta user logs out, changes password, or the token expires.
+
+Required fix:
+
+1. Create or open a Meta Business System User.
+2. Assign the WhatsApp Business Account and phone number asset to that System User.
+3. Generate a new token with `whatsapp_business_messaging` and
+   `whatsapp_business_management`.
+4. Replace `WHATSAPP_ACCESS_TOKEN` in Railway, then restart/redeploy the service.
+5. Run `npm run doctor:meta` or `npm run doctor:public` before testing inbound
+   messages again.

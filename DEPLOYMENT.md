@@ -54,6 +54,9 @@ Paste these values back into the project or Railway:
 - WhatsApp app secret
 - Public bot phone number
 
+Use a permanent Meta Business System User token for `WHATSAPP_ACCESS_TOKEN`.
+Temporary user tokens can fail with Meta OAuth code `190` after logout or expiry.
+
 ## Public Sharing
 
 After the bot is live, users can reach it through:
