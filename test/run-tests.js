@@ -101,6 +101,34 @@ await run("default security headers allow google analytics loading and network c
   assert.match(csp, /img-src [^;]*https:\/\/\*\.google-analytics\.com/);
 });
 
+await run("config prefers explicit WhatsApp Meta provider over stale messaging provider", async () => {
+  const previous = {
+    MESSAGING_PROVIDER: process.env.MESSAGING_PROVIDER,
+    WHATSAPP_PROVIDER: process.env.WHATSAPP_PROVIDER,
+    WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID
+  };
+
+  process.env.MESSAGING_PROVIDER = "aisensy";
+  process.env.WHATSAPP_PROVIDER = "meta";
+  process.env.WHATSAPP_ACCESS_TOKEN = "meta-token";
+  process.env.WHATSAPP_PHONE_NUMBER_ID = "meta-phone-id";
+
+  try {
+    const freshConfig = await import(`../src/config.js?providerTs=${Date.now()}`);
+    assert.equal(freshConfig.config.messagingProvider, "meta");
+    assert.equal(freshConfig.config.whatsappProvider, "meta");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
 await run("detectLanguageStyle keeps English in English", async () => {
   assert.equal(
     detectLanguageStyle("When was Claude Opus 4.6 released"),

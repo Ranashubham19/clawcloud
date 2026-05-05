@@ -41,6 +41,34 @@ function toInt(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function resolveMessagingProvider() {
+  const messagingProvider = cleanText(process.env.MESSAGING_PROVIDER).toLowerCase();
+  const whatsappProvider = cleanText(process.env.WHATSAPP_PROVIDER).toLowerCase();
+  const hasMetaCredentials =
+    cleanText(process.env.WHATSAPP_ACCESS_TOKEN) &&
+    cleanText(process.env.WHATSAPP_PHONE_NUMBER_ID);
+
+  if (whatsappProvider === "meta" || (messagingProvider === "meta" && hasMetaCredentials)) {
+    return "meta";
+  }
+
+  if (messagingProvider === "aisensy" && whatsappProvider === "aisensy") {
+    return "aisensy";
+  }
+
+  if (hasMetaCredentials && messagingProvider === "aisensy" && whatsappProvider !== "aisensy") {
+    return "meta";
+  }
+
+  return messagingProvider || whatsappProvider || (hasMetaCredentials ? "meta" : "aisensy");
+}
+
+const resolvedMessagingProvider = resolveMessagingProvider();
+
 export const config = {
   port: toInt(process.env.PORT, 3000),
   timezone: process.env.TIMEZONE || "Asia/Calcutta",
@@ -77,16 +105,8 @@ export const config = {
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
   whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v22.0",
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || "",
-  messagingProvider: (
-    process.env.MESSAGING_PROVIDER ||
-    process.env.WHATSAPP_PROVIDER ||
-    "aisensy"
-  ).toLowerCase(),
-  whatsappProvider: (
-    process.env.MESSAGING_PROVIDER ||
-    process.env.WHATSAPP_PROVIDER ||
-    "aisensy"
-  ).toLowerCase(),
+  messagingProvider: resolvedMessagingProvider,
+  whatsappProvider: resolvedMessagingProvider,
   whatsappAutoReply: process.env.WHATSAPP_AUTO_REPLY !== "false",
   aisensyApiKey: process.env.AISENSY_API_KEY || "",
   aisensyCampaignName: process.env.AISENSY_CAMPAIGN_NAME || "",
