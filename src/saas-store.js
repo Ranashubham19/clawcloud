@@ -239,6 +239,8 @@ function sanitizeUser(user) {
 export function sanitizeWhatsAppIntegration(whatsapp = {}) {
   const provider = cleanText(whatsapp.provider || config.messagingProvider || "meta").toLowerCase();
   const accessTokenConfigured = Boolean(cleanText(whatsapp.accessToken));
+  const directChatUrl = cleanText(whatsapp.directChatUrl);
+  const directConnected = provider === "direct" && Boolean(cleanText(whatsapp.connectedAt) || directChatUrl);
   const appSecretConfigured =
     provider === "meta"
       ? Boolean(cleanText(whatsapp.appSecret) || cleanText(config.whatsappAppSecret))
@@ -255,18 +257,21 @@ export function sanitizeWhatsAppIntegration(whatsapp = {}) {
     appSecretConfigured,
     webhookUrl: cleanText(whatsapp.webhookUrl),
     webhookVerifyToken: cleanText(whatsapp.webhookVerifyToken),
+    directChatUrl,
     connectedAt: cleanText(whatsapp.connectedAt),
     webhookVerifiedAt: cleanText(whatsapp.webhookVerifiedAt),
     lastError: cleanText(whatsapp.lastError),
     configured:
-      provider === "aisensy"
+      provider === "direct"
+        ? directConnected
+        : provider === "aisensy"
         ? Boolean(
             cleanText(config.aisensyApiKey) &&
               cleanText(config.aisensyCampaignName) &&
               cleanText(config.aisensyFlowToken)
           )
         : Boolean(cleanText(whatsapp.phoneNumberId) && accessTokenConfigured && appSecretConfigured),
-    webhookReady: Boolean(cleanText(whatsapp.webhookVerifiedAt))
+    webhookReady: directConnected || Boolean(cleanText(whatsapp.webhookVerifiedAt))
   };
 }
 
@@ -400,6 +405,10 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
         cleanText(patch.whatsappWebhookVerifiedAt) ||
         current.whatsapp?.webhookVerifiedAt ||
         "",
+      directChatUrl:
+        cleanText(patch.whatsappDirectChatUrl) ||
+        current.whatsapp?.directChatUrl ||
+        "",
       lastError: Object.prototype.hasOwnProperty.call(patch, "whatsappLastError")
         ? cleanText(patch.whatsappLastError)
         : current.whatsapp?.lastError || ""
@@ -422,6 +431,10 @@ function normalizeBusinessPatch(patch = {}, current = {}, businesses = []) {
 }
 
 function assertUniqueWhatsAppChannel(businesses, currentId, whatsapp = {}) {
+  if (cleanText(whatsapp.provider).toLowerCase() === "direct") {
+    return;
+  }
+
   const phoneNumberId = cleanText(whatsapp.phoneNumberId);
   const displayPhone = comparablePhone(whatsapp.displayPhoneNumber || "");
 
@@ -695,6 +708,7 @@ export async function getBusinessByInboundChannel({
     businesses.find(
       (business) =>
         normalizedDisplay &&
+        cleanText(business.whatsapp?.provider).toLowerCase() !== "direct" &&
         comparablePhone(business.whatsapp?.displayPhoneNumber || "") === normalizedDisplay
     ) ||
     (() => {

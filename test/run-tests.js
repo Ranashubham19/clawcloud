@@ -1544,6 +1544,57 @@ await run("saas store blocks duplicate WhatsApp phone ownership across workspace
   await rm(tempDir, { recursive: true, force: true });
 });
 
+await run("saas store exposes direct WhatsApp activation without blocking shared chat link", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
+  process.env.CLAW_DATA_DIR = tempDir;
+
+  const saasStore = await import(`../src/saas-store.js?ts=${Date.now()}`);
+  await saasStore.initSaasStore();
+
+  const userOne = await saasStore.createSaasUser({
+    name: "Direct One",
+    email: "direct-one@example.com",
+    password: "supersecure123"
+  });
+  const userTwo = await saasStore.createSaasUser({
+    name: "Direct Two",
+    email: "direct-two@example.com",
+    password: "supersecure123"
+  });
+  const businessOne = await saasStore.createBusinessForUser(userOne.id, {
+    name: "Direct Workspace One"
+  });
+  const businessTwo = await saasStore.createBusinessForUser(userTwo.id, {
+    name: "Direct Workspace Two"
+  });
+
+  await saasStore.updateBusinessWhatsApp(userOne.id, businessOne.id, {
+    provider: "direct",
+    displayPhoneNumber: "+91 88376 63683",
+    directChatUrl: "https://wa.me/918837663683",
+    connectedAt: "2026-05-06T08:00:00.000Z"
+  });
+  await saasStore.updateBusinessWhatsApp(userTwo.id, businessTwo.id, {
+    provider: "direct",
+    displayPhoneNumber: "+91 88376 63683",
+    directChatUrl: "https://wa.me/918837663683",
+    connectedAt: "2026-05-06T08:01:00.000Z"
+  });
+
+  const safeBusiness = await saasStore.getBusinessForUser(userOne.id, businessOne.id);
+  assert.equal(safeBusiness.whatsapp.provider, "direct");
+  assert.equal(safeBusiness.whatsapp.configured, true);
+  assert.equal(safeBusiness.whatsapp.webhookReady, true);
+  assert.equal(safeBusiness.whatsapp.directChatUrl, "https://wa.me/918837663683");
+  assert.equal(safeBusiness.whatsapp.accessTokenConfigured, false);
+  assert.equal(
+    await saasStore.getBusinessByInboundChannel({ displayPhoneNumber: "+918837663683" }),
+    null
+  );
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
 await run("verifyMessagingWebhookPost accepts business-specific Meta app secrets", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "claw-cloud-"));
   process.env.CLAW_DATA_DIR = tempDir;

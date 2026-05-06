@@ -68,8 +68,9 @@ import {
 
 const SESSION_COOKIE_NAME = "swift_saas_session";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const WHATSAPP_CHAT_DISPLAY_NUMBER = "+91 88376 63683";
 const WHATSAPP_CHAT_URL =
-  "https://api.whatsapp.com/send?phone=918837663683&text=Hi%20I%20want%20to%20use%20the%20Claw%20Cloud%20AI%20bot";
+  "https://wa.me/918837663683?text=Hi%20I%20want%20to%20use%20the%20Claw%20Cloud%20AI%20bot";
 
 function publicFilePath(name) {
   return path.resolve(process.cwd(), "public", name);
@@ -885,6 +886,54 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   // ── Telegram Integration ─────────────────────────────────────────────────
+  if (parts.length === 5 && parts[3] === "whatsapp" && parts[4] === "direct" && request.method === "POST") {
+    if (rejectIfRateLimited(request, response, "write")) return true;
+    try {
+      const rawBusiness = await getRawBusinessById(businessId);
+      if (!rawBusiness || rawBusiness.userId !== auth.user.id) {
+        throw new Error("Business not found.");
+      }
+
+      const now = new Date().toISOString();
+      const appBase = String(config.appBaseUrl || requestOrigin(request) || "").replace(/\/$/, "");
+      const refreshed = await updateBusinessWhatsApp(auth.user.id, businessId, {
+        provider: "direct",
+        displayPhoneNumber: WHATSAPP_CHAT_DISPLAY_NUMBER,
+        phoneNumberId: "",
+        businessAccountId: "",
+        accessToken: "",
+        appSecret: "",
+        webhookUrl: appBase ? `${appBase}/webhooks/whatsapp` : "",
+        directChatUrl: WHATSAPP_CHAT_URL,
+        connectedAt: now,
+        webhookVerifiedAt: now,
+        lastError: ""
+      });
+
+      await appendAuditLog({
+        businessId,
+        userId: auth.user.id,
+        action: "whatsapp.direct.activate",
+        details: {
+          provider: "direct",
+          displayPhoneNumber: WHATSAPP_CHAT_DISPLAY_NUMBER
+        }
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        whatsapp: refreshed?.whatsapp || {},
+        chatUrl: WHATSAPP_CHAT_URL
+      });
+    } catch (error) {
+      await updateBusinessWhatsApp(auth.user.id, businessId, {
+        lastError: error.message
+      }).catch(() => {});
+      sendJson(response, 400, { error: error.message });
+    }
+    return true;
+  }
+
   if (parts.length === 4 && parts[3] === "whatsapp" && request.method === "POST") {
     if (rejectIfRateLimited(request, response, "write")) return true;
     try {
@@ -1014,6 +1063,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         accessToken: "",
         appSecret: "",
         webhookUrl: "",
+        directChatUrl: "",
         webhookVerifiedAt: "",
         connectedAt: "",
         lastError: ""
