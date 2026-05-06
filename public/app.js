@@ -4,6 +4,7 @@ const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billin
 const WHATSAPP_COMING_SOON = false;
 const BILLING_ENABLED = false;
 const PENDING_PLATFORM_SETUP_KEY = "pendingPlatformSetup";
+const WHATSAPP_CHAT_LINK = "https://wa.me/918837663683?text=Hi%20I%20want%20to%20use%20the%20AI%20bot";
 
 function normalizeTab(value) {
   const tab = String(value || "").trim().toLowerCase();
@@ -616,7 +617,7 @@ function renderLanding() {
               <p>Hindi, Tamil, Arabic, Spanish — your bot automatically matches the language of whoever is messaging it. Zero setup.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">💬</div>
+              <div class="lp-feature-icon">📲</div>
               <h3>Unified Inbox</h3>
               <p>One clean workspace for AI replies, leads, chats, and business automation from a single dashboard.</p>
             </div>
@@ -631,7 +632,7 @@ function renderLanding() {
               <p>Everything is managed from a clean dashboard. Change bot behavior, monitor activity, and manage billing — all in one place.</p>
             </div>
             <div class="lp-feature-card">
-              <div class="lp-feature-icon">🔐</div>
+              <div class="lp-feature-icon">🔒</div>
               <h3>Secure &amp; Private</h3>
               <p>Your credentials are encrypted at rest. All webhook traffic is verified. Your users' conversations are never shared.</p>
             </div>
@@ -639,32 +640,13 @@ function renderLanding() {
         </div>
       </section>
 
-      <section class="lp-whatsapp-contact" id="whatsapp">
+      <section class="lp-cta-banner">
         <div class="shell">
-          <div class="lp-whatsapp-inner">
-            <p class="lp-whatsapp-subtitle">Start a conversation with our AI assistant on WhatsApp</p>
-            <a
-              class="lp-whatsapp-button"
-              href="https://wa.me/918837663683?text=Hi%20I%20want%20to%20use%20the%20AI%20bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Chat on WhatsApp with swift-deploy.in AI assistant"
-            >
-              <svg class="lp-whatsapp-button-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M16.01 3.2c-7.03 0-12.75 5.64-12.75 12.58 0 2.24.61 4.42 1.76 6.33L3.2 28.8l6.88-1.78a12.93 12.93 0 0 0 5.93 1.5c7.03 0 12.75-5.64 12.75-12.58S23.04 3.2 16.01 3.2Zm0 23.16c-1.95 0-3.86-.52-5.53-1.51l-.4-.24-4.08 1.06 1.09-3.9-.26-.41a10.2 10.2 0 0 1-1.58-5.58c0-5.75 4.83-10.43 10.76-10.43s10.76 4.68 10.76 10.43-4.83 10.58-10.76 10.58Zm5.91-7.82c-.32-.16-1.91-.93-2.21-1.04-.3-.11-.52-.16-.74.16-.22.32-.85 1.04-1.04 1.25-.19.22-.38.24-.7.08-.32-.16-1.36-.49-2.6-1.56-.96-.84-1.61-1.87-1.8-2.19-.19-.32-.02-.49.14-.65.15-.14.32-.38.49-.57.16-.19.22-.32.32-.54.11-.22.05-.41-.03-.57-.08-.16-.74-1.76-1.01-2.41-.27-.63-.54-.54-.74-.55h-.63c-.22 0-.57.08-.87.41-.3.32-1.14 1.1-1.14 2.68s1.17 3.11 1.34 3.33c.16.22 2.3 3.46 5.58 4.85.78.33 1.39.53 1.86.68.78.25 1.49.21 2.05.13.63-.09 1.91-.77 2.18-1.52.27-.75.27-1.39.19-1.52-.08-.13-.3-.21-.62-.37Z"/>
-              </svg>
-              <span>Chat on WhatsApp</span>
-            </a>
-
-            <div class="lp-whatsapp-qr" aria-label="QR code that opens WhatsApp chat">
-              <div class="lp-whatsapp-qr-frame">
-                <svg class="lp-whatsapp-qr-code" xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 41 41" shape-rendering="crispEdges" role="img" aria-label="Scan to open WhatsApp chat link">
-                  <path fill="#ffffff" d="M0 0h41v41H0z"/>
-                  <path stroke="#111827" d="M2 2.5h7m5 0h1m3 0h1m5 0h1m1 0h1m2 0h2m1 0h7M2 3.5h1m5 0h1m2 0h1m1 0h2m1 0h2m1 0h2m1 0h2m1 0h3m1 0h2m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h1m2 0h3m1 0h2m1 0h1m2 0h2m1 0h4m2 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h3m1 0h2m2 0h1m3 0h4m4 0h1m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h4m1 0h1m1 0h4m3 0h1m1 0h3m3 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m1 0h2m2 0h2m2 0h2m9 0h1m2 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h2m1 0h1m3 0h1m1 0h2m1 0h1m1 0h1m3 0h2M2 10.5h1m1 0h5m2 0h3m1 0h1m1 0h2m2 0h1m1 0h3m2 0h3m1 0h5M3 11.5h1m1 0h3m7 0h3m1 0h2m1 0h1m1 0h1m1 0h1m2 0h1m1 0h4m1 0h2M3 12.5h2m1 0h1m1 0h6m3 0h2m1 0h2m2 0h1m1 0h4m1 0h2m4 0h2M2 13.5h3m1 0h1m6 0h2m2 0h1m3 0h3m3 0h1m3 0h1m1 0h3m2 0h1M2 14.5h1m1 0h2m1 0h3m6 0h2m3 0h1m1 0h1m1 0h1m2 0h1m1 0h5m2 0h2M2 15.5h2m1 0h3m3 0h7m2 0h1m3 0h1m2 0h3m3 0h1m3 0h2M3 16.5h6m3 0h1m3 0h3m1 0h2m1 0h3m2 0h3m2 0h3m2 0h1M3 17.5h2m5 0h1m1 0h1m4 0h2m3 0h4m1 0h1m2 0h5m3 0h1M2 18.5h2m1 0h2m1 0h2m1 0h3m6 0h4m1 0h2m3 0h4m2 0h2M2 19.5h1m1 0h1m1 0h1m5 0h3m2 0h3m6 0h1m2 0h1m2 0h2m1 0h3M2 20.5h3m1 0h4m1 0h1m1 0h1m2 0h1m5 0h5m2 0h2m1 0h2m2 0h3M2 21.5h1m1 0h2m1 0h1m5 0h4m1 0h3m2 0h2m3 0h7m1 0h1m1 0h1M2 22.5h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h1m1 0h1m2 0h1m1 0h4m3 0h1m1 0h2M5 23.5h3m6 0h4m1 0h2m1 0h2m3 0h1m7 0h1m2 0h1M2 24.5h3m3 0h1m2 0h6m1 0h2m2 0h2m1 0h1m2 0h3m2 0h3M2 25.5h1m3 0h1m3 0h1m4 0h2m2 0h2m2 0h1m1 0h2m2 0h6m3 0h1M2 26.5h3m2 0h2m1 0h1m1 0h1m1 0h1m3 0h1m2 0h1m1 0h1m1 0h2m2 0h5m2 0h2M2 27.5h2m1 0h2m3 0h2m1 0h1m1 0h3m1 0h2m1 0h1m4 0h3m2 0h1m2 0h2M2 28.5h1m1 0h1m1 0h4m1 0h3m1 0h1m1 0h2m2 0h1m2 0h1m4 0h1m1 0h1m5 0h2M2 29.5h1m2 0h2m2 0h2m2 0h1m3 0h1m2 0h5m1 0h1m1 0h3m2 0h2M2 30.5h1m3 0h1m1 0h1m2 0h2m1 0h2m1 0h2m1 0h2m1 0h6m1 0h6m1 0h1M10 31.5h1m1 0h2m2 0h3m3 0h1m1 0h1m1 0h1m1 0h3m3 0h2m2 0h1M2 32.5h7m2 0h1m5 0h1m2 0h1m3 0h1m5 0h1m1 0h1m1 0h1m1 0h3M2 33.5h1m5 0h1m1 0h3m1 0h2m1 0h1m3 0h1m8 0h1m3 0h2m1 0h2M2 34.5h1m1 0h3m1 0h1m1 0h3m1 0h2m4 0h7m1 0h7m1 0h1M2 35.5h1m1 0h3m1 0h1m1 0h2m2 0h1m2 0h3m3 0h1m3 0h2m2 0h2m1 0h1m1 0h1m1 0h1M2 36.5h1m1 0h3m1 0h1m1 0h1m4 0h2m5 0h1m3 0h2m2 0h1m4 0h1m2 0h1M2 37.5h1m5 0h1m4 0h1m4 0h2m3 0h1m1 0h3m1 0h1m1 0h1m2 0h3m1 0h1M2 38.5h7m1 0h4m1 0h1m2 0h1m3 0h2m2 0h2m1 0h2m1 0h1m1 0h2m1 0h2"/>
-                </svg>
-              </div>
-              <div class="lp-whatsapp-qr-label">Scan to chat on WhatsApp</div>
-            </div>
+          <div class="lp-cta-banner-inner">
+            <h2 class="lp-h2" style="color:#fff;">Start your AI bot today</h2>
+            <p style="color:rgba(255,255,255,0.65);margin:12px 0 16px;font-size:1rem;">Create your workspace in under 2 minutes. No technical skills required.</p>
+            <div class="lp-cta-price-tag">One simple plan — <strong>$39/month</strong> or <strong>₹2,499/month</strong></div>
+            <a class="button lp-cta-btn" href="/app?mode=signup" style="margin-top:24px;">Get started</a>
           </div>
         </div>
       </section>
@@ -2395,36 +2377,30 @@ function renderSetupFlow() {
         </div>
         <div>
           <h2 class="setup-platform-name">WhatsApp AI Bot</h2>
-          <p class="setup-platform-sub">Enter your Meta WhatsApp credentials to connect your number professionally</p>
+          <p class="setup-platform-sub">Use the direct WhatsApp chat link or scan the QR code to start the AI assistant conversation.</p>
         </div>
       </div>
-      <div class="setup-wa-steps">
-        <div class="setup-step-item"><span class="setup-step-num">1</span>Go to <strong>Meta for Developers</strong> → create a WhatsApp app</div>
-        <div class="setup-step-item"><span class="setup-step-num">2</span>Copy your <strong>Phone Number ID</strong>, <strong>Access Token</strong>, and <strong>App Secret</strong></div>
-        <div class="setup-step-item"><span class="setup-step-num">3</span>Paste them below — subscribe to go live</div>
+      <div class="setup-whatsapp-contact">
+        <p class="setup-whatsapp-contact-sub">Start a conversation with our AI assistant on WhatsApp</p>
+        <a
+          class="setup-whatsapp-button"
+          href="${WHATSAPP_CHAT_LINK}"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat on WhatsApp with swift-deploy.in AI assistant"
+        >
+          <svg class="setup-whatsapp-button-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M16.01 3.2c-7.03 0-12.75 5.64-12.75 12.58 0 2.24.61 4.42 1.76 6.33L3.2 28.8l6.88-1.78a12.93 12.93 0 0 0 5.93 1.5c7.03 0 12.75-5.64 12.75-12.58S23.04 3.2 16.01 3.2Zm0 23.16c-1.95 0-3.86-.52-5.53-1.51l-.4-.24-4.08 1.06 1.09-3.9-.26-.41a10.2 10.2 0 0 1-1.58-5.58c0-5.75 4.83-10.43 10.76-10.43s10.76 4.68 10.76 10.43-4.83 10.58-10.76 10.58Zm5.91-7.82c-.32-.16-1.91-.93-2.21-1.04-.3-.11-.52-.16-.74.16-.22.32-.85 1.04-1.04 1.25-.19.22-.38.24-.7.08-.32-.16-1.36-.49-2.6-1.56-.96-.84-1.61-1.87-1.8-2.19-.19-.32-.02-.49.14-.65.15-.14.32-.38.49-.57.16-.19.22-.32.32-.54.11-.22.05-.41-.03-.57-.08-.16-.74-1.76-1.01-2.41-.27-.63-.54-.54-.74-.55h-.63c-.22 0-.57.08-.87.41-.3.32-1.14 1.1-1.14 2.68s1.17 3.11 1.34 3.33c.16.22 2.3 3.46 5.58 4.85.78.33 1.39.53 1.86.68.78.25 1.49.21 2.05.13.63-.09 1.91-.77 2.18-1.52.27-.75.27-1.39.19-1.52-.08-.13-.3-.21-.62-.37Z"/>
+          </svg>
+          <span>Chat on WhatsApp</span>
+        </a>
+        <div class="setup-whatsapp-qr" aria-label="QR code that opens WhatsApp chat">
+          <div class="setup-whatsapp-qr-frame">
+            <img class="setup-whatsapp-qr-code" src="/whatsapp-chat-qr.svg?v=20260506-wa-chat-placement" alt="QR code for WhatsApp chat" width="180" height="180" />
+          </div>
+          <div class="setup-whatsapp-qr-label">Scan to chat on WhatsApp</div>
+        </div>
       </div>
-      <form id="setup-wa-form" class="setup-form">
-        <div class="setup-split">
-          <div class="setup-field">
-            <label>Your WhatsApp number</label>
-            <input class="input" name="whatsappDisplayPhoneNumber" placeholder="+91 98765 43210" required />
-          </div>
-          <div class="setup-field">
-            <label>Phone Number ID</label>
-            <input class="input" name="whatsappPhoneNumberId" placeholder="From Meta app dashboard" required />
-          </div>
-        </div>
-        <div class="setup-field">
-          <label>Access Token</label>
-          <input class="input" name="whatsappAccessToken" placeholder="EAA..." required />
-        </div>
-        <div class="setup-field">
-          <label>App Secret</label>
-          <input class="input" name="whatsappAppSecret" placeholder="Meta App Secret" required />
-        </div>
-        <input type="hidden" name="whatsappProvider" value="meta" />
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:8px;">${paymentCtaLabel("Connect WhatsApp →")}</button>
-      </form>
     </div>
   ` : "";
 
@@ -2579,42 +2555,6 @@ function renderSetupFlow() {
   });
   document.querySelector("#setup-back")?.addEventListener("click", () => {
     state.setupStep = "choice"; state.showPaymentPopup = false; renderSetupFlow();
-  });
-
-  // WA form submit → validate then show payment popup (or connect directly if pricing disabled)
-  document.querySelector("#setup-wa-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const data = formToObject(e.target);
-    const numEl = e.target.querySelector("[name=whatsappDisplayPhoneNumber]");
-    const idEl = e.target.querySelector("[name=whatsappPhoneNumberId]");
-    const tokEl = e.target.querySelector("[name=whatsappAccessToken]");
-    const secretEl = e.target.querySelector("[name=whatsappAppSecret]");
-    let valid = true;
-    [numEl, idEl, tokEl, secretEl].forEach((el) => { if (el) el.classList.remove("input--error"); });
-    if (!data.whatsappDisplayPhoneNumber?.trim()) { if (numEl) numEl.classList.add("input--error"); valid = false; }
-    if (!data.whatsappPhoneNumberId?.trim()) { if (idEl) idEl.classList.add("input--error"); valid = false; }
-    if (!data.whatsappAccessToken?.trim()) { if (tokEl) tokEl.classList.add("input--error"); valid = false; }
-    if (!data.whatsappAppSecret?.trim()) { if (secretEl) secretEl.classList.add("input--error"); valid = false; }
-    if (!valid) return;
-    if (hasEnabledBillingProvider()) {
-      state.pendingPlatformSetup = { platform: "whatsapp", config: data };
-      state.showPaymentPopup = true;
-      renderSetupFlow();
-    } else {
-      const btn = e.target.querySelector("button[type=submit]");
-      if (btn) { btn.disabled = true; btn.textContent = "Connecting..."; }
-      try {
-        const result = await api(`/api/businesses/${encodeURIComponent(biz.id)}/whatsapp`, { method: "POST", body: data });
-        await loadBootstrap(biz.id);
-        state.billingActivated = true;
-        if (isWhatsAppReady(state.selectedBusiness)) {
-          state.showBotLivePopup = true;
-        } else {
-          showWhatsAppSetupAlert(result?.setup);
-        }
-        render();
-      } catch (err) { alert(err.message); if (btn) { btn.disabled = false; btn.textContent = paymentCtaLabel("Connect WhatsApp →"); } }
-    }
   });
 
   // TG form submit → validate then show payment popup (or connect directly if pricing disabled)
