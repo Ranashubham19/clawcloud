@@ -395,6 +395,20 @@ async function processInboundMessage(message, options = {}) {
   return assistantReply;
 }
 
+function processInboundMessageInBackground(message, options = {}) {
+  const schedule = typeof setImmediate === "function"
+    ? setImmediate
+    : (fn) => setTimeout(fn, 0);
+
+  schedule(() => {
+    processInboundMessage(message, options).catch((error) => {
+      console.error(
+        `Unhandled background inbound error for ${message.messageId} from ${message.from}: ${error.message}`
+      );
+    });
+  });
+}
+
 function routeProviderHint(url) {
   if (url.pathname === "/webhooks/whatsapp") {
     return "meta";
@@ -560,7 +574,7 @@ async function handleMessagingWebhookPost(request, response, providerHint = "", 
   }
 
   for (const message of incoming) {
-    await processInboundMessage(message, {
+    processInboundMessageInBackground(message, {
       replyMode: "provider-send"
     });
   }
