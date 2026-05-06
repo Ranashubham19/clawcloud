@@ -436,7 +436,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/auth/google") {
-    const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    const { googleClientId, googleClientSecret, appBaseUrl, googleRedirectUri } = await import("./config.js").then(m => m.config);
     const oauthBaseUrl = appBaseUrl || requestOrigin(request);
     if (!googleClientId || !googleClientSecret) {
       response.writeHead(302, {
@@ -445,7 +445,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       response.end();
       return true;
     }
-    const redirectUri = `${oauthBaseUrl}/api/auth/google/callback`;
+    const redirectUri = googleRedirectUri || `${oauthBaseUrl}/api/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: googleClientId,
       redirect_uri: redirectUri,
@@ -460,7 +460,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/auth/google/callback") {
-    const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    const { googleClientId, googleClientSecret, appBaseUrl, googleRedirectUri } = await import("./config.js").then(m => m.config);
     const oauthBaseUrl = appBaseUrl || requestOrigin(request);
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
@@ -472,7 +472,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
     }
 
     try {
-      const redirectUri = `${oauthBaseUrl}/api/auth/google/callback`;
+      const redirectUri = googleRedirectUri || `${oauthBaseUrl}/api/auth/google/callback`;
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
