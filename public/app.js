@@ -1,7 +1,7 @@
 ﻿const app = document.querySelector("#app");
 const pageParams = new URLSearchParams(window.location.search);
 const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billing", "team", "apikeys", "audit", "analytics", "settings", "admin"]);
-const WHATSAPP_COMING_SOON = true;
+const WHATSAPP_COMING_SOON = false;
 const BILLING_ENABLED = false;
 const PENDING_PLATFORM_SETUP_KEY = "pendingPlatformSetup";
 
