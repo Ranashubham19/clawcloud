@@ -4,7 +4,7 @@ const dashboardTabs = new Set(["overview", "leads", "chats", "bookings", "billin
 const WHATSAPP_COMING_SOON = false;
 const BILLING_ENABLED = false;
 const PENDING_PLATFORM_SETUP_KEY = "pendingPlatformSetup";
-const WHATSAPP_CHAT_LINK = "https://wa.me/918837663683?text=Hi%20I%20want%20to%20use%20the%20AI%20bot";
+const WHATSAPP_CHAT_LINK = "/whatsapp-chat";
 
 function normalizeTab(value) {
   const tab = String(value || "").trim().toLowerCase();
@@ -2396,7 +2396,7 @@ function renderSetupFlow() {
         </a>
         <div class="setup-whatsapp-qr" aria-label="QR code that opens WhatsApp chat">
           <div class="setup-whatsapp-qr-frame">
-            <img class="setup-whatsapp-qr-code" src="/whatsapp-chat-qr.svg?v=20260506-wa-chat-placement" alt="QR code for WhatsApp chat" width="180" height="180" />
+            <img class="setup-whatsapp-qr-code" src="/whatsapp-chat-qr.svg?v=20260506-wa-chat-direct" alt="QR code for WhatsApp chat" width="180" height="180" />
           </div>
           <div class="setup-whatsapp-qr-label">Scan to chat on WhatsApp</div>
         </div>

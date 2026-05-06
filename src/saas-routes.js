@@ -68,6 +68,8 @@ import {
 
 const SESSION_COOKIE_NAME = "swift_saas_session";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const WHATSAPP_CHAT_URL =
+  "https://api.whatsapp.com/send?phone=918837663683&text=Hi%20I%20want%20to%20use%20the%20Claw%20Cloud%20AI%20bot";
 
 function publicFilePath(name) {
   return path.resolve(process.cwd(), "public", name);
@@ -117,6 +119,17 @@ function sendFile(response, statusCode, contentType, body) {
     })
   );
   response.end(body);
+}
+
+function sendRedirect(response, location) {
+  response.writeHead(
+    302,
+    securityHeaders({
+      Location: location,
+      "Cache-Control": "no-store"
+    })
+  );
+  response.end();
 }
 
 function billingProviders() {
@@ -298,6 +311,11 @@ function billingSummary(business) {
 }
 
 export async function handleSaasRoute({ request, response, url, readRawBody }) {
+  if (request.method === "GET" && url.pathname === "/whatsapp-chat") {
+    sendRedirect(response, WHATSAPP_CHAT_URL);
+    return true;
+  }
+
   if (request.method === "GET" && (await serveStaticApp(url.pathname, response))) {
     return true;
   }
