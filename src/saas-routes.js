@@ -437,11 +437,15 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (request.method === "GET" && url.pathname === "/api/auth/google") {
     const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    const oauthBaseUrl = appBaseUrl || requestOrigin(request);
     if (!googleClientId || !googleClientSecret) {
-      sendJson(response, 503, { error: "Google OAuth not configured." });
+      response.writeHead(302, {
+        Location: `${oauthBaseUrl}/app?mode=login&error=google_not_configured`
+      });
+      response.end();
       return true;
     }
-    const redirectUri = `${appBaseUrl}/api/auth/google/callback`;
+    const redirectUri = `${oauthBaseUrl}/api/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: googleClientId,
       redirect_uri: redirectUri,
@@ -457,17 +461,18 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
 
   if (request.method === "GET" && url.pathname === "/api/auth/google/callback") {
     const { googleClientId, googleClientSecret, appBaseUrl } = await import("./config.js").then(m => m.config);
+    const oauthBaseUrl = appBaseUrl || requestOrigin(request);
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
 
     if (error || !code) {
-      response.writeHead(302, { Location: `${appBaseUrl}/app?error=google_auth_failed` });
+      response.writeHead(302, { Location: `${oauthBaseUrl}/app?mode=login&error=google_auth_failed` });
       response.end();
       return true;
     }
 
     try {
-      const redirectUri = `${appBaseUrl}/api/auth/google/callback`;
+      const redirectUri = `${oauthBaseUrl}/api/auth/google/callback`;
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -515,7 +520,7 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       response.end();
     } catch (err) {
       console.error("[google-oauth]", err.message);
-      response.writeHead(302, { Location: `${appBaseUrl}/app?error=google_auth_failed` });
+      response.writeHead(302, { Location: `${oauthBaseUrl}/app?mode=login&error=google_auth_failed` });
       response.end();
     }
     return true;
