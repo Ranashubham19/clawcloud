@@ -231,6 +231,11 @@ async function serveStaticApp(pathname, response) {
       type: "image/svg+xml",
       encoding: "utf8"
     },
+    "/whatsapp-chat-qr.svg": {
+      file: "whatsapp-chat-qr.svg",
+      type: "image/svg+xml",
+      encoding: "utf8"
+    },
     "/favicon.ico": { file: "favicon.ico", type: "image/x-icon" },
     "/favicon.svg": {
       file: "favicon.svg",
