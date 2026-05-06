@@ -1,5 +1,6 @@
 import { comparablePhone } from "./lib/phones.js";
 import { config } from "./config.js";
+import { currentDateTimeContextLines } from "./lib/clock.js";
 import { listConversationThreads } from "./store.js";
 import {
   createBookingForBusiness,
@@ -250,6 +251,8 @@ export function buildBusinessSystemPrompt({
       : `You can answer any question on any topic: general knowledge, science, math, history, coding, health, advice, current events, casual conversation — anything at all.`,
     "",
     "═══ LANGUAGE RULES — ABSOLUTE AND NON-NEGOTIABLE ═══",
+    ...currentDateTimeContextLines(),
+    "",
     `DETECTED USER LANGUAGE: ${languageLabel}.`,
     languageInstruction,
     `REQUIRED LANGUAGE FOR THIS RESPONSE: ${languageLabel}.`,

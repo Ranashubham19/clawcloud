@@ -215,6 +215,51 @@ await run("directSmallTalkReply handles capability questions professionally", as
   );
 });
 
+await run("directCurrentDateTimeReply answers current time questions", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  const reply = agent.directCurrentDateTimeReply(
+    "what is the time buddy",
+    "english",
+    new Date("2026-05-06T13:50:00.000Z")
+  );
+
+  assert.equal(reply, "It is 7:20 PM right now (India time).");
+});
+
+await run("directCurrentDateTimeReply answers current date questions", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  const reply = agent.directCurrentDateTimeReply(
+    "what is today's date",
+    "english",
+    new Date("2026-05-06T13:50:00.000Z")
+  );
+
+  assert.equal(reply, "Today is Wednesday, May 6, 2026 (India time).");
+});
+
+await run("directCurrentDateTimeReply avoids concept questions about time", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(
+    agent.directCurrentDateTimeReply(
+      "explain the concept of time",
+      "english",
+      new Date("2026-05-06T13:50:00.000Z")
+    ),
+    ""
+  );
+});
+
+await run("directCurrentDateTimeReply supports Hinglish time questions", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  const reply = agent.directCurrentDateTimeReply(
+    "abhi kya time hai",
+    "hinglish",
+    new Date("2026-05-06T13:50:00.000Z")
+  );
+
+  assert.equal(reply, "Abhi 7:20 PM hai (India time).");
+});
+
 await run("shouldUseWhatsAppTools stays off for normal questions", async () => {
   const agent = await import(`../src/agent.js?ts=${Date.now()}`);
   assert.equal(agent.shouldUseWhatsAppTools("how are you"), false);

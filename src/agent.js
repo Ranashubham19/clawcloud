@@ -22,6 +22,10 @@ import {
   sanitizeForWhatsApp
 } from "./lib/text.js";
 import {
+  currentDateTimeContextLines,
+  currentDateTimeSnapshot
+} from "./lib/clock.js";
+import {
   geminiSearchAnswer,
   geminiMediaAnswer,
   hasGeminiProvider,
@@ -348,6 +352,8 @@ function buildGeneralReplyPrompt(context) {
     `You are ${config.botName}, a professional general-purpose AI assistant.`,
     "Answer the user's actual question clearly, accurately, and naturally.",
     "",
+    ...currentDateTimeContextLines(),
+    "",
     "Language rules:",
     context.languageInstruction,
     `Reply fully in ${context.languageLabel} unless the user explicitly asks for another language.`,
@@ -596,6 +602,80 @@ export function directSmallTalkReply(text, languageStyle) {
   return "";
 }
 
+function normalizeClockText(text) {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[?!.,;:]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isTimeConceptQuestion(source) {
+  return /\b(define|definition|meaning|concept|physics|philosophy|relativity|einstein|explain)\b/.test(source);
+}
+
+function asksCurrentTime(source) {
+  if (!source || isTimeConceptQuestion(source)) {
+    return false;
+  }
+
+  return (
+    /\bwhat(?:'s| is)?(?: the)? time(?: right now| now| currently| buddy| bro| bruh| yaar| bhai| dear| please| pls)?\b/.test(source) ||
+    /\bwhat time is it\b/.test(source) ||
+    /\b(current|local|right now|now)\s+time\b/.test(source) ||
+    /\btime\s+(now|right now|currently)\b/.test(source) ||
+    /\btell me(?: the)? time\b/.test(source) ||
+    /\babhi(?: kya)? time\b/.test(source) ||
+    /\bkitna time\b/.test(source) ||
+    /\bsamay kya\b/.test(source)
+  );
+}
+
+function asksCurrentDate(source) {
+  return (
+    /\bwhat(?:'s| is)?(?: today's| the)? date\b/.test(source) ||
+    /\btoday'?s date\b/.test(source) ||
+    /\b(current|local)\s+date\b/.test(source) ||
+    /\bdate\s+(today|now|right now)\b/.test(source) ||
+    /\bwhat day is it\b/.test(source) ||
+    /\bwhich day is it\b/.test(source) ||
+    /\bday today\b/.test(source) ||
+    /\baaj(?: ki)? date\b/.test(source) ||
+    /\baaj kya din\b/.test(source)
+  );
+}
+
+export function directCurrentDateTimeReply(text, languageStyle, now = new Date()) {
+  const source = normalizeClockText(text);
+  const wantsTime = asksCurrentTime(source);
+  const wantsDate = asksCurrentDate(source);
+
+  if (!wantsTime && !wantsDate) {
+    return "";
+  }
+
+  const clock = currentDateTimeSnapshot(now);
+  const zone = clock.timezoneLabel;
+
+  if (languageStyle === "hinglish") {
+    if (wantsTime && wantsDate) {
+      return `Abhi ${clock.time} hai, aur aaj ${clock.date} hai (${zone}).`;
+    }
+    if (wantsDate) {
+      return `Aaj ${clock.date} hai (${zone}).`;
+    }
+    return `Abhi ${clock.time} hai (${zone}).`;
+  }
+
+  if (wantsTime && wantsDate) {
+    return `It is ${clock.time} on ${clock.date} (${zone}).`;
+  }
+  if (wantsDate) {
+    return `Today is ${clock.date} (${zone}).`;
+  }
+  return `It is ${clock.time} right now (${zone}).`;
+}
+
 const contactQueryPattern =
   /\b(do\s+i\s+have|is\s+.+\s+in\s+my|does\s+my\s+whatsapp\s+have|find\s+contact|search\s+contact|look\s*up\s+contact|in\s+my\s+contact|in\s+my\s+whatsapp|contact\s+named|contact\s+called|contact\s+have|add\s+contact|save\s+contact|list\s+contact|show\s+contact|all\s+contact|my\s+contact|find\s+.+\s+number|number\s+of\s+.+|phone\s+of\s+.+)\b/i;
 
@@ -692,6 +772,23 @@ export async function handleIncomingText({
   );
 
   const history = [...previousHistory, { role: "user", text }];
+
+  const currentDateTimeReply = directCurrentDateTimeReply(text, languageStyle);
+  if (currentDateTimeReply) {
+    const formattedCurrentDateTimeReply = formatProfessionalReply(currentDateTimeReply, {
+      languageStyle
+    });
+    await appendConversationMessage(
+      from,
+      {
+        role: "assistant",
+        text: formattedCurrentDateTimeReply,
+        meta: { source: "clock-direct" }
+      },
+      { businessId }
+    );
+    return formattedCurrentDateTimeReply;
+  }
 
   const smallTalkReply = directSmallTalkReply(text, languageStyle);
   if (smallTalkReply) {
