@@ -279,15 +279,23 @@ function summarizeProviderDeliveries(delivery) {
 async function processInboundMessage(message, options = {}) {
   const replyMode = options.replyMode || "provider-send";
   const businessContext = await resolveBusinessContextForMessage(message);
+  const baseReplyIntegration =
+    businessContext?.messagingConfig || businessContext?.whatsappConfig || {};
   const replyIntegration =
     replyMode === "provider-send"
       ? {
-          ...(businessContext?.messagingConfig ||
-            businessContext?.whatsappConfig ||
-            {}),
-          provider: message.provider || config.messagingProvider
+          ...baseReplyIntegration,
+          provider: message.provider || baseReplyIntegration.provider || config.messagingProvider,
+          phoneNumberId:
+            message.provider === "meta" && message.phoneNumberId
+              ? message.phoneNumberId
+              : baseReplyIntegration.phoneNumberId,
+          displayPhoneNumber:
+            message.provider === "meta" && message.displayPhoneNumber
+              ? message.displayPhoneNumber
+              : baseReplyIntegration.displayPhoneNumber
         }
-      : businessContext?.messagingConfig || businessContext?.whatsappConfig || {};
+      : baseReplyIntegration;
   const autoReplyEnabled = businessContext
     ? businessContext.settings?.autoReplyEnabled !== false
     : config.whatsappAutoReply;
@@ -361,7 +369,9 @@ async function processInboundMessage(message, options = {}) {
       console.log(
         `Answered inbound message ${message.messageId} for ${message.from} via ${
           replyIntegration.provider || "unknown"
-        } with ${Array.isArray(delivery) ? delivery.length : 0} message(s): ${summarizeProviderDeliveries(delivery)}`
+        } phoneNumberId ${replyIntegration.phoneNumberId || "default"} with ${
+          Array.isArray(delivery) ? delivery.length : 0
+        } message(s): ${summarizeProviderDeliveries(delivery)}`
       );
 
       if (message.provider === "meta" && businessContext?.id) {
@@ -534,11 +544,14 @@ async function handleMessagingWebhookPost(request, response, providerHint = "", 
         )
         .filter(Boolean)
         .join("; ");
+      const hint = statusEvent.errors.some((error) => error.code === "131047")
+        ? " Hint: Meta says the 24-hour customer-service window is closed for this sender; verify the app replies from the same inbound phone_number_id or use an approved template."
+        : "";
       const summary =
         `Meta WhatsApp status ${statusEvent.status || "unknown"} for message ${
           statusEvent.id || "unknown-id"
         } to ${statusEvent.recipientId || "unknown-recipient"}` +
-        (errorSummary ? `: ${errorSummary}` : "");
+        (errorSummary ? `: ${errorSummary}${hint}` : "");
 
       if (statusEvent.status === "failed" || errorSummary) {
         console.warn(summary);
