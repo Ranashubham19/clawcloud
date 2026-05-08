@@ -17,6 +17,7 @@ import {
   extractInboundMessages,
   outboundDedupKey,
   sendTextMessageChunked,
+  sendTypingPresence,
   usesInlineReply,
   verifyMessagingWebhookGet,
   verifyMessagingWebhookPost
@@ -324,6 +325,23 @@ async function processInboundMessage(message, options = {}) {
   let assistantReply = "";
   let stopTyping = async () => {};
   try {
+    if (
+      replyMode === "provider-send" &&
+      replyIntegration.provider === "meta" &&
+      message.providerMessageId &&
+      replyIntegration.phoneNumberId
+    ) {
+      stopTyping = startTypingKeepAlive(
+        () => sendTypingPresence(message.providerMessageId, replyIntegration),
+        { intervalMs: 20000, initialDelayMs: 0 }
+      );
+      console.log(
+        `Started WhatsApp typing indicator for ${message.messageId} via phoneNumberId ${
+          replyIntegration.phoneNumberId
+        }`
+      );
+    }
+
     if (message.mediaId) {
       assistantReply = await handleIncomingMedia({
         ...message,

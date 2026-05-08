@@ -103,7 +103,7 @@ export const config = {
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || "",
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
-  whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v22.0",
+  whatsappGraphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v25.0",
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || "",
   messagingProvider: resolvedMessagingProvider,
   whatsappProvider: resolvedMessagingProvider,

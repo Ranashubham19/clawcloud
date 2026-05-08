@@ -130,6 +130,16 @@ function resolveIntegration(overrides = {}) {
   };
 }
 
+function graphVersionNumber(version) {
+  const match = String(version || "").match(/v?(\d+(?:\.\d+)?)/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function typingIndicatorGraphVersion(version) {
+  const current = cleanText(version || config.whatsappGraphVersion);
+  return graphVersionNumber(current) >= 25 ? current : "v25.0";
+}
+
 export function verifyWhatsAppSignatureWithSecret(rawBody, signatureHeader, appSecret) {
   const secret = cleanText(appSecret);
   if (!secret) {
@@ -591,7 +601,7 @@ export async function sendTypingIndicator(inboundMessageId, integration = {}) {
 
   try {
     const response = await fetch(
-      `https://graph.facebook.com/${runtime.graphVersion}/${runtime.phoneNumberId}/messages`,
+      `https://graph.facebook.com/${typingIndicatorGraphVersion(runtime.graphVersion)}/${runtime.phoneNumberId}/messages`,
       {
         method: "POST",
         headers: {

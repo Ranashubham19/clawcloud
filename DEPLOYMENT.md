@@ -33,7 +33,7 @@ This project is designed to run as one public WhatsApp AI number for all users.
 - `WHATSAPP_ACCESS_TOKEN=...`
 - `WHATSAPP_PHONE_NUMBER_ID=...`
 - `WHATSAPP_BUSINESS_ACCOUNT_ID=...`
-- `WHATSAPP_GRAPH_VERSION=v22.0`
+- `WHATSAPP_GRAPH_VERSION=v25.0`
 - `WHATSAPP_APP_SECRET=...`
 - `BOT_NAME=Claw Cloud`
 - `REMINDER_POLL_INTERVAL_MS=15000`

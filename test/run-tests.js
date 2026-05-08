@@ -26,6 +26,7 @@ import {
   classifyMetaApiError,
   extractMessageStatuses,
   formatMetaApiError,
+  sendTypingIndicator,
   sendWhatsAppText,
   splitWhatsAppMessage
 } from "../src/whatsapp.js";
@@ -1404,6 +1405,42 @@ await run("sendWhatsAppText throws an actionable Meta token error", async () => 
   } finally {
     config.whatsappAccessToken = previousToken;
     config.whatsappPhoneNumberId = previousPhoneNumberId;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await run("sendTypingIndicator uses Meta typing endpoint and inbound message id", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenUrl = "";
+  let seenPayload = null;
+
+  globalThis.fetch = async (url, options = {}) => {
+    seenUrl = String(url);
+    seenPayload = JSON.parse(String(options.body || "{}"));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true })
+    };
+  };
+
+  try {
+    const result = await sendTypingIndicator("wamid.inbound.123", {
+      provider: "meta",
+      accessToken: "meta-token",
+      phoneNumberId: "phone-number-id",
+      graphVersion: "v22.0"
+    });
+
+    assert.deepEqual(result, { success: true });
+    assert.match(seenUrl, /graph\.facebook\.com\/v25\.0\/phone-number-id\/messages$/);
+    assert.deepEqual(seenPayload, {
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: "wamid.inbound.123",
+      typing_indicator: { type: "text" }
+    });
+  } finally {
     globalThis.fetch = originalFetch;
   }
 });
