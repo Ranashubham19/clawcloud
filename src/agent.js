@@ -57,6 +57,27 @@ const liveQueryPattern =
 const longAnswerPattern =
   /\b(explain|describe|write|code|program|function|algorithm|solution|essay|article|story|poem|list|steps|tutorial|guide|how\s+to|in\s+detail|detailed|complete|full|long|implement|implementation|debug|analyze|analysis|compare|difference|pros\s+and\s+cons)\b/i;
 
+const latestIntentPattern =
+  /\b(latest|newest|recent|recently|live|breaking|trending|news|updates?|current affairs?|up[-\s]?to[-\s]?date|look\s*up|search\s+for|google|as\s+of\s+(?:now|today|this\s+week|this\s+month|2025|2026))\b/i;
+
+const nowIntentPattern =
+  /\b(today|today's|tonight|now|right\s+now|currently|current)\b/i;
+
+const volatileLiveTopicPattern =
+  /\b(price|prices|rate|rates|exchange\s+rate|market|stock|stocks|share\s+price|crypto|bitcoin|ethereum|btc|eth|gold|silver|weather|forecast|score|scores|match|matches|fixture|fixtures|result|results|standings|leaderboard|population|gdp|inflation|unemployment|interest\s+rate|ranking|rank)\b/i;
+
+const liveEventTopicPattern =
+  /\b(election|vote|voted|winner|won|lost|war|attack|strike|missile|bomb|invasion|cease.?fire|peace\s+deal|treaty|sanctions?|agreement|deal|summit|meeting|talks|conflict|crisis|protest|rally|riot|casualt|killed|death\s+toll|hostage|refugee|diplomacy|nuclear|military|defen[cs]e|nato|security\s+council|government|parliament|congress|senate|policy|law|bill|verdict|ruling|arrested|charged|convicted|sentenced|fire|earthquake|flood|disaster|accident|crash|explosion)\b/i;
+
+const currentRolePattern =
+  /\b(?:who\s+is\s+)?(?:the\s+)?(?:current|new|latest|present)(?:\s+[a-z]{2,24}){0,3}\s+(?:president|prime\s+minister|pm|chief\s+minister|cm|ceo|cto|cfo|chair(?:man|person)?|leader|minister|governor|mayor|captain|coach|ranking|rank)\b/i;
+
+const recentYearRankingPattern =
+  /(?:\b(?:top|ranking|ranked|richest|largest|biggest|best|worst|winner|winners|score|scores|result|results|standings|leaderboard)\b[\s\S]{0,80}\b(?:2025|2026)\b|\b(?:2025|2026)\b[\s\S]{0,80}\b(?:top|ranking|ranked|richest|largest|biggest|best|worst|winner|winners|score|scores|result|results|standings|leaderboard)\b)/i;
+
+const freshReleasePattern =
+  /(?:\b(?:latest|new|newest|recent|2025|2026)\b[\s\S]{0,90}\b(?:release|released|launch|launched|announce|announced|reveal|revealed|discover|discovered|found)\b|\b(?:release|released|launch|launched|announce|announced|reveal|revealed|discover|discovered|found)\b[\s\S]{0,90}\b(?:latest|new|newest|recent|2025|2026)\b)/i;
+
 async function getGeminiAnswer(query, languageStyle, deadlineAt = 0) {
   if (hasGeminiProvider()) {
     const answer = await geminiSearchAnswer({
@@ -202,19 +223,49 @@ function resolvePreferredModels(route) {
   return ADVANCED_MODELS;
 }
 
+function shouldUseGeminiForLiveQuery(text) {
+  const value = String(text || "").trim();
+  if (!value) {
+    return false;
+  }
+
+  const source = normalizeClockText(value);
+  if (asksCurrentTime(source) || asksCurrentDate(source)) {
+    return false;
+  }
+
+  if (latestIntentPattern.test(value)) {
+    return true;
+  }
+
+  if (currentRolePattern.test(value)) {
+    return true;
+  }
+
+  if (recentYearRankingPattern.test(value) || freshReleasePattern.test(value)) {
+    return true;
+  }
+
+  if (nowIntentPattern.test(value)) {
+    return volatileLiveTopicPattern.test(value) || liveEventTopicPattern.test(value);
+  }
+
+  return false;
+}
+
 export function chooseAnswerRoute(text) {
   const value = String(text || "");
   // WhatsApp tool operations → NVIDIA with tools
   if (toolIntentPattern.test(value)) {
     return "nvidia-tools";
   }
-  // Live/current/2025-era queries → Gemini with Google Search grounding
+  // Latest/live/update queries -> Gemini with Google Search grounding
   // If Gemini fails, falls back to NVIDIA automatically
-  if (liveQueryPattern.test(value)) {
+  if (shouldUseGeminiForLiveQuery(value)) {
     return "gemini-first";
   }
-  // Everything else (general, coding, math, science, history, language, advice…)
-  // → 10 NVIDIA models only
+  // Everything else (general, coding, math, science, history, language, advice)
+  // -> NVIDIA model stack only
   return "nvidia";
 }
 

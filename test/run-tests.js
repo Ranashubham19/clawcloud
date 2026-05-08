@@ -195,6 +195,22 @@ await run("chooseAnswerRoute keeps live lookup questions on Gemini first", async
   assert.equal(agent.chooseAnswerRoute("look up the latest AI news"), "gemini-first");
 });
 
+await run("chooseAnswerRoute uses Gemini only for genuinely live facts", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.chooseAnswerRoute("current weather in Delhi"), "gemini-first");
+  assert.equal(agent.chooseAnswerRoute("bitcoin price right now"), "gemini-first");
+  assert.equal(agent.chooseAnswerRoute("who is the current US president"), "gemini-first");
+  assert.equal(agent.chooseAnswerRoute("latest Gemini model updates"), "gemini-first");
+});
+
+await run("chooseAnswerRoute keeps stable knowledge on NVIDIA", async () => {
+  const agent = await import(`../src/agent.js?ts=${Date.now()}`);
+  assert.equal(agent.chooseAnswerRoute("Explain electric current in simple words"), "nvidia");
+  assert.equal(agent.chooseAnswerRoute("Tell me about India"), "nvidia");
+  assert.equal(agent.chooseAnswerRoute("What is today's date"), "nvidia");
+  assert.equal(agent.chooseAnswerRoute("Write a short essay about 2026 goals"), "nvidia");
+});
+
 await run("chooseAnswerRoute keeps WhatsApp history commands on NVIDIA tools", async () => {
   const agent = await import(`../src/agent.js?ts=${Date.now()}`);
   assert.equal(agent.chooseAnswerRoute("show recent WhatsApp history"), "nvidia-tools");
