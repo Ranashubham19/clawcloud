@@ -215,6 +215,43 @@ export function extractIncomingMessages(payload) {
   return found;
 }
 
+export function extractMessageStatuses(payload) {
+  const found = [];
+  const entries = payload?.entry || [];
+
+  for (const entry of entries) {
+    for (const change of entry.changes || []) {
+      const value = change.value || {};
+      const metadata = value.metadata || {};
+
+      for (const status of value.statuses || []) {
+        const errors = Array.isArray(status.errors)
+          ? status.errors.map((error) => ({
+              code: String(error?.code || ""),
+              title: String(error?.title || ""),
+              message: String(error?.message || ""),
+              details: String(error?.error_data?.details || "")
+            }))
+          : [];
+
+        found.push({
+          id: String(status.id || ""),
+          status: String(status.status || ""),
+          timestamp: String(status.timestamp || ""),
+          recipientId: String(status.recipient_id || ""),
+          conversationId: String(status.conversation?.id || ""),
+          pricingCategory: String(status.pricing?.category || ""),
+          phoneNumberId: String(metadata.phone_number_id || ""),
+          displayPhoneNumber: String(metadata.display_phone_number || ""),
+          errors
+        });
+      }
+    }
+  }
+
+  return found;
+}
+
 export async function downloadWhatsAppMedia(mediaId, integration = {}) {
   const runtime = resolveIntegration(integration);
   if (runtime.provider !== "meta") {

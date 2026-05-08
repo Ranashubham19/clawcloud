@@ -24,6 +24,7 @@ import { comparablePhone, normalizePhone } from "../src/lib/phones.js";
 import {
   buildAiSensyCampaignPayload,
   classifyMetaApiError,
+  extractMessageStatuses,
   formatMetaApiError,
   sendWhatsAppText,
   splitWhatsAppMessage
@@ -338,6 +339,48 @@ await run("extractInboundMessages normalizes Meta text payloads", async () => {
   assert.equal(messages[0].text, "Hello");
   assert.equal(messages[0].providerMessageId, "wamid.1");
   assert.equal(messages[0].messageId, "meta:wamid.1");
+});
+
+await run("extractMessageStatuses captures Meta delivery failures", async () => {
+  const statuses = extractMessageStatuses({
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              metadata: {
+                display_phone_number: "918837663683",
+                phone_number_id: "993249833882379"
+              },
+              statuses: [
+                {
+                  id: "wamid.outbound.1",
+                  status: "failed",
+                  recipient_id: "919999999999",
+                  timestamp: "1778200000",
+                  errors: [
+                    {
+                      code: 131030,
+                      title: "Recipient phone number not in allowed list",
+                      message: "Recipient is not allowed",
+                      error_data: { details: "Add the recipient as a test number." }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  assert.equal(statuses.length, 1);
+  assert.equal(statuses[0].id, "wamid.outbound.1");
+  assert.equal(statuses[0].status, "failed");
+  assert.equal(statuses[0].recipientId, "919999999999");
+  assert.equal(statuses[0].phoneNumberId, "993249833882379");
+  assert.equal(statuses[0].errors[0].code, "131030");
 });
 
 await run("extractTelegramInbound normalizes Telegram text payloads", async () => {

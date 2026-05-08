@@ -17,11 +17,11 @@ import {
   extractInboundMessages,
   outboundDedupKey,
   sendTextMessageChunked,
-  sendTypingPresence,
   usesInlineReply,
   verifyMessagingWebhookGet,
   verifyMessagingWebhookPost
 } from "./messaging.js";
+import { extractMessageStatuses as extractWhatsAppMessageStatuses } from "./whatsapp.js";
 import { startReminderLoop } from "./reminders.js";
 import { getReadinessReport } from "./diagnostics.js";
 import {
@@ -261,6 +261,21 @@ function integrationResultHtml({ title, message, detail = "" }) {
 </html>`;
 }
 
+function summarizeProviderDeliveries(delivery) {
+  const entries = Array.isArray(delivery) ? delivery : [delivery];
+  const parts = [];
+
+  for (const item of entries) {
+    for (const message of item?.messages || []) {
+      const id = message.id || "unknown-id";
+      const status = message.message_status ? `:${message.message_status}` : "";
+      parts.push(`${id}${status}`);
+    }
+  }
+
+  return parts.length ? parts.join(", ") : "no_provider_message_ids";
+}
+
 async function processInboundMessage(message, options = {}) {
   const replyMode = options.replyMode || "provider-send";
   const businessContext = await resolveBusinessContextForMessage(message);
@@ -301,17 +316,6 @@ async function processInboundMessage(message, options = {}) {
   let assistantReply = "";
   let stopTyping = async () => {};
   try {
-    if (
-      replyMode === "provider-send" &&
-      message.provider === "meta" &&
-      message.providerMessageId
-    ) {
-      stopTyping = startTypingKeepAlive(
-        () => sendTypingPresence(message.providerMessageId, replyIntegration),
-        { intervalMs: 4000 }
-      );
-    }
-
     if (message.mediaId) {
       assistantReply = await handleIncomingMedia({
         ...message,
@@ -357,7 +361,7 @@ async function processInboundMessage(message, options = {}) {
       console.log(
         `Answered inbound message ${message.messageId} for ${message.from} via ${
           replyIntegration.provider || "unknown"
-        } with ${Array.isArray(delivery) ? delivery.length : 0} message(s)`
+        } with ${Array.isArray(delivery) ? delivery.length : 0} message(s): ${summarizeProviderDeliveries(delivery)}`
       );
 
       if (message.provider === "meta" && businessContext?.id) {
@@ -519,6 +523,29 @@ async function handleMessagingWebhookPost(request, response, providerHint = "", 
   if (!verification.ok) {
     sendFormatted(response, verification);
     return;
+  }
+
+  if (provider === "meta") {
+    const statusEvents = extractWhatsAppMessageStatuses(payload);
+    for (const statusEvent of statusEvents) {
+      const errorSummary = statusEvent.errors
+        .map((error) =>
+          [error.code, error.title, error.message, error.details].filter(Boolean).join(" | ")
+        )
+        .filter(Boolean)
+        .join("; ");
+      const summary =
+        `Meta WhatsApp status ${statusEvent.status || "unknown"} for message ${
+          statusEvent.id || "unknown-id"
+        } to ${statusEvent.recipientId || "unknown-recipient"}` +
+        (errorSummary ? `: ${errorSummary}` : "");
+
+      if (statusEvent.status === "failed" || errorSummary) {
+        console.warn(summary);
+      } else {
+        console.log(summary);
+      }
+    }
   }
 
   const extracted = extractInboundMessages({ provider, payload, url });
