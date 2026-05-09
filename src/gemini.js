@@ -4,75 +4,24 @@ import {
   languageInstruction,
   languageLabel
 } from "./lib/language.js";
+import {
+  isGeminiInlineSupportedMime,
+  normalizeMimeType as normalizeSharedMimeType,
+  unsupportedFormatName as mediaUnsupportedFormatName
+} from "./media.js";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-// MIME types Gemini natively understands (inline base64)
-const GEMINI_SUPPORTED_MIME = new Set([
-  // Images
-  "image/jpeg", "image/jpg", "image/png", "image/gif",
-  "image/webp", "image/heic", "image/heif", "image/bmp",
-  // Audio
-  "audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg",
-  "audio/aiff", "audio/x-aiff", "audio/aac", "audio/x-aac",
-  "audio/ogg", "audio/flac", "audio/x-flac", "audio/opus",
-  "audio/amr", "audio/x-amr",
-  // Video
-  "video/mp4", "video/mpeg", "video/mpg", "video/mov",
-  "video/quicktime", "video/avi", "video/x-msvideo",
-  "video/x-flv", "video/webm", "video/wmv", "video/3gpp",
-  "video/3gp",
-  // Documents
-  "application/pdf",
-  "text/plain", "text/html", "text/css", "text/csv",
-  "text/markdown", "text/xml", "text/rtf", "application/rtf",
-  "application/json"
-]);
-
-// Human-readable format names for unsupported types
-const UNSUPPORTED_FORMAT_NAMES = {
-  "application/msword": "Word document (.doc)",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document (.docx)",
-  "application/vnd.ms-excel": "Excel spreadsheet (.xls)",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet (.xlsx)",
-  "application/vnd.ms-powerpoint": "PowerPoint (.ppt)",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint (.pptx)",
-  "application/zip": "ZIP archive",
-  "application/x-zip-compressed": "ZIP archive",
-  "application/x-rar-compressed": "RAR archive",
-  "application/octet-stream": "binary file"
-};
-
-/**
- * Strip MIME parameters (e.g. "audio/ogg; codecs=opus" → "audio/ogg")
- * and normalise aliases so Gemini always receives a clean type.
- */
 export function normalizeMimeType(raw) {
-  if (!raw) return "application/octet-stream";
-  const base = raw.split(";")[0].trim().toLowerCase();
-  const aliases = {
-    "audio/x-wav": "audio/wav",
-    "audio/x-aiff": "audio/aiff",
-    "audio/x-aac": "audio/aac",
-    "audio/x-flac": "audio/flac",
-    "audio/x-m4a": "audio/aac",
-    "audio/mp4": "audio/aac",
-    "audio/opus": "audio/ogg",
-    "image/jpg": "image/jpeg",
-    "video/quicktime": "video/mov",
-    "video/x-msvideo": "video/avi",
-    "video/3gp": "video/3gpp"
-  };
-  return aliases[base] || base;
+  return normalizeSharedMimeType(raw);
 }
 
 export function isMimeSupported(mimeType) {
-  return GEMINI_SUPPORTED_MIME.has(normalizeMimeType(mimeType));
+  return isGeminiInlineSupportedMime(mimeType);
 }
 
-export function unsupportedFormatName(mimeType) {
-  const base = mimeType.split(";")[0].trim().toLowerCase();
-  return UNSUPPORTED_FORMAT_NAMES[base] || base;
+export function unsupportedFormatName(mimeType, filename = "") {
+  return mediaUnsupportedFormatName(mimeType, filename);
 }
 
 function createTimeoutSignal(timeoutMs) {
@@ -372,7 +321,12 @@ async function requestGeminiSearchAnswer({
 function mediaPrompt(mediaType, mimeType, caption, filename) {
   // If the user wrote a caption, that IS the question — answer it using the file as context
   if (caption && caption.trim()) {
-    return caption.trim();
+    return [
+      `User instruction or caption: ${caption.trim()}`,
+      "Use the attached file as the source of truth.",
+      "If it contains speech, transcribe or summarize the relevant speech before answering when useful.",
+      "If it contains visible text, read the visible text carefully before answering."
+    ].join("\n");
   }
 
   const mime = normalizeMimeType(mimeType);

@@ -29,10 +29,15 @@ import {
   geminiSearchAnswer,
   geminiMediaAnswer,
   hasGeminiProvider,
-  isMimeSupported,
-  normalizeMimeType,
-  unsupportedFormatName
+  isMimeSupported
 } from "./gemini.js";
+import {
+  buildFileTextPrompt,
+  describeMediaAttachment,
+  extractMediaText,
+  inferMimeType,
+  unsupportedFormatName
+} from "./media.js";
 import { downloadInboundMedia } from "./messaging.js";
 import { downloadTelegramMedia } from "./telegram.js";
 import { buildBusinessSystemPrompt } from "./saas.js";
@@ -1098,6 +1103,82 @@ export async function handleIncomingText({
   return assistantText;
 }
 
+async function answerExtractedMediaText({
+  from,
+  profileName,
+  mediaType,
+  mimeType,
+  caption,
+  filename,
+  extracted,
+  languageStyle,
+  businessContext,
+  businessId
+}) {
+  const extractedText = String(extracted?.text || "").trim();
+  if (!extractedText) {
+    return "";
+  }
+
+  const waContext = await loadWhatsAppContext({ businessId });
+  const sourcePrompt = buildFileTextPrompt({
+    caption,
+    filename,
+    mediaType,
+    mimeType,
+    extractedText,
+    truncated: extracted?.truncated
+  });
+  const requestText = caption || extractedText;
+  const messages = [
+    {
+      role: "system",
+      content: [
+        systemPrompt({
+          business: businessContext,
+          currentUserPhone: from,
+          profileName,
+          languageInstruction: languageInstruction(languageStyle),
+          languageLabel: languageLabel(languageStyle),
+          contactCount: waContext.contactCount,
+          threadCount: waContext.threadCount,
+          contactList: waContext.contactList,
+          useTools: false
+        }),
+        "",
+        "Attachment rules:",
+        "- The user's file text has already been extracted and is included in the next message.",
+        "- Treat the extracted text as the source of truth.",
+        "- If the user gave a caption or instruction, answer that instruction using the file content.",
+        "- If there is no caption, summarize the file and highlight the most important facts.",
+        "- If the extraction appears partial, say that briefly and still help with the available content."
+      ].join("\n")
+    },
+    {
+      role: "user",
+      content: sourcePrompt
+    }
+  ];
+
+  const completion = await createChatCompletion({
+    messages,
+    tools: [],
+    maxTokens: pickMaxTokens(requestText),
+    preferredModels: ADVANCED_MODELS,
+    excludeModels: [],
+    deadlineAt: Date.now() + pickReplyBudgetMs(requestText),
+    timeoutMs: pickNvidiaTimeoutMs(requestText),
+    maxAttempts: 5
+  });
+  const assistant = unpackAssistantMessage(completion);
+  const text = cleanUserFacingText(assistant.text);
+  if (!text || isToolLeakText(text) || !isLanguageCompatible(text, languageStyle)) {
+    return "";
+  }
+
+  return text;
+}
+
 export async function handleIncomingMedia({
   messageId,
   from,
@@ -1112,6 +1193,17 @@ export async function handleIncomingMedia({
   businessContext = null
 }) {
   const businessId = businessContext?.id || "";
+  const normalizedMediaType = mediaType || "document";
+  const initialMime = inferMimeType({
+    mimeType,
+    filename,
+    mediaType: normalizedMediaType
+  });
+  const attachmentLabel = describeMediaAttachment({
+    mediaType: normalizedMediaType,
+    mimeType: initialMime,
+    filename
+  });
 
   await upsertContact({
     businessId,
@@ -1127,12 +1219,17 @@ export async function handleIncomingMedia({
   await appendConversationMessage(
     from,
     {
-    id: messageId,
-    role: "user",
-    text: caption
-      ? `[${mediaType} — ${filename || mimeType}] ${caption}`
-      : `[${mediaType} — ${filename || mimeType}]`,
-      meta: { profileName, mediaType, mimeType, filename }
+      id: messageId,
+      role: "user",
+      text: caption
+        ? `[User sent ${attachmentLabel}] ${caption}`
+        : `[User sent ${attachmentLabel}]`,
+      meta: {
+        profileName,
+        mediaType: normalizedMediaType,
+        mimeType: initialMime,
+        filename
+      }
     },
     { businessId }
   );
@@ -1147,24 +1244,6 @@ export async function handleIncomingMedia({
         text: caption
       }
     });
-  }
-
-  if (!hasGeminiProvider()) {
-    // No vision AI — reply via text model with media context so the user still gets a helpful response
-    const mediaLabel = filename ? `${mediaType} file (${filename})` : mediaType;
-    const syntheticText = caption
-      ? `[User sent a ${mediaLabel}] ${caption}`
-      : `[User sent a ${mediaLabel}]`;
-    const deliveryChannel = fileId ? "telegram" : "whatsapp";
-    const reply = await handleIncomingText({
-      messageId,
-      from,
-      profileName,
-      text: syntheticText,
-      businessContext,
-      deliveryChannel
-    });
-    return reply;
   }
 
   // Download the media file (WhatsApp or Telegram)
@@ -1192,25 +1271,40 @@ export async function handleIncomingMedia({
     return fallback;
   }
 
-  const effectiveMime = resolvedMime || mimeType;
-
-  // Detect unsupported formats before even trying Gemini
-  if (!isMimeSupported(effectiveMime)) {
-    const formatName = unsupportedFormatName(effectiveMime);
-    const ext = filename ? filename.split(".").pop().toUpperCase() : "";
-    const label = ext || formatName;
-    const fallback = caption
-      ? `I received your ${label} file. I can't read the file contents directly, but you mentioned: "${caption}". What would you like help with?`
-      : `I received your ${label} file. I can't read this format directly. Supported formats are: images (JPG, PNG, GIF, WEBP), audio (MP3, OGG, WAV, AAC), video (MP4, MOV, AVI, WEBM), and documents (PDF, HTML, CSV, TXT). Please convert the file or paste the text content directly.`;
+  const effectiveMime = inferMimeType({
+    mimeType: resolvedMime || mimeType,
+    filename,
+    mediaType: normalizedMediaType
+  });
+  const effectiveAttachmentLabel = describeMediaAttachment({
+    mediaType: normalizedMediaType,
+    mimeType: effectiveMime,
+    filename
+  });
+  const maxMediaBytes = Math.max(1024 * 1024, config.mediaMaxBytes || 20 * 1024 * 1024);
+  if (mediaData.length > maxMediaBytes) {
+    const fallback = `That file is too large to process (${Math.round(mediaData.length / 1024 / 1024)}MB). Please send files under ${Math.round(maxMediaBytes / 1024 / 1024)}MB.`;
     await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
       businessId
     });
     return fallback;
   }
 
-  const TWENTY_MB = 20 * 1024 * 1024;
-  if (mediaData.length > TWENTY_MB) {
-    const fallback = `That file is too large to process (${Math.round(mediaData.length / 1024 / 1024)}MB). Please send files under 20MB.`;
+  const extracted = extractMediaText(mediaData, {
+    mimeType: effectiveMime,
+    filename,
+    mediaType: normalizedMediaType,
+    maxChars: config.mediaTextMaxChars
+  });
+
+  // Detect unsupported formats before even trying Gemini
+  if (!isMimeSupported(effectiveMime) && !extracted.available) {
+    const formatName = unsupportedFormatName(effectiveMime, filename);
+    const ext = filename ? filename.split(".").pop().toUpperCase() : "";
+    const label = ext || formatName;
+    const fallback = caption
+      ? `I received your ${label} file and your note: "${caption}". I cannot read this exact file format directly in the current bot runtime, but I can still help with the instruction if you paste the content or resend it as PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, image, audio, or video.`
+      : `I received your ${label} file. This exact format is not readable directly in the current bot runtime. Please resend it as PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, image, audio, or video, or paste the content here.`;
     await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
       businessId
     });
@@ -1229,25 +1323,53 @@ export async function handleIncomingMedia({
       })
     : "";
 
-  let answer;
-  try {
-    const deadlineAt = Date.now() + config.geminiMediaTimeoutMs;
-    answer = await geminiMediaAnswer({
-      mediaData,
-      mimeType: effectiveMime,
-      mediaType,
-      caption,
-      filename,
-      languageStyle,
-      businessSystemPrompt: businessSysPrompt,
-      deadlineAt
-    });
-  } catch (geminiError) {
-    console.warn(`[agent] Gemini media error for ${mediaType}: ${geminiError.message}`);
-    answer = null;
+  let answer = "";
+  let answerSource = "";
+  if (hasGeminiProvider() && isMimeSupported(effectiveMime)) {
+    try {
+      const deadlineAt = Date.now() + config.geminiMediaTimeoutMs;
+      answer = await geminiMediaAnswer({
+        mediaData,
+        mimeType: effectiveMime,
+        mediaType: normalizedMediaType,
+        caption,
+        filename,
+        languageStyle,
+        businessSystemPrompt: businessSysPrompt,
+        deadlineAt
+      });
+      if (answer) {
+        answerSource = "gemini-media";
+      }
+    } catch (geminiError) {
+      console.warn(`[agent] Gemini media error for ${normalizedMediaType}: ${geminiError.message}`);
+      answer = null;
+    }
   }
 
   // NVIDIA text fallback — if Gemini couldn't process the file, use NVIDIA with context
+  if (!answer && extracted.available) {
+    try {
+      answer = await answerExtractedMediaText({
+        from,
+        profileName,
+        mediaType: normalizedMediaType,
+        mimeType: effectiveMime,
+        caption,
+        filename,
+        extracted,
+        languageStyle,
+        businessContext,
+        businessId
+      });
+      if (answer) {
+        answerSource = "media-text";
+      }
+    } catch (textFallbackError) {
+      console.warn(`[agent] Extracted media text fallback failed: ${textFallbackError.message}`);
+    }
+  }
+
   if (!answer && caption) {
     try {
       const waContext = await loadWhatsAppContext({ businessId });
@@ -1267,7 +1389,7 @@ export async function handleIncomingMedia({
         },
         {
           role: "user",
-          content: `The user sent a ${mediaType} file${filename ? ` (${filename})` : ""}. You cannot see the file content directly. Their message/caption was: "${caption}". Please respond helpfully to what they said.`
+          content: `The user sent ${effectiveAttachmentLabel}. You cannot see the file content directly. Their message/caption was: "${caption}". Please respond helpfully to what they said.`
         }
       ];
 
@@ -1285,6 +1407,7 @@ export async function handleIncomingMedia({
       const fallbackText = cleanUserFacingText(fallbackAssistant.text);
       if (fallbackText && !isToolLeakText(fallbackText)) {
         answer = fallbackText;
+        answerSource = "media-caption";
       }
     } catch (nvidiaError) {
       console.warn(`[agent] NVIDIA media fallback failed: ${nvidiaError.message}`);
@@ -1293,8 +1416,8 @@ export async function handleIncomingMedia({
 
   if (!answer) {
     const fallback = caption
-      ? `I received your ${mediaType} but couldn't analyse it right now. You mentioned: "${caption}". Could you describe what you need help with?`
-      : `I received your ${mediaType} but couldn't process it right now. Please try again in a moment, or send it as a different format.`;
+      ? `I received ${effectiveAttachmentLabel} but couldn't analyse the file contents right now. You mentioned: "${caption}". Could you describe what you need help with?`
+      : `I received ${effectiveAttachmentLabel} but couldn't process the contents right now. Please try again in a moment, or send it as PDF, DOCX, TXT, image, audio, or video.`;
     await appendConversationMessage(from, { role: "assistant", text: fallback, meta: {} }, {
       businessId
     });
@@ -1310,7 +1433,7 @@ export async function handleIncomingMedia({
     {
       role: "assistant",
       text: assistantText,
-      meta: { source: "gemini-media" }
+      meta: { source: answerSource || "media" }
     },
     { businessId }
   );

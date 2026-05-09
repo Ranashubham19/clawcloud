@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { config, requireConfig } from "./config.js";
 import { hashText } from "./lib/text.js";
+import { inferMimeType } from "./media.js";
 
 const MEDIA_TYPES = ["image", "audio", "video", "document", "sticker", "voice"];
 
@@ -169,12 +170,19 @@ function extractMedia(message) {
   for (const kind of MEDIA_TYPES) {
     if (message.type === kind && message[kind]) {
       const media = message[kind];
+      const mediaType = kind === "audio" && media.voice ? "voice" : kind;
+      const filename = media.filename || "";
+      const mimeType = inferMimeType({
+        mimeType: media.mime_type || "",
+        filename,
+        mediaType
+      });
       return {
         mediaId: media.id || "",
-        mediaType: kind,
-        mimeType: media.mime_type || "",
+        mediaType,
+        mimeType,
         caption: media.caption || "",
-        filename: media.filename || ""
+        filename
       };
     }
   }

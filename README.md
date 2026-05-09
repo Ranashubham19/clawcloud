@@ -5,6 +5,7 @@ Multi-tenant WhatsApp AI SaaS for coaching institutes. This build keeps the exis
 ## What this build does
 
 - Receives inbound WhatsApp messages through a provider-normalized webhook layer
+- Answers images, voice recordings, audio, video, PDFs, text files, CSV/JSON, and modern Office files from WhatsApp and Telegram
 - Resolves the correct institute by business id, WhatsApp number mapping, or unambiguous provider routing
 - Uses institute-specific AI prompts, FAQs, courses, and welcome copy
 - Captures leads with name, phone, course interest, and preferred timing
@@ -91,6 +92,9 @@ http://localhost:3000/
 ### Optional live-answer providers and integrations
 
 - `GEMINI_API_KEY`
+- `GEMINI_MEDIA_TIMEOUT_MS`
+- `MEDIA_MAX_BYTES`
+- `MEDIA_TEXT_MAX_CHARS`
 - `ADMIN_API_TOKEN`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`

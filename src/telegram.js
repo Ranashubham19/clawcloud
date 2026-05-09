@@ -1,3 +1,5 @@
+import { describeMediaAttachment, inferMimeType } from "./media.js";
+
 const TELEGRAM_API = "https://api.telegram.org";
 
 function cleanText(value) {
@@ -135,15 +137,34 @@ function splitMessage(text, maxLen = 4000) {
 
 const TELEGRAM_MEDIA_TYPES = ["photo", "video", "audio", "voice", "document", "sticker", "animation", "video_note"];
 
+function inferTelegramMimeType(kind, item = {}) {
+  let fallbackMime = "";
+  if (kind === "photo") fallbackMime = "image/jpeg";
+  if (kind === "voice") fallbackMime = "audio/ogg";
+  if (kind === "video_note") fallbackMime = "video/mp4";
+  if (kind === "animation") fallbackMime = "image/gif";
+  if (kind === "sticker") {
+    fallbackMime = item?.is_video
+      ? "video/webm"
+      : item?.is_animated
+        ? "application/x-tgsticker"
+        : "image/webp";
+  }
+
+  return inferMimeType({
+    mimeType: item?.mime_type || fallbackMime,
+    filename: item?.file_name || "",
+    mediaType: kind
+  });
+}
+
 function extractTelegramMedia(message) {
   for (const kind of TELEGRAM_MEDIA_TYPES) {
     if (message[kind]) {
       const item = Array.isArray(message[kind])
         ? message[kind][message[kind].length - 1]
         : message[kind];
-      const rawMime = item?.mime_type || "";
-      // Telegram photos have no mime_type — they are always JPEG
-      const mimeType = rawMime || (kind === "photo" ? "image/jpeg" : kind === "sticker" ? "image/webp" : "");
+      const mimeType = inferTelegramMimeType(kind, item);
       return {
         mediaType: kind,
         fileId: item?.file_id || "",
@@ -174,17 +195,7 @@ export async function downloadTelegramMedia(token, fileId) {
 }
 
 function telegramMediaLabel(mediaType, filename = "", mimeType = "") {
-  const labels = {
-    photo: "photo",
-    video: "video",
-    audio: "audio file",
-    voice: "voice message",
-    document: `document${filename ? ` (${filename})` : ""}`,
-    sticker: "sticker",
-    animation: "GIF/animation",
-    video_note: "video note"
-  };
-  return labels[mediaType] || mediaType;
+  return describeMediaAttachment({ mediaType, filename, mimeType });
 }
 
 export function extractTelegramInbound(payload) {

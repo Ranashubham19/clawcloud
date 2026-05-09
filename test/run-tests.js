@@ -37,6 +37,10 @@ import {
   resolveGeminiGroundingSources
 } from "../src/gemini.js";
 import {
+  extractMediaText,
+  inferMimeType
+} from "../src/media.js";
+import {
   detectMessagingProvider,
   extractInboundMessages,
   verifyMessagingWebhookGet,
@@ -63,6 +67,62 @@ async function run(name, fn) {
     console.error(error);
     process.exitCode = 1;
   }
+}
+
+function makeStoredZip(entries = []) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const name = Buffer.from(entry.name, "utf8");
+    const data = Buffer.from(entry.data, "utf8");
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt32LE(0, 10);
+    local.writeUInt32LE(0, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    localParts.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt32LE(0, 12);
+    central.writeUInt32LE(0, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt32LE(0, 34);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, name);
+
+    offset += local.length + name.length + data.length;
+  }
+
+  const centralDir = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDir, end]);
 }
 
 await run("normalizePhone keeps leading plus", async () => {
@@ -358,6 +418,45 @@ await run("extractInboundMessages normalizes Meta text payloads", async () => {
   assert.equal(messages[0].messageId, "meta:wamid.1");
 });
 
+await run("extractInboundMessages normalizes Meta voice notes", async () => {
+  const payload = {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              contacts: [{ profile: { name: "Riya" } }],
+              messages: [
+                {
+                  id: "wamid.voice.1",
+                  from: "919999999998",
+                  type: "audio",
+                  audio: {
+                    id: "media-voice-1",
+                    mime_type: "audio/ogg; codecs=opus",
+                    voice: true
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  const messages = extractInboundMessages({
+    provider: "meta",
+    payload,
+    url: new URL("http://localhost/webhooks/whatsapp")
+  });
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].mediaId, "media-voice-1");
+  assert.equal(messages[0].mediaType, "voice");
+  assert.equal(messages[0].mimeType, "audio/ogg");
+});
+
 await run("extractMessageStatuses captures Meta delivery failures", async () => {
   const statuses = extractMessageStatuses({
     entry: [
@@ -460,6 +559,56 @@ await run("extractTelegramInbound keeps same message numbers unique across chats
   assert.equal(first.messageId, "telegram:111:42");
   assert.equal(second.messageId, "telegram:222:42");
   assert.notEqual(first.messageId, second.messageId);
+});
+
+await run("extractTelegramInbound treats voice notes as audio recordings", async () => {
+  const inbound = extractTelegramInbound({
+    message: {
+      message_id: 77,
+      date: 1710000002,
+      voice: {
+        file_id: "voice-file-1",
+        duration: 4
+      },
+      from: {
+        id: 333,
+        first_name: "Voice"
+      },
+      chat: {
+        id: 333
+      }
+    }
+  });
+
+  assert.equal(inbound.mediaType, "voice");
+  assert.equal(inbound.mimeType, "audio/ogg");
+  assert.equal(inbound.fileId, "voice-file-1");
+  assert.match(inbound.text, /voice recording/i);
+});
+
+await run("extractTelegramInbound infers document MIME from filename", async () => {
+  const inbound = extractTelegramInbound({
+    message: {
+      message_id: 78,
+      date: 1710000003,
+      document: {
+        file_id: "doc-file-1",
+        file_name: "proposal.pdf"
+      },
+      from: {
+        id: 334,
+        first_name: "Doc"
+      },
+      chat: {
+        id: 334
+      }
+    }
+  });
+
+  assert.equal(inbound.mediaType, "document");
+  assert.equal(inbound.mimeType, "application/pdf");
+  assert.equal(inbound.filename, "proposal.pdf");
+  assert.match(inbound.text, /PDF/i);
 });
 
 await run("setTelegramWebhook throws when Telegram rejects the webhook", async () => {
@@ -836,6 +985,52 @@ await run("sanitizeForWhatsApp strips decorative symbols and keeps clean spacing
   assert.equal(cleaned.includes("•"), false);
   assert.match(cleaned, /\*Answer\*/);
   assert.match(cleaned, /- First point/);
+});
+
+await run("inferMimeType uses filename when platforms send generic MIME", async () => {
+  assert.equal(
+    inferMimeType({
+      mimeType: "application/octet-stream",
+      filename: "report.docx",
+      mediaType: "document"
+    }),
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+  assert.equal(
+    inferMimeType({
+      filename: "recording.ogg",
+      mediaType: "voice"
+    }),
+    "audio/ogg"
+  );
+});
+
+await run("extractMediaText reads plain text attachments", async () => {
+  const extracted = extractMediaText(Buffer.from("Important meeting at 5 PM"), {
+    mimeType: "text/plain",
+    filename: "note.txt"
+  });
+
+  assert.equal(extracted.available, true);
+  assert.match(extracted.text, /Important meeting at 5 PM/);
+});
+
+await run("extractMediaText reads DOCX document XML", async () => {
+  const docx = makeStoredZip([
+    {
+      name: "word/document.xml",
+      data:
+        '<?xml version="1.0" encoding="UTF-8"?><w:document><w:body><w:p><w:r><w:t>Admission fee is 5000</w:t></w:r></w:p></w:body></w:document>'
+    }
+  ]);
+
+  const extracted = extractMediaText(docx, {
+    mimeType: "application/octet-stream",
+    filename: "admission.docx"
+  });
+
+  assert.equal(extracted.available, true);
+  assert.match(extracted.text, /Admission fee is 5000/);
 });
 
 await run("formatProfessionalReply turns long plain answers into structured format", async () => {
