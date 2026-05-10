@@ -1069,7 +1069,11 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
         lastError: ""
       });
       await appendAuditLog({ businessId, userId: auth.user.id, action: "whatsapp.disconnect", details: {} });
-      sendJson(response, 200, { ok: true, whatsapp: refreshed?.whatsapp || {} });
+      sendJson(response, 200, {
+        ok: true,
+        whatsapp: refreshed?.whatsapp || {},
+        reconnectRequired: true
+      });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }
@@ -1178,7 +1182,11 @@ export async function handleSaasRoute({ request, response, url, readRawBody }) {
       });
       const refreshed = await getBusinessForUser(auth.user.id, businessId);
       await appendAuditLog({ businessId, userId: auth.user.id, action: "telegram.disconnect", details: {} });
-      sendJson(response, 200, { ok: true, telegram: refreshed?.telegram || {} });
+      sendJson(response, 200, {
+        ok: true,
+        telegram: refreshed?.telegram || {},
+        reconnectRequired: true
+      });
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }

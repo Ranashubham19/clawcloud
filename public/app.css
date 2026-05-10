@@ -2454,6 +2454,11 @@ code {
   color: var(--muted);
   border: 1px solid rgba(255,255,255,0.08);
 }
+.badge--warn {
+  background: rgba(245,196,81,0.12);
+  color: #f5c451;
+  border: 1px solid rgba(245,196,81,0.24);
+}
 .badge--coming-soon {
   background: rgba(245,196,81,0.12);
   color: #f5c451;

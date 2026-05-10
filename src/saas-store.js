@@ -245,6 +245,32 @@ export function sanitizeWhatsAppIntegration(whatsapp = {}) {
     provider === "meta"
       ? Boolean(cleanText(whatsapp.appSecret) || cleanText(config.whatsappAppSecret))
       : false;
+  const metaConfigured = Boolean(cleanText(whatsapp.phoneNumberId) && accessTokenConfigured && appSecretConfigured);
+  const aisensyConfigured = Boolean(
+    cleanText(config.aisensyApiKey) &&
+      cleanText(config.aisensyCampaignName) &&
+      cleanText(config.aisensyFlowToken)
+  );
+  const configured =
+    provider === "direct"
+      ? directConnected
+      : provider === "aisensy"
+      ? aisensyConfigured
+      : metaConfigured;
+  const webhookReady = directConnected || Boolean(cleanText(whatsapp.webhookVerifiedAt));
+  const botLive =
+    provider === "direct"
+      ? directConnected
+      : provider === "aisensy"
+      ? configured
+      : Boolean(configured && webhookReady);
+  const status = botLive
+    ? "live"
+    : configured
+    ? provider === "meta"
+      ? "pending_webhook"
+      : "configured"
+    : "disconnected";
 
   return {
     provider,
@@ -261,17 +287,14 @@ export function sanitizeWhatsAppIntegration(whatsapp = {}) {
     connectedAt: cleanText(whatsapp.connectedAt),
     webhookVerifiedAt: cleanText(whatsapp.webhookVerifiedAt),
     lastError: cleanText(whatsapp.lastError),
-    configured:
-      provider === "direct"
-        ? directConnected
-        : provider === "aisensy"
-        ? Boolean(
-            cleanText(config.aisensyApiKey) &&
-              cleanText(config.aisensyCampaignName) &&
-              cleanText(config.aisensyFlowToken)
-          )
-        : Boolean(cleanText(whatsapp.phoneNumberId) && accessTokenConfigured && appSecretConfigured),
-    webhookReady: directConnected || Boolean(cleanText(whatsapp.webhookVerifiedAt))
+    directConnected,
+    metaConfigured,
+    configured,
+    webhookReady,
+    botLive,
+    status,
+    canDeactivate: configured || botLive,
+    reconnectRequiredAfterDeactivate: true
   };
 }
 
@@ -305,6 +328,11 @@ function sanitizeBusiness(business) {
 }
 
 export function sanitizeTelegramIntegration(telegram = {}) {
+  const tokenConfigured = Boolean(cleanText(telegram.token));
+  const webhookReady = Boolean(cleanText(telegram.webhookUrl) && cleanText(telegram.webhookVerifiedAt));
+  const configured = Boolean(tokenConfigured && cleanText(telegram.webhookUrl));
+  const botLive = Boolean(configured && webhookReady);
+  const status = botLive ? "live" : configured ? "pending_webhook" : "disconnected";
   return {
     botUsername: cleanText(telegram.botUsername),
     botName: cleanText(telegram.botName),
@@ -312,8 +340,13 @@ export function sanitizeTelegramIntegration(telegram = {}) {
     connectedAt: cleanText(telegram.connectedAt),
     webhookVerifiedAt: cleanText(telegram.webhookVerifiedAt),
     lastError: cleanText(telegram.lastError),
-    tokenConfigured: Boolean(cleanText(telegram.token)),
-    configured: Boolean(cleanText(telegram.token) && cleanText(telegram.webhookUrl))
+    tokenConfigured,
+    configured,
+    webhookReady,
+    botLive,
+    status,
+    canDeactivate: configured || botLive,
+    reconnectRequiredAfterDeactivate: true
   };
 }
 

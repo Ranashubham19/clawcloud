@@ -1921,6 +1921,10 @@ await run("saas store exposes direct WhatsApp activation without blocking shared
   assert.equal(safeBusiness.whatsapp.provider, "direct");
   assert.equal(safeBusiness.whatsapp.configured, true);
   assert.equal(safeBusiness.whatsapp.webhookReady, true);
+  assert.equal(safeBusiness.whatsapp.botLive, true);
+  assert.equal(safeBusiness.whatsapp.status, "live");
+  assert.equal(safeBusiness.whatsapp.canDeactivate, true);
+  assert.equal(safeBusiness.whatsapp.reconnectRequiredAfterDeactivate, true);
   assert.equal(safeBusiness.whatsapp.directChatUrl, "https://wa.me/918837663683");
   assert.equal(safeBusiness.whatsapp.accessTokenConfigured, false);
   assert.equal(
@@ -2078,6 +2082,10 @@ await run("saas store exposes safe Telegram status without leaking the token", a
 
   assert.equal(safeBusiness.telegram.configured, true);
   assert.equal(safeBusiness.telegram.tokenConfigured, true);
+  assert.equal(safeBusiness.telegram.botLive, true);
+  assert.equal(safeBusiness.telegram.status, "live");
+  assert.equal(safeBusiness.telegram.canDeactivate, true);
+  assert.equal(safeBusiness.telegram.reconnectRequiredAfterDeactivate, true);
   assert.equal(safeBusiness.telegram.botUsername, "telegram_academy_bot");
   assert.equal(
     safeBusiness.telegram.webhookVerifiedAt,

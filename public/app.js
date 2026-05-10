@@ -299,7 +299,18 @@ function renderDisabledPlatformSurface(tagName, className, content, extraAttrs =
 
 function isTelegramConnected(business = state.selectedBusiness) {
   const telegram = business?.telegram || {};
-  return Boolean(telegram.configured || telegram.tokenConfigured || telegram.token);
+  if (typeof telegram.botLive === "boolean") {
+    return telegram.botLive;
+  }
+  return Boolean(
+    (telegram.configured || telegram.tokenConfigured || telegram.token) &&
+      (telegram.webhookReady || telegram.webhookVerifiedAt || telegram.webhookUrl)
+  );
+}
+
+function isTelegramConfigured(business = state.selectedBusiness) {
+  const telegram = business?.telegram || {};
+  return Boolean(telegram.configured || telegram.tokenConfigured || telegram.token || telegram.webhookUrl);
 }
 
 function isWhatsAppDirect(business = state.selectedBusiness) {
@@ -322,10 +333,23 @@ function isWhatsAppReady(business = state.selectedBusiness) {
     return false;
   }
   const whatsapp = business?.whatsapp || {};
+  if (typeof whatsapp.botLive === "boolean") {
+    return whatsapp.botLive;
+  }
   if (isWhatsAppDirect(business)) {
     return Boolean(isWhatsAppConfigured(business));
   }
   return Boolean(isWhatsAppConfigured(business) && whatsapp.webhookVerifiedAt);
+}
+
+function platformLiveText(platform) {
+  return platform === "telegram" ? "Telegram AI bot is live" : "WhatsApp AI bot is live";
+}
+
+function platformReconnectText(platform) {
+  return platform === "telegram"
+    ? "To go live again, reconnect the Telegram bot with a BotFather token."
+    : "To go live again, reconnect WhatsApp and complete setup or scan the WhatsApp QR again.";
 }
 
 function whatsappChannelLabel(business = state.selectedBusiness) {
@@ -1305,19 +1329,19 @@ function dashboardSection() {
                 <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#25D366"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 8C15.163 8 8 15.163 8 24c0 2.837.737 5.5 2.025 7.813L8 40l8.4-2.2A15.916 15.916 0 0024 40c8.837 0 16-7.163 16-16S32.837 8 24 8zm0 29.2a13.1 13.1 0 01-6.688-1.825l-.475-.287-4.988 1.3 1.325-4.85-.313-.5A13.128 13.128 0 0110.8 24c0-7.275 5.925-13.2 13.2-13.2S37.2 16.725 37.2 24 31.275 37.2 24 37.2zm7.24-9.887c-.4-.2-2.363-1.163-2.725-1.3-.363-.125-.625-.187-.888.2-.262.387-1.025 1.3-1.25 1.562-.225.263-.45.288-.85.1-.4-.2-1.688-.625-3.213-1.987-1.187-1.063-1.988-2.375-2.225-2.775-.225-.4-.025-.612.175-.812.175-.175.4-.463.6-.688.2-.225.262-.387.4-.65.137-.262.062-.487-.037-.687-.1-.2-.888-2.15-1.225-2.938-.325-.763-.65-.662-.888-.675-.225-.012-.487-.012-.75-.012-.262 0-.688.1-1.05.487-.362.387-1.387 1.35-1.387 3.3 0 1.95 1.425 3.837 1.625 4.1.2.262 2.788 4.262 6.763 5.975.938.412 1.675.65 2.25.838.95.3 1.813.262 2.487.162.763-.112 2.363-.963 2.7-1.9.337-.937.337-1.737.237-1.9-.1-.15-.362-.25-.762-.45z" fill="white"/></svg>
               </div>
               <div>
-                <div class="settings-wa-title">WhatsApp is active</div>
+                <div class="settings-wa-title">WhatsApp AI bot is live</div>
                 <div class="muted" style="font-size:0.85rem;">Users can scan the QR or click the chat button to open the Claw Cloud WhatsApp assistant.</div>
               </div>
-              <div class="platform-card-badge badge--live" style="margin-left:auto;">Live</div>
+              <div class="platform-card-badge badge--live" style="margin-left:auto;">AI bot is live</div>
             </div>
             <div class="platform-connected-info" style="margin:18px 0;">
               <div class="pci-row"><span>Channel</span><strong>${escapeHtml(whatsappChannelLabel(state.selectedBusiness))}</strong></div>
-              <div class="pci-row"><span>Status</span><strong style="color:#25d366;">Active - AI replying on WhatsApp</strong></div>
+              <div class="pci-row"><span>Status</span><strong style="color:#25d366;">AI bot is live - replying on WhatsApp</strong></div>
               <div class="pci-row"><span>Activated</span><strong>${escapeHtml(formatDate(waConn?.connectedAt))}</strong></div>
             </div>
             <div class="form-actions">
               <a class="button" href="${escapeHtml(whatsappChatUrl(state.selectedBusiness))}" target="_blank" rel="noopener noreferrer">Open WhatsApp chat</a>
-              <button class="ghost-button" type="button" id="settings-wa-disconnect">Deactivate WhatsApp</button>
+              <button class="ghost-button" type="button" id="settings-wa-disconnect">Deactivate bot</button>
             </div>
           </section>
         `;
@@ -1333,14 +1357,14 @@ function dashboardSection() {
               <div class="muted" style="font-size:0.85rem;">Connect your own Meta WhatsApp app with verified credentials and webhook setup details</div>
             </div>
             <div class="platform-card-badge ${waIsLive ? "badge--live" : waConfigured ? "badge--warn" : "badge--idle"}" style="margin-left:auto;">
-              ${waIsLive ? "â— Live" : waConfigured ? "â—‹ Connected" : "â—‹ Not connected"}
+              ${waIsLive ? "AI bot is live" : waConfigured ? "Connected - finish webhook" : "Not connected"}
             </div>
           </div>
 
           ${waConfigured ? `
             <div class="platform-connected-info" style="margin:18px 0;">
               <div class="pci-row"><span>Phone Number</span><strong>${escapeHtml(waConn.displayPhoneNumber || waConn.phoneNumberId || "Connected")}</strong></div>
-              <div class="pci-row"><span>Status</span><strong style="color:${waIsLive ? "#25d366" : "#f5c451"};">${waIsLive ? "Active — AI replying to messages" : "Connected — complete Meta webhook verification"}</strong></div>
+              <div class="pci-row"><span>Status</span><strong style="color:${waIsLive ? "#25d366" : "#f5c451"};">${waIsLive ? "AI bot is live - replying to messages" : "Connected - complete Meta webhook verification"}</strong></div>
             </div>
           ` : ""}
 
@@ -1399,7 +1423,7 @@ function dashboardSection() {
             <input type="hidden" name="whatsappProvider" value="meta" />
             <div class="form-actions">
               <button class="button" type="submit">${waConfigured ? "Update WhatsApp" : "Connect WhatsApp"}</button>
-              ${waConfigured ? `<button class="ghost-button" type="button" id="settings-wa-disconnect">Deactivate WhatsApp</button>` : ""}
+              ${waConfigured ? `<button class="ghost-button" type="button" id="settings-wa-disconnect">Deactivate bot</button>` : ""}
             </div>
           </form>
         </section>
@@ -1408,6 +1432,7 @@ function dashboardSection() {
     default: {
       const tg = state.selectedBusiness?.telegram;
       const tgConnected = isTelegramConnected(state.selectedBusiness);
+      const tgConfigured = isTelegramConfigured(state.selectedBusiness);
       const waComingSoon = isWhatsAppComingSoon();
       const waConfigured = isWhatsAppConfigured(state.selectedBusiness);
       const waReady = isWhatsAppReady(state.selectedBusiness);
@@ -1420,9 +1445,9 @@ function dashboardSection() {
       const activeBots = (tgConnected ? 1 : 0) + (waComingSoon ? 0 : waReady ? 1 : 0);
       const anyLive = tgConnected || (!waComingSoon && waReady);
       const bannerStatusLabel = waComingSoon && tgConnected
-        ? "Telegram live"
+        ? "Telegram AI bot is live"
         : anyLive
-          ? "All systems live"
+          ? "AI bot is live"
           : "No platform connected";
       const firstName = escapeHtml(state.user?.name?.split(" ")[0] || "there");
       const bizName = escapeHtml(state.selectedBusiness?.name || "");
@@ -1443,12 +1468,12 @@ function dashboardSection() {
                 <div class="dash-plat-badge ${waComingSoon ? "dash-plat-badge--coming-soon" : waReady ? "dash-plat-badge--wa-live" : waConfigured ? "dash-plat-badge--pending" : "dash-plat-badge--off"}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" fill="currentColor"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438C8.34 21.475 10.11 22 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
                   <span class="dash-plat-name">WhatsApp</span>
-                  <span class="dash-plat-status">${waComingSoon ? "Coming soon" : waReady ? "Live" : waConfigured ? "Pending" : "Off"}</span>
+                  <span class="dash-plat-status">${waComingSoon ? "Coming soon" : waReady ? "AI bot live" : waConfigured ? "Pending" : "Off"}</span>
                 </div>
-                <div class="dash-plat-badge ${tgConnected ? "dash-plat-badge--tg-live" : "dash-plat-badge--off"}">
+                <div class="dash-plat-badge ${tgConnected ? "dash-plat-badge--tg-live" : tgConfigured ? "dash-plat-badge--pending" : "dash-plat-badge--off"}">
                   <svg width="16" height="16" viewBox="0 0 52 52" fill="none"><path d="M38.94 14.29L33.6 38.35c-.38 1.7-1.4 2.12-2.83 1.32l-7.8-5.74-3.76 3.63c-.42.42-.77.77-1.57.77l.56-7.95 14.42-13.02c.63-.56-.14-.87-.97-.31L12.37 29.6l-7.67-2.4c-1.67-.52-1.7-1.67.35-2.47l30-11.56c1.39-.5 2.6.34 1.89 2.12z" fill="currentColor"/></svg>
                   <span class="dash-plat-name">Telegram</span>
-                  <span class="dash-plat-status">${tgConnected ? "Live" : "Off"}</span>
+                  <span class="dash-plat-status">${tgConnected ? "AI bot live" : tgConfigured ? "Pending" : "Off"}</span>
                 </div>
               </div>
             </div>
@@ -1528,7 +1553,7 @@ function dashboardSection() {
                   <div class="pcard-title-wrap">
                     <div class="pcard-platform">WhatsApp</div>
                     <div class="pcard-status ${waReady ? "pcard-status--live" : "pcard-status--idle"}">
-                      <span class="pcard-dot"></span>${waReady ? "Live — AI replying" : waConfigured ? "Connected — finish webhook" : "Not connected"}
+                      <span class="pcard-dot"></span>${waReady ? "AI bot is live" : waConfigured ? "Connected - finish webhook" : "Not connected"}
                     </div>
                   </div>
                 </div>
@@ -1536,16 +1561,18 @@ function dashboardSection() {
                   ${waReady ? `
                     <div class="pcard-info-rows">
                       <div class="pcard-info-row"><span>Channel</span><strong>${escapeHtml(whatsappChannelLabel(state.selectedBusiness))}</strong></div>
+                      <div class="pcard-info-row"><span>Status</span><strong style="color:#25d366;">AI bot is live</strong></div>
                       <div class="pcard-info-row"><span>Replies</span><strong style="color:#25d366;">24/7 automated</strong></div>
                     </div>
-                    <p class="pcard-desc">Your WhatsApp AI bot is active. Users can scan the QR or tap the chat link, and the assistant opens in their WhatsApp instantly.</p>
-                    <button class="pcard-btn pcard-btn--danger" id="ov-wa-disconnect">Deactivate WhatsApp</button>
+                    <p class="pcard-desc">Your WhatsApp AI bot is live. Users can scan the QR or tap the chat link, and the assistant opens in their WhatsApp instantly.</p>
+                    <button class="pcard-btn pcard-btn--danger" id="ov-wa-disconnect">Deactivate bot</button>
                   ` : waConfigured ? `
                     <div class="pcard-info-rows">
                       <div class="pcard-info-row"><span>Number</span><strong>${escapeHtml(state.selectedBusiness?.whatsapp?.displayPhoneNumber || state.selectedBusiness?.whatsapp?.phoneNumberId || "Connected")}</strong></div>
                       <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Webhook setup pending</strong></div>
                     </div>
                     <p class="pcard-desc">Your credentials are saved. Complete the Meta webhook in Settings using the callback URL and verify token, then replies will start automatically.</p>
+                    <button class="pcard-btn pcard-btn--danger" id="ov-wa-disconnect">Deactivate bot</button>
                   ` : `
                     <p class="pcard-desc">Activate the Claw Cloud WhatsApp assistant. Users can scan the QR or tap the chat link to start the bot conversation.</p>
                     <div class="pcard-steps">
@@ -1572,7 +1599,7 @@ function dashboardSection() {
               <div class="pcard-title-wrap">
                 <div class="pcard-platform">Telegram</div>
                 <div class="pcard-status ${tgConnected ? "pcard-status--live pcard-status--tg" : "pcard-status--idle"}">
-                  <span class="pcard-dot"></span>${tgConnected ? "Live — AI replying" : "Not connected"}
+                  <span class="pcard-dot"></span>${tgConnected ? "AI bot is live" : tgConfigured ? "Connected - verify webhook" : "Not connected"}
                 </div>
               </div>
             </div>
@@ -1580,10 +1607,18 @@ function dashboardSection() {
               ${tgConnected ? `
                 <div class="pcard-info-rows">
                   <div class="pcard-info-row"><span>Bot</span><strong>@${escapeHtml(tg.botUsername || "")}</strong></div>
+                  <div class="pcard-info-row"><span>Status</span><strong style="color:#2aabee;">AI bot is live</strong></div>
                   <div class="pcard-info-row"><span>Replies</span><strong style="color:#2aabee;">24/7 automated</strong></div>
                 </div>
                 <p class="pcard-desc">Your Telegram AI bot is live. Share <strong>@${escapeHtml(tg.botUsername || "")}</strong> with your users — the AI handles every message instantly.</p>
-                <button class="pcard-btn pcard-btn--danger" id="ov-tg-disconnect">Deactivate Telegram</button>
+                <button class="pcard-btn pcard-btn--danger" id="ov-tg-disconnect">Deactivate bot</button>
+              ` : tgConfigured ? `
+                <div class="pcard-info-rows">
+                  <div class="pcard-info-row"><span>Bot</span><strong>${tg.botUsername ? `@${escapeHtml(tg.botUsername)}` : "Telegram bot connected"}</strong></div>
+                  <div class="pcard-info-row"><span>Status</span><strong style="color:#f5c451;">Webhook setup pending</strong></div>
+                </div>
+                <p class="pcard-desc">Telegram credentials are saved, but the bot is not live yet. Deactivate it to remove this connection and reconnect with a fresh setup.</p>
+                <button class="pcard-btn pcard-btn--danger" id="ov-tg-disconnect">Deactivate bot</button>
               ` : `
                 <p class="pcard-desc">Paste your BotFather token to go live in under 60 seconds — no Meta approval, no waiting, no extra cost.</p>
                 <div class="pcard-steps">
@@ -1914,6 +1949,7 @@ function buildDisconnectModal() {
   const platformDetail = isPlatformTg
     ? (state.selectedBusiness?.telegram?.botUsername ? "@" + state.selectedBusiness.telegram.botUsername : "your Telegram bot")
     : whatsappChannelLabel(state.selectedBusiness);
+  const reconnectDetail = platformReconnectText(state.disconnectPlatform);
   return `
     <div class="disconnect-overlay" id="disconnect-overlay">
       <div class="disconnect-modal">
@@ -1925,7 +1961,7 @@ function buildDisconnectModal() {
         </div>
         <div class="disconnect-modal-warning">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 5v4M8 10.5h.01" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Your bot will stop replying on this channel immediately. Conversation history is kept, and you can reactivate the channel again later.
+          Your AI bot will stop replying on this channel immediately. Conversation history is kept. ${escapeHtml(reconnectDetail)}
         </div>
         <div class="disconnect-modal-confirm-wrap">
           <label class="disconnect-modal-label">Type <strong>DEACTIVATE</strong> to confirm</label>
@@ -1933,7 +1969,7 @@ function buildDisconnectModal() {
         </div>
         <div class="disconnect-modal-actions">
           <button class="ghost-button disconnect-cancel" id="disconnect-cancel">Cancel</button>
-          <button class="danger-button disconnect-confirm-btn" id="disconnect-confirm-btn" disabled>Deactivate</button>
+          <button class="danger-button disconnect-confirm-btn" id="disconnect-confirm-btn" disabled>Deactivate bot</button>
         </div>
       </div>
     </div>`;
@@ -1950,9 +1986,9 @@ function renderDashboard() {
       <div class="bot-live-overlay" id="bot-live-overlay">
         <div class="bot-live-popup">
           <div class="bot-live-popup-icon">🚀</div>
-          <h2>Your bot is live!</h2>
-          <p>${tgLive ? `<strong>@${escapeHtml(state.selectedBusiness?.telegram?.botUsername || "")}</strong> is now active on Telegram.` : ""}
-             ${waLive ? `<strong>${escapeHtml(whatsappChannelLabel(state.selectedBusiness))}</strong> is now active on WhatsApp.` : ""}</p>
+          <h2>Your AI bot is live</h2>
+          <p>${tgLive ? `<strong>@${escapeHtml(state.selectedBusiness?.telegram?.botUsername || "")}</strong> is live on Telegram.` : ""}
+             ${waLive ? `<strong>${escapeHtml(whatsappChannelLabel(state.selectedBusiness))}</strong> is live on WhatsApp.` : ""}</p>
           <p class="bot-live-popup-sub">Your AI bot is running 24/7. Share your bot/number with users — it replies instantly to every message.</p>
           <button class="button" id="bot-live-close" style="width:100%;justify-content:center;">Go to Dashboard →</button>
         </div>
@@ -2048,7 +2084,7 @@ function renderDashboard() {
       state.billingActivated = hasAnyActiveBot(state.selectedBusiness);
       render();
     } catch (err) {
-      if (btn) { btn.disabled = false; btn.textContent = "Deactivate"; }
+      if (btn) { btn.disabled = false; btn.textContent = "Deactivate bot"; }
       const errEl = document.createElement("div");
       errEl.className = "auth-form-error";
       errEl.style.cssText = "margin-top:10px;text-align:center;";
@@ -2349,11 +2385,11 @@ function renderTelegramSetup() {
           ${botConnected ? `
             <div class="tg-connected-state">
               <div class="tg-connected-icon">âœ…</div>
-              <h2>Telegram bot connected!</h2>
+              <h2>Telegram AI bot is live</h2>
               <p>Your bot <strong>@${escapeHtml(bot.botUsername)}</strong> is live and ready.</p>
               <p class="tg-connected-sub">Students can now message your Telegram bot and your AI will reply instantly — no pre-messages, no delays.</p>
               <button class="button" onclick="state.telegramSetup=false;state.selectedProduct='whatsapp';render()">Go to Dashboard →</button>
-              <button class="ghost-button" style="margin-top:12px;" id="tg-disconnect-btn">Deactivate Telegram</button>
+              <button class="ghost-button" style="margin-top:12px;" id="tg-disconnect-btn">Deactivate bot</button>
             </div>
           ` : `
             <div class="tg-setup-form-header">
